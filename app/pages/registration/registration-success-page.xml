@@ -1,0 +1,14 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" class="bg-gray-100">
+    <ActionBar title="Registration Success" class="bg-blue-500 text-white" />
+    
+    <StackLayout class="p-4">
+        <StackLayout class="bg-white p-8 rounded-lg">
+            <Label text="✓" class="text-6xl text-green-500 text-center mb-4" />
+            <Label text="Registration Successful!" class="text-2xl font-bold text-center mb-4" />
+            <Label text="Your registration is pending approval. We will review your information and notify you via email once your account is activated." 
+                   class="text-center text-gray-600 mb-4" textWrap="true" />
+            
+            <Button text="Back to Login" tap="{{ onBackToLogin }}" class="bg-blue-500 text-white p-2 rounded" />
+        </StackLayout>
+    </StackLayout>
+</Page>

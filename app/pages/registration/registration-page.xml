@@ -1,0 +1,76 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Registration" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+    
+    <ScrollView>
+        <StackLayout class="p-4">
+            <Label text="Create Account" class="text-2xl font-bold text-center mb-4" />
+            
+            <StackLayout class="bg-white p-4 rounded-lg">
+                <!-- User Type Selection -->
+                <Label text="Register as:" class="text-gray-600 mb-2" />
+                <SegmentedBar selectedIndex="{{ userTypeIndex }}" class="mb-4">
+                    <SegmentedBar.items>
+                        <SegmentedBarItem title="Pharmacy" />
+                        <SegmentedBarItem title="Courier" />
+                    </SegmentedBar.items>
+                </SegmentedBar>
+
+                <!-- Common Fields -->
+                <Label text="Email" class="text-gray-600" />
+                <TextField text="{{ email }}" hint="Enter email" keyboardType="email" class="mb-2 p-2 border rounded" />
+                
+                <Label text="Password" class="text-gray-600" />
+                <TextField text="{{ password }}" hint="Enter password" secure="true" class="mb-2 p-2 border rounded" />
+                
+                <Label text="Confirm Password" class="text-gray-600" />
+                <TextField text="{{ confirmPassword }}" hint="Confirm password" secure="true" class="mb-2 p-2 border rounded" />
+                
+                <Label text="Phone Number" class="text-gray-600" />
+                <TextField text="{{ phoneNumber }}" hint="Enter phone number" keyboardType="phone" class="mb-2 p-2 border rounded" />
+
+                <!-- Pharmacy-specific fields -->
+                <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}">
+                    <Label text="Pharmacy Information" class="text-xl font-semibold mt-4 mb-2" />
+                    
+                    <Label text="Pharmacy Name" class="text-gray-600" />
+                    <TextField text="{{ pharmacyName }}" hint="Enter pharmacy name" class="mb-2 p-2 border rounded" />
+                    
+                    <Label text="Registration Number" class="text-gray-600" />
+                    <TextField text="{{ registrationNumber }}" hint="Enter pharmacy registration number" class="mb-2 p-2 border rounded" />
+                    
+                    <Label text="Address" class="text-gray-600" />
+                    <TextView text="{{ address }}" hint="Enter full address" class="mb-2 p-2 border rounded" height="80" />
+                    
+                    <Button text="Get Current Location" tap="{{ getCurrentLocation }}" class="mb-2 bg-gray-500 text-white p-2 rounded" />
+                    
+                    <GridLayout columns="*, *" class="mb-4">
+                        <Label col="0" text="Latitude: {{ latitude }}" class="text-gray-600" />
+                        <Label col="1" text="Longitude: {{ longitude }}" class="text-gray-600" />
+                    </GridLayout>
+                </StackLayout>
+
+                <!-- Courier-specific fields -->
+                <StackLayout visibility="{{ !isPharmacy ? 'visible' : 'collapsed' }}">
+                    <Label text="Courier Information" class="text-xl font-semibold mt-4 mb-2" />
+                    
+                    <Label text="Vehicle Type" class="text-gray-600" />
+                    <ListPicker items="{{ vehicleTypes }}" selectedIndex="{{ selectedVehicleIndex }}" class="mb-2 p-2 border rounded" />
+                    
+                    <Label text="License Number" class="text-gray-600" />
+                    <TextField text="{{ licenseNumber }}" hint="Enter vehicle license number" class="mb-2 p-2 border rounded" />
+                    
+                    <Label text="ID Document" class="text-gray-600" />
+                    <Button text="Upload ID Document" tap="{{ onUploadDocument }}" class="mb-2 bg-gray-500 text-white p-2 rounded" />
+                    <Label text="{{ documentName }}" class="text-sm text-gray-500 mb-4" visibility="{{ documentName ? 'visible' : 'collapsed' }}" />
+                </StackLayout>
+
+                <Button text="Register" tap="{{ onRegister }}" class="bg-yellow-500 text-white p-2 rounded mt-4" />
+                
+                <Label text="{{ errorMessage }}" class="text-red-500 text-center mt-2" textWrap="true" 
+                       visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

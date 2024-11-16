@@ -1,0 +1,40 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="User Details" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="{{ user.name }}" class="text-2xl font-bold mb-2" />
+                <Label text="{{ user.role }}" class="text-lg text-gray-600 mb-4" />
+                
+                <GridLayout columns="auto, *" rows="auto, auto, auto" class="mb-4">
+                    <Label col="0" row="0" text="Email:" class="font-bold mr-2" />
+                    <Label col="1" row="0" text="{{ user.email }}" />
+                    
+                    <Label col="0" row="1" text="Phone:" class="font-bold mr-2" />
+                    <Label col="1" row="1" text="{{ user.phoneNumber }}" />
+                    
+                    <Label col="0" row="2" text="Status:" class="font-bold mr-2" />
+                    <Label col="1" row="2" text="{{ user.status }}" class="{{ user.status === 'active' ? 'text-green-500' : 'text-red-500' }}" />
+                </GridLayout>
+
+                <Button text="{{ user.status === 'active' ? 'Deactivate User' : 'Activate User' }}" 
+                        tap="{{ onToggleStatus }}"
+                        class="{{ user.status === 'active' ? 'bg-red-500' : 'bg-green-500' }} text-white p-2 rounded" />
+            </StackLayout>
+
+            <!-- Activity History -->
+            <Label text="Activity History" class="text-xl font-bold mb-2" />
+            <ListView items="{{ activityHistory }}" class="list-group" height="300">
+                <ListView.itemTemplate>
+                    <GridLayout columns="*, auto" class="p-4 bg-white rounded-lg shadow mb-2">
+                        <Label col="0" text="{{ action }}" textWrap="true" />
+                        <Label col="1" text="{{ timestamp, 'dd/MM/yyyy HH:mm' }}" class="text-gray-500" />
+                    </GridLayout>
+                </ListView.itemTemplate>
+            </ListView>
+        </StackLayout>
+    </ScrollView>
+</Page>

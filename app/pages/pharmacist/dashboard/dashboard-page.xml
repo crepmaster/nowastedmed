@@ -1,0 +1,60 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Pharmacist Dashboard" class="bg-blue-500 text-white">
+        <ActionItem ios.position="right" android.position="actionBar" tap="{{ onLogout }}">
+            <Label text="Logout" class="text-white p-2" />
+        </ActionItem>
+    </ActionBar>
+
+    <GridLayout rows="auto, *" class="p-4">
+        <GridLayout row="0" columns="*, *, *" class="mb-4">
+            <StackLayout col="0" class="bg-white p-4 m-1 rounded-lg">
+                <Label text="Available" class="text-lg font-bold text-center" />
+                <Label text="{{ availableCount }}" class="text-2xl text-center text-blue-500" />
+            </StackLayout>
+            <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg">
+                <Label text="Pending" class="text-lg font-bold text-center" />
+                <Label text="{{ pendingCount }}" class="text-2xl text-center text-orange-500" />
+            </StackLayout>
+            <StackLayout col="2" class="bg-white p-4 m-1 rounded-lg">
+                <Label text="Exchanged" class="text-lg font-bold text-center" />
+                <Label text="{{ exchangedCount }}" class="text-2xl text-center text-green-500" />
+            </StackLayout>
+        </GridLayout>
+
+        <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white rounded-lg">
+            <TabViewItem title="My Medicines">
+                <GridLayout rows="auto, *">
+                    <Button text="Add Medicine" tap="{{ onAddMedicine }}" class="bg-blue-500 text-white m-2 rounded" />
+                    <ListView row="1" items="{{ medicines }}" class="list-group">
+                        <ListView.itemTemplate>
+                            <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
+                                <StackLayout col="0">
+                                    <Label text="{{ name }}" class="text-lg font-semibold" />
+                                    <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                                </StackLayout>
+                                <Button col="1" text="Exchange" tap="{{ $parent.onExchangeMedicine }}" 
+                                        class="bg-green-500 text-white p-2 rounded" />
+                            </GridLayout>
+                        </ListView.itemTemplate>
+                    </ListView>
+                </GridLayout>
+            </TabViewItem>
+            <TabViewItem title="Available Exchanges">
+                <ListView items="{{ availableExchanges }}" class="list-group">
+                    <ListView.itemTemplate>
+                        <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
+                            <StackLayout col="0">
+                                <Label text="{{ medicineName }}" class="text-lg font-semibold" />
+                                <Label text="{{ pharmacyName }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
+                            </StackLayout>
+                            <Button col="1" text="Request" tap="{{ $parent.onRequestExchange }}"
+                                    class="bg-blue-500 text-white p-2 rounded" />
+                        </GridLayout>
+                    </ListView.itemTemplate>
+                </ListView>
+            </TabViewItem>
+        </TabView>
+    </GridLayout>
+</Page>

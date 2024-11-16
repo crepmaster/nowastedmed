@@ -1,0 +1,30 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Create Exchange" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <StackLayout class="bg-white p-4 rounded-lg mb-4">
+                <Label text="Medicine Details" class="text-xl font-semibold mb-4" />
+                <Label text="{{ medicine.name }}" class="text-lg" />
+                <Label text="{{ 'Batch: ' + medicine.batchNumber }}" class="text-gray-600" />
+                <Label text="{{ 'Quantity: ' + medicine.quantity }}" class="text-gray-600" />
+                <Label text="{{ 'Expires: ' + medicine.expiryDate }}" class="text-gray-600" />
+            </StackLayout>
+
+            <StackLayout class="bg-white p-4 rounded-lg" visibility="{{ qrCode ? 'visible' : 'collapsed' }}">
+                <Label text="Exchange QR Code" class="text-xl font-semibold mb-4" />
+                <Image src="{{ qrCodeImage }}" class="w-64 h-64 mb-4" />
+                <Label text="Show this QR code to the courier" class="text-center text-gray-600" />
+            </StackLayout>
+
+            <Button text="Generate Exchange QR" tap="{{ onGenerateQR }}" 
+                    class="bg-blue-500 text-white p-2 rounded mt-4"
+                    visibility="{{ !qrCode ? 'visible' : 'collapsed' }}" />
+
+            <Label text="{{ errorMessage }}" class="text-red-500 text-center mt-4" textWrap="true" 
+                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+        </StackLayout>
+    </ScrollView>
+</Page>
