@@ -3,5 +3,7 @@ import { RegistrationSuccessViewModel } from './registration-success-view-model'
 
 export function onNavigatingTo(args: NavigatedData) {
     const page = <Page>args.object;
-    page.bindingContext = new RegistrationSuccessViewModel();
+    if (!page.bindingContext) {
+        page.bindingContext = new RegistrationSuccessViewModel();
+    }
 }
