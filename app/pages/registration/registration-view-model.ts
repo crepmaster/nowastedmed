@@ -2,7 +2,6 @@ import { Observable, Frame } from '@nativescript/core';
 import { AuthService } from '../../services/auth.service';
 import { PermissionsService } from '../../services/permissions.service';
 import { SecurityService } from '../../services/security.service';
-import * as Geolocation from '@nativescript/geolocation';
 import * as imagepicker from '@nativescript/imagepicker';
 
 export class RegistrationViewModel extends Observable {
@@ -22,8 +21,6 @@ export class RegistrationViewModel extends Observable {
     public pharmacyName: string = '';
     public registrationNumber: string = '';
     public address: string = '';
-    public latitude: number = 0;
-    public longitude: number = 0;
 
     // Courier fields
     public vehicleTypes: string[] = ['Motorcycle', 'Car', 'Van', 'Bicycle'];
@@ -40,30 +37,6 @@ export class RegistrationViewModel extends Observable {
 
     get isPharmacy(): boolean {
         return this.userTypeIndex === 0;
-    }
-
-    async getCurrentLocation() {
-        try {
-            const hasPermission = await this.permissionsService.requestLocationPermission();
-            if (!hasPermission) {
-                this.set('errorMessage', 'Location permission is required for pharmacy registration');
-                return;
-            }
-
-            const location = await Geolocation.getCurrentLocation({
-                desiredAccuracy: Geolocation.Accuracy.high,
-                maximumAge: 5000,
-                timeout: 10000
-            });
-
-            this.set('latitude', location.latitude);
-            this.set('longitude', location.longitude);
-            this.notifyPropertyChange('latitude', location.latitude);
-            this.notifyPropertyChange('longitude', location.longitude);
-        } catch (error) {
-            console.error('Error getting location:', error);
-            this.set('errorMessage', 'Failed to get location. Please try again.');
-        }
     }
 
     async onUploadDocument() {
@@ -104,11 +77,7 @@ export class RegistrationViewModel extends Observable {
                 ...(this.isPharmacy ? {
                     pharmacyName: this.pharmacyName,
                     registrationNumber: this.registrationNumber,
-                    address: this.address,
-                    location: {
-                        latitude: this.latitude,
-                        longitude: this.longitude
-                    }
+                    address: this.address
                 } : {
                     vehicleType: this.vehicleTypes[this.selectedVehicleIndex],
                     licenseNumber: this.licenseNumber,
@@ -162,11 +131,6 @@ export class RegistrationViewModel extends Observable {
         if (this.isPharmacy) {
             if (!this.pharmacyName || !this.registrationNumber || !this.address) {
                 this.set('errorMessage', 'Please fill in all pharmacy details');
-                return false;
-            }
-
-            if (this.latitude === 0 && this.longitude === 0) {
-                this.set('errorMessage', 'Please verify your pharmacy location');
                 return false;
             }
         }
