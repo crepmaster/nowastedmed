@@ -42,13 +42,6 @@
                     
                     <Label text="Address" class="text-gray-600" />
                     <TextView text="{{ address }}" hint="Enter full address" class="mb-2 p-2 border rounded" height="80" />
-                    
-                    <Button text="Get Current Location" tap="{{ getCurrentLocation }}" class="mb-2 bg-gray-500 text-white p-2 rounded" />
-                    
-                    <GridLayout columns="*, *" class="mb-4">
-                        <Label col="0" text="Latitude: {{ latitude }}" class="text-gray-600" />
-                        <Label col="1" text="Longitude: {{ longitude }}" class="text-gray-600" />
-                    </GridLayout>
                 </StackLayout>
 
                 <!-- Courier-specific fields -->
