@@ -14,6 +14,7 @@
                         <StackLayout col="0" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Pharmacies" class="text-gray-600" />
                             <Label text="{{ stats.totalPharmacies }}" class="text-2xl font-bold text-blue-500" />
+                            <Button text="View All" tap="{{ onViewPharmacies }}" class="bg-blue-100 text-blue-700 text-sm p-1 rounded mt-2" />
                         </StackLayout>
                         <StackLayout col="1" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Couriers" class="text-gray-600" />
