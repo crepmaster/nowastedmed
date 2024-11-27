@@ -7,8 +7,17 @@ export class AdminDashboardViewModel extends Observable {
     private adminService: AdminService;
     private authService: AuthService;
 
-    public stats: AdminStats;
-    public analytics: any;
+    public stats: AdminStats = {
+        totalPharmacies: 0,
+        totalCouriers: 0,
+        totalExchanges: 0,
+        totalMedicines: 0,
+        savingsAmount: 0
+    };
+    public analytics: any = {
+        activeUsers: 0,
+        weeklyGrowth: 0
+    };
     public pendingApprovals: UserApproval[] = [];
     public filteredUsers: any[] = [];
     public selectedTabIndex: number = 0;
@@ -23,8 +32,11 @@ export class AdminDashboardViewModel extends Observable {
 
     async loadDashboardData() {
         try {
+            console.log('Loading dashboard data...');
+            
             // Load stats
             this.stats = await this.adminService.getStats();
+            console.log('Loaded stats:', this.stats);
             this.notifyPropertyChange('stats', this.stats);
 
             // Load analytics
@@ -36,10 +48,19 @@ export class AdminDashboardViewModel extends Observable {
             this.notifyPropertyChange('pendingApprovals', this.pendingApprovals);
 
             // Initialize filtered users
-            this.updateFilteredUsers();
+            await this.updateFilteredUsers();
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         }
+    }
+
+    onViewPharmacies() {
+        Frame.topmost().navigate({
+            moduleName: 'pages/admin/pharmacies/pharmacy-list-page',
+            transition: {
+                name: 'slide'
+            }
+        });
     }
 
     async onApproveUser(args: any) {
@@ -48,6 +69,7 @@ export class AdminDashboardViewModel extends Observable {
             await this.adminService.approveUser(approval.id);
             this.pendingApprovals = this.pendingApprovals.filter(a => a.id !== approval.id);
             this.notifyPropertyChange('pendingApprovals', this.pendingApprovals);
+            await this.loadDashboardData();
         } catch (error) {
             console.error('Error approving user:', error);
         }
@@ -59,6 +81,7 @@ export class AdminDashboardViewModel extends Observable {
             await this.adminService.rejectUser(approval.id);
             this.pendingApprovals = this.pendingApprovals.filter(a => a.id !== approval.id);
             this.notifyPropertyChange('pendingApprovals', this.pendingApprovals);
+            await this.loadDashboardData();
         } catch (error) {
             console.error('Error rejecting user:', error);
         }
@@ -73,17 +96,27 @@ export class AdminDashboardViewModel extends Observable {
         this.updateFilteredUsers();
     }
 
-    private updateFilteredUsers() {
-        // TODO: Implement actual user filtering based on searchQuery
-        this.filteredUsers = [
-            { name: 'Sample Pharmacy', role: 'pharmacy', email: 'pharmacy@example.com' },
-            { name: 'Sample Courier', role: 'courier', email: 'courier@example.com' }
-        ].filter(user => 
-            !this.searchQuery || 
-            user.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-            user.email.toLowerCase().includes(this.searchQuery.toLowerCase())
-        );
-        this.notifyPropertyChange('filteredUsers', this.filteredUsers);
+    private async updateFilteredUsers() {
+        try {
+            const pharmacies = await this.adminService.getPharmacies();
+            console.log('Retrieved pharmacies for filtered users:', pharmacies);
+            
+            this.filteredUsers = pharmacies.map(pharmacy => ({
+                id: pharmacy.id,
+                name: pharmacy.pharmacyName,
+                role: 'pharmacist',
+                email: pharmacy.email
+            })).filter(user => 
+                !this.searchQuery || 
+                user.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                user.email.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+            
+            console.log('Updated filtered users:', this.filteredUsers);
+            this.notifyPropertyChange('filteredUsers', this.filteredUsers);
+        } catch (error) {
+            console.error('Error updating filtered users:', error);
+        }
     }
 
     onUserDetails(args: any) {
