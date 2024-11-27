@@ -1,0 +1,34 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Registered Pharmacies" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <GridLayout rows="auto, *">
+        <!-- Search Bar -->
+        <SearchBar row="0" hint="Search pharmacies..." text="{{ searchQuery }}" 
+                  submit="{{ onSearch }}" clear="{{ onClearSearch }}" 
+                  class="bg-white" />
+
+        <!-- Pharmacy List -->
+        <ListView row="1" items="{{ pharmacies }}" class="list-group" separatorColor="#e5e7eb">
+            <ListView.itemTemplate>
+                <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
+                    <StackLayout col="0">
+                        <Label text="{{ pharmacyName }}" class="text-lg font-bold text-gray-800" />
+                        <Label text="{{ address }}" class="text-sm text-gray-600" textWrap="true" />
+                        <Label text="{{ email }}" class="text-sm text-gray-500" />
+                        <Label text="{{ phoneNumber }}" class="text-sm text-gray-500" />
+                    </StackLayout>
+                    <Label col="1" text="{{ license }}" class="text-xs text-gray-500" />
+                </GridLayout>
+            </ListView.itemTemplate>
+        </ListView>
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator row="1" busy="{{ isLoading }}" class="m-4" />
+
+        <!-- Error Message -->
+        <Label row="1" text="{{ errorMessage }}" class="text-red-500 text-center p-4" 
+               visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+    </GridLayout>
+</Page>
