@@ -1,8 +1,25 @@
 import { Observable } from '@nativescript/core';
 import { AdminStats, UserApproval } from '../models/admin.model';
+import { Pharmacist } from '../models/user.model';
+import { PharmacyDatabaseService } from './database/pharmacy.service';
+import { CourierDatabaseService } from './database/courier.service';
+import { ExchangeDatabaseService } from './database/exchange.service';
+import { MedicineService } from './medicine.service';
 
 export class AdminService extends Observable {
     private static instance: AdminService;
+    private pharmacyDb: PharmacyDatabaseService;
+    private courierDb: CourierDatabaseService;
+    private exchangeDb: ExchangeDatabaseService;
+    private medicineService: MedicineService;
+
+    private constructor() {
+        super();
+        this.pharmacyDb = PharmacyDatabaseService.getInstance();
+        this.courierDb = CourierDatabaseService.getInstance();
+        this.exchangeDb = ExchangeDatabaseService.getInstance();
+        this.medicineService = MedicineService.getInstance();
+    }
 
     static getInstance(): AdminService {
         if (!AdminService.instance) {
@@ -12,37 +29,70 @@ export class AdminService extends Observable {
     }
 
     async getStats(): Promise<AdminStats> {
-        // TODO: Implement API call
-        return {
-            totalPharmacies: 25,
-            totalCouriers: 10,
-            totalExchanges: 150,
-            totalMedicines: 300,
-            savingsAmount: 15000
-        };
+        try {
+            console.log('Getting admin stats...');
+            const [pharmacies, couriers, exchanges, medicines] = await Promise.all([
+                this.pharmacyDb.getAllPharmacies(),
+                this.courierDb.getAllCouriers(),
+                this.exchangeDb.getAllExchanges(),
+                this.medicineService.getAllMedicines()
+            ]);
+
+            console.log('Retrieved data for stats:', {
+                pharmacies: pharmacies.length,
+                couriers: couriers.length,
+                exchanges: exchanges.length,
+                medicines: medicines.length
+            });
+
+            return {
+                totalPharmacies: pharmacies.length,
+                totalCouriers: couriers.length,
+                totalExchanges: exchanges.length,
+                totalMedicines: medicines.length,
+                savingsAmount: 0
+            };
+        } catch (error) {
+            console.error('Error getting stats:', error);
+            return {
+                totalPharmacies: 0,
+                totalCouriers: 0,
+                totalExchanges: 0,
+                totalMedicines: 0,
+                savingsAmount: 0
+            };
+        }
     }
 
     async getPendingApprovals(): Promise<UserApproval[]> {
-        // TODO: Implement API call
         return [];
     }
 
     async approveUser(userId: string): Promise<boolean> {
-        // TODO: Implement API call
         return true;
     }
 
     async rejectUser(userId: string): Promise<boolean> {
-        // TODO: Implement API call
         return true;
     }
 
     async getUserAnalytics(): Promise<any> {
-        // TODO: Implement API call
+        const pharmacies = await this.getPharmacies();
         return {
-            activeUsers: 35,
-            weeklyGrowth: 5,
-            monthlyExchanges: 45
+            activeUsers: pharmacies.length,
+            weeklyGrowth: 0
         };
+    }
+
+    async getPharmacies(): Promise<Pharmacist[]> {
+        try {
+            console.log('Getting pharmacies from admin service...');
+            const pharmacies = await this.pharmacyDb.getAllPharmacies();
+            console.log('Retrieved pharmacies:', pharmacies);
+            return pharmacies;
+        } catch (error) {
+            console.error('Error getting pharmacies:', error);
+            return [];
+        }
     }
 }
