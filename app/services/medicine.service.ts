@@ -1,5 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { Medicine, Exchange } from '../models/medicine.model';
+import * as qrcode from 'qrcode';
 
 export class MedicineService extends Observable {
     private static instance: MedicineService;
@@ -51,6 +52,10 @@ export class MedicineService extends Observable {
             qrCode: ''
         };
 
+        // Generate QR code data
+        const qrData = await this.generateQRCode(exchange);
+        exchange.qrCode = qrData;
+
         this.exchanges.push(exchange);
         medicine.status = 'pending';
         return exchange;
@@ -66,19 +71,50 @@ export class MedicineService extends Observable {
     }
 
     async generateQRCode(exchange: Exchange): Promise<string> {
-        const qrData = {
-            exchangeId: exchange.id,
-            medicineId: exchange.medicineId,
-            timestamp: new Date().toISOString()
-        };
-        return JSON.stringify(qrData);
+        try {
+            const qrData = {
+                exchangeId: exchange.id,
+                medicineId: exchange.medicineId,
+                fromPharmacyId: exchange.fromPharmacyId,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Generate QR code as data URL
+            const qrCodeDataUrl = await qrcode.toDataURL(JSON.stringify(qrData), {
+                errorCorrectionLevel: 'H',
+                margin: 1,
+                width: 300
+            });
+            
+            return qrCodeDataUrl;
+        } catch (error) {
+            console.error('Error generating QR code:', error);
+            throw new Error('Failed to generate QR code');
+        }
     }
 
     async verifyExchangeQR(qrCode: string): Promise<Exchange | null> {
         try {
             const data = JSON.parse(qrCode);
-            return this.exchanges.find(e => e.id === data.exchangeId) || null;
-        } catch {
+            const exchange = this.exchanges.find(e => e.id === data.exchangeId);
+            
+            if (!exchange) {
+                return null;
+            }
+
+            // Verify timestamp is within acceptable range (e.g., 24 hours)
+            const timestamp = new Date(data.timestamp);
+            const now = new Date();
+            const timeDiff = now.getTime() - timestamp.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+            if (hoursDiff > 24) {
+                return null;
+            }
+
+            return exchange;
+        } catch (error) {
+            console.error('Error verifying QR code:', error);
             return null;
         }
     }
