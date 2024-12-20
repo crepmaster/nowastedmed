@@ -1,34 +1,41 @@
 <Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
-    <ActionBar title="Registered Pharmacies" class="bg-blue-500 text-white">
+    <ActionBar title="Pharmacies" class="bg-blue-500 text-white">
         <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+        <ActionItem ios.position="right" android.position="actionBar" tap="{{ onAddPharmacy }}">
+            <Label text="Add" class="text-white p-2" />
+        </ActionItem>
     </ActionBar>
 
     <GridLayout rows="auto, *">
         <!-- Search Bar -->
-        <SearchBar row="0" hint="Search pharmacies..." text="{{ searchQuery }}" 
-                  submit="{{ onSearch }}" clear="{{ onClearSearch }}" 
+        <SearchBar row="0" hint="Search pharmacies..." 
+                  text="{{ searchQuery }}" 
+                  textChange="{{ onSearchQueryChanged }}"
                   class="bg-white" />
 
         <!-- Pharmacy List -->
-        <ListView row="1" items="{{ pharmacies }}" class="list-group" separatorColor="#e5e7eb">
+        <ListView row="1" items="{{ pharmacies }}" class="list-group">
             <ListView.itemTemplate>
-                <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
+                <GridLayout columns="*, auto, auto" class="p-4 bg-white border-b border-gray-200">
                     <StackLayout col="0">
-                        <Label text="{{ pharmacyName }}" class="text-lg font-bold text-gray-800" />
-                        <Label text="{{ address }}" class="text-sm text-gray-600" textWrap="true" />
-                        <Label text="{{ email }}" class="text-sm text-gray-500" />
-                        <Label text="{{ phoneNumber }}" class="text-sm text-gray-500" />
+                        <Label text="{{ pharmacyName }}" class="text-lg font-bold" />
+                        <Label text="{{ email }}" class="text-sm text-gray-600" />
+                        <Label text="{{ phoneNumber }}" class="text-sm text-gray-600" />
                     </StackLayout>
-                    <Label col="1" text="{{ license }}" class="text-xs text-gray-500" />
+                    <Button col="1" text="Edit" tap="{{ $parent.onEditPharmacy }}" 
+                            class="bg-blue-500 text-white p-2 rounded mr-2" />
+                    <Button col="2" text="Delete" tap="{{ $parent.onDeletePharmacy }}" 
+                            class="bg-red-500 text-white p-2 rounded" />
                 </GridLayout>
             </ListView.itemTemplate>
         </ListView>
 
         <!-- Loading Indicator -->
-        <ActivityIndicator row="1" busy="{{ isLoading }}" class="m-4" />
+        <ActivityIndicator rowSpan="2" busy="{{ isLoading }}" class="m-4" />
 
         <!-- Error Message -->
-        <Label row="1" text="{{ errorMessage }}" class="text-red-500 text-center p-4" 
+        <Label row="1" text="{{ errorMessage }}" 
+               class="text-red-500 text-center p-4" 
                visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
     </GridLayout>
 </Page>
