@@ -1,5 +1,5 @@
 import { Observable, ApplicationSettings } from '@nativescript/core';
-import { Pharmacist, User } from '../models/user.model';
+import { Pharmacist, User, Courier } from '../models/user.model';
 import { SecurityService } from './security.service';
 
 export class AuthService extends Observable {
@@ -30,7 +30,7 @@ export class AuthService extends Observable {
             const usersJson = ApplicationSettings.getString(this.USERS_KEY);
             if (usersJson) {
                 this.registeredUsers = JSON.parse(usersJson);
-                console.log('Loaded users from storage:', this.registeredUsers);
+                console.log('Loaded users:', this.registeredUsers);
             }
         } catch (error) {
             console.error('Error loading users:', error);
@@ -41,31 +41,35 @@ export class AuthService extends Observable {
     private saveUsers() {
         try {
             ApplicationSettings.setString(this.USERS_KEY, JSON.stringify(this.registeredUsers));
-            console.log('Saved users to storage:', this.registeredUsers);
+            console.log('Saved users:', this.registeredUsers);
         } catch (error) {
             console.error('Error saving users:', error);
         }
     }
 
-    async register(registrationData: any): Promise<boolean> {
+    async register(userData: any): Promise<boolean> {
         try {
             const newUser: User = {
-                id: `pharm-${Date.now()}`,
-                email: registrationData.email,
-                role: registrationData.role,
-                name: registrationData.pharmacyName || registrationData.name,
-                phoneNumber: registrationData.phoneNumber
+                id: userData.id || `user-${Date.now()}`,
+                email: userData.email,
+                role: userData.role,
+                name: userData.pharmacyName || userData.name,
+                phoneNumber: userData.phoneNumber,
+                password: userData.password
             };
 
-            if (registrationData.role === 'pharmacist') {
-                (newUser as Pharmacist).pharmacyName = registrationData.pharmacyName;
-                (newUser as Pharmacist).address = registrationData.address;
-                (newUser as Pharmacist).license = registrationData.registrationNumber;
+            if (userData.role === 'pharmacist') {
+                (newUser as Pharmacist).pharmacyName = userData.pharmacyName;
+                (newUser as Pharmacist).address = userData.address;
+                (newUser as Pharmacist).license = userData.license;
+            } else if (userData.role === 'courier') {
+                (newUser as Courier).vehicleType = userData.vehicleType;
+                (newUser as Courier).licenseNumber = userData.licenseNumber;
             }
 
             this.registeredUsers.push(newUser);
             this.saveUsers();
-            console.log('Registered users:', this.registeredUsers);
+            console.log('User registered:', newUser);
             return true;
         } catch (error) {
             console.error('Registration error:', error);
@@ -88,7 +92,7 @@ export class AuthService extends Observable {
             }
 
             // Check registered users
-            const user = this.registeredUsers.find(u => u.email === email);
+            const user = this.registeredUsers.find(u => u.email === email && u.password === password);
             if (user) {
                 this.currentUser = user;
                 return true;
