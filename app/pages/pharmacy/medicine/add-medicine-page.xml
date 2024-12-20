@@ -1,0 +1,39 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Add Medicine for Exchange" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <StackLayout class="bg-white p-4 rounded-lg shadow">
+                <!-- Medicine Name -->
+                <Label text="Medicine Name" class="text-gray-600" />
+                <TextField text="{{ name }}" 
+                          hint="Enter medicine name" 
+                          class="mb-4 p-3 border rounded" />
+
+                <!-- Expiry Date -->
+                <Label text="Expiry Date" class="text-gray-600" />
+                <DatePicker date="{{ expiryDate }}" class="mb-4" />
+
+                <!-- Quantity -->
+                <Label text="Quantity" class="text-gray-600" />
+                <TextField text="{{ quantity }}" 
+                          hint="Enter quantity" 
+                          keyboardType="number"
+                          class="mb-4 p-3 border rounded" />
+
+                <!-- Submit Button -->
+                <Button text="Add Medicine" 
+                        tap="{{ onSubmit }}" 
+                        class="bg-blue-500 text-white p-3 rounded-lg mt-4" />
+
+                <!-- Error Message -->
+                <Label text="{{ errorMessage }}" 
+                       class="text-red-500 text-center mt-2" 
+                       textWrap="true" 
+                       visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>
