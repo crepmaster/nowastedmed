@@ -1,0 +1,50 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="{{ isEditMode ? 'Edit Courier' : 'Add Courier' }}" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <StackLayout class="bg-white p-4 rounded-lg shadow-lg">
+                <!-- Form Fields -->
+                <Label text="Full Name" class="text-gray-600" />
+                <TextField text="{{ name }}" 
+                          hint="Enter courier's full name" 
+                          class="mb-4 p-3 border rounded" />
+
+                <Label text="Email" class="text-gray-600" />
+                <TextField text="{{ email }}" 
+                          hint="Enter email" 
+                          keyboardType="email" 
+                          class="mb-4 p-3 border rounded" />
+
+                <Label text="Phone Number" class="text-gray-600" />
+                <TextField text="{{ phoneNumber }}" 
+                          hint="Enter phone number" 
+                          keyboardType="phone" 
+                          class="mb-4 p-3 border rounded" />
+
+                <Label text="Vehicle Type" class="text-gray-600" />
+                <ListPicker items="{{ vehicleTypes }}" 
+                           selectedIndex="{{ selectedVehicleIndex }}" 
+                           class="mb-4 p-3 border rounded" />
+
+                <Label text="License Number" class="text-gray-600" />
+                <TextField text="{{ licenseNumber }}" 
+                          hint="Enter vehicle license number" 
+                          class="mb-4 p-3 border rounded" />
+
+                <!-- Submit Button -->
+                <Button text="{{ isEditMode ? 'Update' : 'Create' }}" 
+                        tap="{{ onSubmit }}" 
+                        class="bg-blue-500 text-white p-3 rounded-lg mt-4" />
+
+                <!-- Error Message -->
+                <Label text="{{ errorMessage }}" 
+                       class="text-red-500 text-center mt-2" 
+                       textWrap="true" 
+                       visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>
