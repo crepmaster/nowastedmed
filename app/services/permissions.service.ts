@@ -13,10 +13,9 @@ export class PermissionsService extends Observable {
 
     async requestLocationPermission(): Promise<boolean> {
         try {
-            const hasPermission = await Geolocation.hasLocationPermission();
-            if (!hasPermission) {
-                const result = await Geolocation.enableLocationRequest(true);
-                return result;
+            const isEnabled = await Geolocation.isEnabled();
+            if (!isEnabled) {
+                return await Geolocation.enableLocationRequest(true);
             }
             return true;
         } catch (error) {
