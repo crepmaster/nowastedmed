@@ -1,8 +1,10 @@
-import { Observable, Frame } from '@nativescript/core';
+import { Observable } from '@nativescript/core';
 import { AuthService } from '../../services/auth.service';
+import { NavigationService } from '../../services/navigation.service';
 
 export class LoginViewModel extends Observable {
     private authService: AuthService;
+    private navigationService: NavigationService;
     public email: string = '';
     public password: string = '';
     public errorMessage: string = '';
@@ -10,17 +12,16 @@ export class LoginViewModel extends Observable {
     constructor() {
         super();
         this.authService = AuthService.getInstance();
+        this.navigationService = NavigationService.getInstance();
     }
 
     async onLogin() {
         try {
-            if (!this.email || !this.password) {
-                this.set('errorMessage', 'Please enter both email and password');
+            if (!this.validateInput()) {
                 return;
             }
 
             const success = await this.authService.login(this.email, this.password);
-            
             if (success) {
                 const user = this.authService.getCurrentUser();
                 if (!user) {
@@ -44,9 +45,14 @@ export class LoginViewModel extends Observable {
                         return;
                 }
 
-                Frame.topmost().navigate({
+                this.navigationService.navigate({
                     moduleName: targetPage,
-                    clearHistory: true
+                    clearHistory: true,
+                    animated: true,
+                    transition: {
+                        name: 'fade',
+                        duration: 200
+                    }
                 });
             } else {
                 this.set('errorMessage', 'Invalid credentials');
@@ -57,22 +63,22 @@ export class LoginViewModel extends Observable {
         }
     }
 
-    onRegisterTap() {
-        console.log('Attempting to navigate to registration page');
-        const frame = Frame.topmost();
-        if (frame) {
-            frame.navigate({
-                moduleName: 'pages/registration/registration-page',
-                clearHistory: false,
-                animated: true,
-                transition: {
-                    name: 'slide',
-                    duration: 200,
-                    curve: 'easeIn'
-                }
-            });
-        } else {
-            console.error('No frame found for navigation');
+    onRegister() {
+        this.navigationService.navigate({
+            moduleName: 'pages/registration/registration-page',
+            animated: true,
+            transition: {
+                name: 'slide',
+                duration: 200
+            }
+        });
+    }
+
+    private validateInput(): boolean {
+        if (!this.email || !this.password) {
+            this.set('errorMessage', 'Please enter both email and password');
+            return false;
         }
+        return true;
     }
 }
