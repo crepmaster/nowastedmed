@@ -1,0 +1,42 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Couriers" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+        <ActionItem ios.position="right" android.position="actionBar" tap="{{ onAddCourier }}">
+            <Label text="Add" class="text-white p-2" />
+        </ActionItem>
+    </ActionBar>
+
+    <GridLayout rows="auto, *">
+        <!-- Search Bar -->
+        <SearchBar row="0" hint="Search couriers..." 
+                  text="{{ searchQuery }}" 
+                  textChange="{{ onSearchQueryChanged }}"
+                  class="bg-white" />
+
+        <!-- Courier List -->
+        <ListView row="1" items="{{ couriers }}" class="list-group">
+            <ListView.itemTemplate>
+                <GridLayout columns="*, auto, auto" class="p-4 bg-white border-b border-gray-200">
+                    <StackLayout col="0">
+                        <Label text="{{ name }}" class="text-lg font-bold" />
+                        <Label text="{{ email }}" class="text-sm text-gray-600" />
+                        <Label text="{{ phoneNumber }}" class="text-sm text-gray-600" />
+                        <Label text="{{ vehicleType }}" class="text-sm text-gray-600" />
+                    </StackLayout>
+                    <Button col="1" text="Edit" tap="{{ $parent.onEditCourier }}" 
+                            class="bg-blue-500 text-white p-2 rounded mr-2" />
+                    <Button col="2" text="Delete" tap="{{ $parent.onDeleteCourier }}" 
+                            class="bg-red-500 text-white p-2 rounded" />
+                </GridLayout>
+            </ListView.itemTemplate>
+        </ListView>
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator rowSpan="2" busy="{{ isLoading }}" class="m-4" />
+
+        <!-- Error Message -->
+        <Label row="1" text="{{ errorMessage }}" 
+               class="text-red-500 text-center p-4" 
+               visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+    </GridLayout>
+</Page>
