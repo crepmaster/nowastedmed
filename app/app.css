@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom shadow classes */
+.shadow {
+    elevation: 2;
+}
+
+.shadow-lg {
+    elevation: 4;
+}
+
+.shadow-md {
+    elevation: 3;
+}
