@@ -1,11 +1,17 @@
 import { Observable } from '@nativescript/core';
 import { Medicine, Exchange } from '../models/medicine.model';
-import * as qrcode from 'qrcode';
+import { QRCodeUtil } from '../utils/qrcode.util';
 
 export class MedicineService extends Observable {
     private static instance: MedicineService;
     private medicines: Medicine[] = [];
     private exchanges: Exchange[] = [];
+    private qrCodeUtil: QRCodeUtil;
+
+    private constructor() {
+        super();
+        this.qrCodeUtil = QRCodeUtil.getInstance();
+    }
 
     static getInstance(): MedicineService {
         if (!MedicineService.instance) {
@@ -52,12 +58,18 @@ export class MedicineService extends Observable {
             qrCode: ''
         };
 
-        // Generate QR code data
-        const qrData = await this.generateQRCode(exchange);
+        // Generate QR code
+        const qrData = await this.qrCodeUtil.generateQRCode({
+            exchangeId: exchange.id,
+            medicineId: exchange.medicineId,
+            fromPharmacyId: exchange.fromPharmacyId,
+            timestamp: exchange.createdAt.toISOString()
+        });
+        
         exchange.qrCode = qrData;
-
         this.exchanges.push(exchange);
         medicine.status = 'pending';
+        
         return exchange;
     }
 
@@ -70,29 +82,6 @@ export class MedicineService extends Observable {
         return false;
     }
 
-    async generateQRCode(exchange: Exchange): Promise<string> {
-        try {
-            const qrData = {
-                exchangeId: exchange.id,
-                medicineId: exchange.medicineId,
-                fromPharmacyId: exchange.fromPharmacyId,
-                timestamp: new Date().toISOString()
-            };
-            
-            // Generate QR code as data URL
-            const qrCodeDataUrl = await qrcode.toDataURL(JSON.stringify(qrData), {
-                errorCorrectionLevel: 'H',
-                margin: 1,
-                width: 300
-            });
-            
-            return qrCodeDataUrl;
-        } catch (error) {
-            console.error('Error generating QR code:', error);
-            throw new Error('Failed to generate QR code');
-        }
-    }
-
     async verifyExchangeQR(qrCode: string): Promise<Exchange | null> {
         try {
             const data = JSON.parse(qrCode);
@@ -102,7 +91,7 @@ export class MedicineService extends Observable {
                 return null;
             }
 
-            // Verify timestamp is within acceptable range (e.g., 24 hours)
+            // Verify timestamp is within 24 hours
             const timestamp = new Date(data.timestamp);
             const now = new Date();
             const timeDiff = now.getTime() - timestamp.getTime();
