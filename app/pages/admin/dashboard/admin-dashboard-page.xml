@@ -9,17 +9,36 @@
         <TabViewItem title="Overview">
             <ScrollView>
                 <StackLayout class="p-4">
-                    <!-- Stats Cards -->
                     <GridLayout columns="*, *" rows="auto, auto, auto" class="mb-4">
+                        <!-- Pharmacy Stats -->
                         <StackLayout col="0" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Pharmacies" class="text-gray-600" />
                             <Label text="{{ stats.totalPharmacies }}" class="text-2xl font-bold text-blue-500" />
-                            <Button text="View All" tap="{{ onViewPharmacies }}" class="bg-blue-100 text-blue-700 text-sm p-1 rounded mt-2" />
+                            <Button text="Add Pharmacy" 
+                                    tap="{{ onAddPharmacy }}" 
+                                    class="bg-blue-100 text-blue-700 text-sm p-2 rounded mt-2" 
+                                    visibility="{{ showAddPharmacy ? 'visible' : 'collapsed' }}" />
+                            <Button text="View All" 
+                                    tap="{{ onViewPharmacies }}" 
+                                    class="bg-blue-100 text-blue-700 text-sm p-2 rounded mt-2" 
+                                    visibility="{{ !showAddPharmacy ? 'visible' : 'collapsed' }}" />
                         </StackLayout>
+
+                        <!-- Courier Stats -->
                         <StackLayout col="1" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Couriers" class="text-gray-600" />
                             <Label text="{{ stats.totalCouriers }}" class="text-2xl font-bold text-green-500" />
+                            <Button text="Add Courier" 
+                                    tap="{{ onAddCourier }}" 
+                                    class="bg-green-100 text-green-700 text-sm p-2 rounded mt-2" 
+                                    visibility="{{ showAddCourier ? 'visible' : 'collapsed' }}" />
+                            <Button text="View All" 
+                                    tap="{{ onViewCouriers }}" 
+                                    class="bg-green-100 text-green-700 text-sm p-2 rounded mt-2" 
+                                    visibility="{{ !showAddCourier ? 'visible' : 'collapsed' }}" />
                         </StackLayout>
+
+                        <!-- Other Stats (unchanged) -->
                         <StackLayout col="0" row="1" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Exchanges" class="text-gray-600" />
                             <Label text="{{ stats.totalExchanges }}" class="text-2xl font-bold text-purple-500" />
@@ -33,60 +52,8 @@
                             <Label text="{{ stats.savingsAmount }}" class="text-2xl font-bold text-green-500" />
                         </StackLayout>
                     </GridLayout>
-
-                    <!-- Analytics Section -->
-                    <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
-                        <Label text="User Analytics" class="text-xl font-bold mb-2" />
-                        <GridLayout columns="*, *" rows="auto, auto">
-                            <Label col="0" row="0" text="Active Users" class="text-gray-600" />
-                            <Label col="1" row="0" text="{{ analytics.activeUsers }}" class="text-right" />
-                            <Label col="0" row="1" text="Weekly Growth" class="text-gray-600" />
-                            <Label col="1" row="1" text="{{ analytics.weeklyGrowth }}%" class="text-right text-green-500" />
-                        </GridLayout>
-                    </StackLayout>
                 </StackLayout>
             </ScrollView>
-        </TabViewItem>
-
-        <TabViewItem title="Approvals">
-            <StackLayout class="p-4">
-                <ListView items="{{ pendingApprovals }}" class="list-group" separatorColor="#ccc">
-                    <ListView.itemTemplate>
-                        <GridLayout columns="*, auto, auto" class="p-4 bg-white rounded-lg shadow mb-2">
-                            <StackLayout col="0">
-                                <Label text="{{ userData.name }}" class="font-bold" />
-                                <Label text="{{ type }}" class="text-gray-600" />
-                                <Label text="{{ submissionDate, 'dd/MM/yyyy' }}" class="text-sm text-gray-500" />
-                            </StackLayout>
-                            <Button col="1" text="✓" tap="{{ $parent.onApproveUser }}" 
-                                    class="bg-green-500 text-white rounded-full w-10 h-10 mr-2" />
-                            <Button col="2" text="✕" tap="{{ $parent.onRejectUser }}" 
-                                    class="bg-red-500 text-white rounded-full w-10 h-10" />
-                        </GridLayout>
-                    </ListView.itemTemplate>
-                </ListView>
-            </StackLayout>
-        </TabViewItem>
-
-        <TabViewItem title="Users">
-            <StackLayout class="p-4">
-                <SearchBar hint="Search users..." text="{{ searchQuery }}" 
-                          submit="{{ onSearch }}" clear="{{ onClearSearch }}" 
-                          class="mb-4" />
-                <ListView items="{{ filteredUsers }}" class="list-group" separatorColor="#ccc">
-                    <ListView.itemTemplate>
-                        <GridLayout columns="*, auto" class="p-4 bg-white rounded-lg shadow mb-2">
-                            <StackLayout col="0">
-                                <Label text="{{ name }}" class="font-bold" />
-                                <Label text="{{ role }}" class="text-gray-600" />
-                                <Label text="{{ email }}" class="text-sm text-gray-500" />
-                            </StackLayout>
-                            <Button col="1" text="Details" tap="{{ $parent.onUserDetails }}" 
-                                    class="bg-blue-500 text-white rounded p-2" />
-                        </GridLayout>
-                    </ListView.itemTemplate>
-                </ListView>
-            </StackLayout>
         </TabViewItem>
     </TabView>
 </Page>
