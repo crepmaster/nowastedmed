@@ -21,21 +21,14 @@ export class PharmacyDatabaseService extends Observable {
     async getAllPharmacies(): Promise<Pharmacist[]> {
         try {
             const registeredUsers = this.authService.getRegisteredUsers();
-            console.log('Registered users in pharmacy service:', registeredUsers);
-            
             const pharmacists = registeredUsers
                 .filter(user => user.role === 'pharmacist')
-                .map(user => {
-                    const pharmacist = user as Pharmacist;
-                    return {
-                        ...pharmacist,
-                        pharmacyName: pharmacist.pharmacyName || user.name,
-                        address: pharmacist.address || '',
-                        license: pharmacist.license || ''
-                    };
-                });
-
-            console.log('Filtered pharmacists:', pharmacists);
+                .map(user => ({
+                    ...user,
+                    pharmacyName: user.pharmacyName || user.name,
+                    address: user.address || '',
+                    license: user.license || ''
+                }));
             return pharmacists;
         } catch (error) {
             console.error('Error getting pharmacies:', error);
