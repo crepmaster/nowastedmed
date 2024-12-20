@@ -1,30 +1,45 @@
 <Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
-    <ActionBar title="PharmExchange" class="bg-blue-500 text-white" />
+    <ActionBar title="Login" class="bg-blue-500 text-white" />
     
     <StackLayout class="p-4">
-        <Label text="Welcome to PharmExchange" class="text-2xl font-bold text-center mb-4" />
-        
-        <StackLayout class="bg-white p-4 rounded-lg">
-            <Label text="Email" class="text-gray-600" />
-            <TextField text="{{ email }}" hint="Enter your email" keyboardType="email" class="mb-2 p-2 border rounded" />
+        <StackLayout class="bg-white p-4 rounded-lg shadow-lg">
+            <!-- Email Field -->
+            <Label text="Email" class="text-gray-600 font-medium" />
+            <TextField text="{{ email }}" 
+                      hint="Enter your email" 
+                      keyboardType="email" 
+                      autocorrect="false"
+                      autocapitalizationType="none"
+                      class="mb-4 p-3 border rounded" />
             
-            <Label text="Password" class="text-gray-600" />
-            <TextField text="{{ password }}" hint="Enter your password" secure="true" class="mb-4 p-2 border rounded" />
+            <!-- Password Field -->
+            <Label text="Password" class="text-gray-600 font-medium" />
+            <TextField text="{{ password }}" 
+                      hint="Enter your password" 
+                      secure="true" 
+                      class="mb-4 p-3 border rounded" />
             
-            <Button text="Login" tap="{{ onLogin }}" class="bg-blue-500 text-white p-2 rounded" />
-            
-            <Label text="{{ errorMessage }}" class="text-red-500 text-center" textWrap="true" 
-                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
-            
-            <StackLayout class="mt-4">
-                <Label text="Don't have an account?" class="text-center text-gray-600" />
-                <Button text="Register" tap="{{ onRegisterTap }}" class="bg-yellow-500 text-white p-2 rounded" />
-            </StackLayout>
+            <!-- Login Button -->
+            <Button text="Login" 
+                    tap="{{ onLogin }}" 
+                    class="bg-blue-500 text-white p-3 rounded-lg mb-4" />
 
-            <StackLayout class="mt-4">
-                <Label text="Administrator Login" class="text-center text-gray-600 mb-2" />
-                <Label text="Email: ebongueandre@promoshake.net" class="text-center text-xs text-gray-500" />
-                <Label text="Password: 184vi@Tespi!" class="text-center text-xs text-gray-500" />
+            <!-- Register Button -->
+            <Button text="Create Account" 
+                    tap="{{ onRegister }}" 
+                    class="bg-green-500 text-white p-3 rounded-lg" />
+            
+            <!-- Error Message -->
+            <Label text="{{ errorMessage }}" 
+                   class="text-red-500 text-center mt-2" 
+                   textWrap="true" 
+                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+
+            <!-- Admin Credentials Helper -->
+            <StackLayout class="mt-8 p-4 bg-gray-100 rounded">
+                <Label text="Admin Login" class="text-center text-gray-600 font-medium mb-2" />
+                <Label text="Email: ebongueandre@promoshake.net" class="text-center text-sm text-gray-500" />
+                <Label text="Password: 184vi@Tespi!" class="text-center text-sm text-gray-500" />
             </StackLayout>
         </StackLayout>
     </StackLayout>
