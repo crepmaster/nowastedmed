@@ -1,93 +1,57 @@
-import { Observable, Frame } from '@nativescript/core';
+import { Observable } from '@nativescript/core';
+import { NavigationService } from '../../services/navigation.service';
 import { AuthService } from '../../services/auth.service';
-import { PermissionsService } from '../../services/permissions.service';
-import { SecurityService } from '../../services/security.service';
-import * as imagepicker from '@nativescript/imagepicker';
+import { ValidationUtil } from '../../utils/validation.util';
 
 export class RegistrationViewModel extends Observable {
+    private navigationService: NavigationService;
     private authService: AuthService;
-    private permissionsService: PermissionsService;
-    private securityService: SecurityService;
+    private validationUtil: ValidationUtil;
 
-    // Common fields
+    // Form fields
+    public userTypeIndex: number = 0;
     public email: string = '';
     public password: string = '';
-    public confirmPassword: string = '';
     public phoneNumber: string = '';
-    public errorMessage: string = '';
-    public userTypeIndex: number = 0;
-
-    // Pharmacy fields
     public pharmacyName: string = '';
-    public registrationNumber: string = '';
-    public address: string = '';
-
-    // Courier fields
-    public vehicleTypes: string[] = ['Motorcycle', 'Car', 'Van', 'Bicycle'];
-    public selectedVehicleIndex: number = 0;
     public licenseNumber: string = '';
-    public documentName: string = '';
+    public vehicleTypes: string[] = ['Motorcycle', 'Car', 'Van'];
+    public selectedVehicleIndex: number = 0;
+    public errorMessage: string = '';
 
     constructor() {
         super();
+        this.navigationService = NavigationService.getInstance();
         this.authService = AuthService.getInstance();
-        this.permissionsService = PermissionsService.getInstance();
-        this.securityService = SecurityService.getInstance();
+        this.validationUtil = ValidationUtil.getInstance();
     }
 
     get isPharmacy(): boolean {
         return this.userTypeIndex === 0;
     }
 
-    async onUploadDocument() {
+    async onSubmit() {
         try {
-            const hasPermission = await this.permissionsService.requestCameraPermission();
-            if (!hasPermission) {
-                this.set('errorMessage', 'Camera permission is required for document upload');
+            if (!this.validateForm()) {
                 return;
             }
 
-            const context = imagepicker.create({
-                mode: "single"
-            });
-
-            const selection = await context.present();
-            if (selection.length > 0) {
-                const selected = selection[0];
-                this.set('documentName', selected.fileName || 'ID Document uploaded');
-            }
-        } catch (error) {
-            console.error('Error uploading document:', error);
-            this.set('errorMessage', 'Failed to upload document');
-        }
-    }
-
-    async onRegister() {
-        try {
-            if (!this.validateInput()) {
-                return;
-            }
-
-            const hashedPassword = this.securityService.hashPassword(this.password);
             const registrationData = {
                 email: this.email,
-                password: hashedPassword,
+                password: this.password,
                 phoneNumber: this.phoneNumber,
                 role: this.isPharmacy ? 'pharmacist' : 'courier',
                 ...(this.isPharmacy ? {
                     pharmacyName: this.pharmacyName,
-                    registrationNumber: this.registrationNumber,
-                    address: this.address
+                    licenseNumber: this.licenseNumber
                 } : {
-                    vehicleType: this.vehicleTypes[this.selectedVehicleIndex],
-                    licenseNumber: this.licenseNumber,
-                    documentUploaded: !!this.documentName
+                    vehicleType: this.vehicleTypes[this.selectedVehicleIndex]
                 })
             };
 
             const success = await this.authService.register(registrationData);
             if (success) {
-                Frame.topmost().navigate({
+                this.navigationService.navigate({
                     moduleName: 'pages/registration/registration-success-page',
                     clearHistory: true
                 });
@@ -100,68 +64,29 @@ export class RegistrationViewModel extends Observable {
         }
     }
 
-    private validateInput(): boolean {
-        // Common validations
-        if (!this.email || !this.password || !this.confirmPassword || !this.phoneNumber) {
-            this.set('errorMessage', 'Please fill in all required fields');
-            return false;
-        }
-
-        if (!this.validateEmail(this.email)) {
+    private validateForm(): boolean {
+        if (!this.validationUtil.isValidEmail(this.email)) {
             this.set('errorMessage', 'Please enter a valid email address');
             return false;
         }
 
-        if (!this.validatePassword(this.password)) {
-            this.set('errorMessage', 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+        if (!this.validationUtil.isValidPassword(this.password)) {
+            this.set('errorMessage', 'Password must be at least 8 characters long');
             return false;
         }
 
-        if (this.password !== this.confirmPassword) {
-            this.set('errorMessage', 'Passwords do not match');
-            return false;
-        }
-
-        if (!this.validatePhoneNumber(this.phoneNumber)) {
+        if (!this.validationUtil.isValidPhoneNumber(this.phoneNumber)) {
             this.set('errorMessage', 'Please enter a valid phone number');
             return false;
         }
 
-        // Pharmacy-specific validations
         if (this.isPharmacy) {
-            if (!this.pharmacyName || !this.registrationNumber || !this.address) {
+            if (!this.pharmacyName || !this.licenseNumber) {
                 this.set('errorMessage', 'Please fill in all pharmacy details');
-                return false;
-            }
-        }
-        // Courier-specific validations
-        else {
-            if (!this.licenseNumber) {
-                this.set('errorMessage', 'Please enter your license number');
-                return false;
-            }
-
-            if (!this.documentName) {
-                this.set('errorMessage', 'Please upload your ID document');
                 return false;
             }
         }
 
         return true;
-    }
-
-    private validateEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    private validatePassword(password: string): boolean {
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        return passwordRegex.test(password);
-    }
-
-    private validatePhoneNumber(phone: string): boolean {
-        const phoneRegex = /^\+?[\d\s-]{10,}$/;
-        return phoneRegex.test(phone);
     }
 }
