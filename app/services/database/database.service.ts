@@ -1,13 +1,14 @@
 import { Observable } from '@nativescript/core';
 import { Pharmacist, Courier } from '../../models/user.model';
+import { AuthService } from '../auth.service';
 
 export class DatabaseService extends Observable {
     private static instance: DatabaseService;
-    private pharmacies: Pharmacist[] = [];
-    private couriers: Courier[] = [];
+    private authService: AuthService;
 
     private constructor() {
         super();
+        this.authService = AuthService.getInstance();
     }
 
     static getInstance(): DatabaseService {
@@ -19,69 +20,53 @@ export class DatabaseService extends Observable {
 
     // Pharmacy Methods
     async getPharmacies(): Promise<Pharmacist[]> {
-        return this.pharmacies;
+        const users = this.authService.getRegisteredUsers();
+        return users.filter(user => user.role === 'pharmacist') as Pharmacist[];
     }
 
     async getPharmacyById(id: string): Promise<Pharmacist | null> {
-        return this.pharmacies.find(p => p.id === id) || null;
+        const users = this.authService.getRegisteredUsers();
+        return users.find(user => user.role === 'pharmacist' && user.id === id) as Pharmacist || null;
     }
 
     async createPharmacy(pharmacy: Partial<Pharmacist>): Promise<Pharmacist> {
-        const newPharmacy = {
-            id: Date.now().toString(),
-            ...pharmacy
-        } as Pharmacist;
-        this.pharmacies.push(newPharmacy);
-        return newPharmacy;
+        // Registration is now handled by AuthService
+        throw new Error('Use AuthService.register() instead');
     }
 
     async updatePharmacy(id: string, data: Partial<Pharmacist>): Promise<Pharmacist> {
-        const index = this.pharmacies.findIndex(p => p.id === id);
-        if (index === -1) throw new Error('Pharmacy not found');
-        
-        this.pharmacies[index] = { ...this.pharmacies[index], ...data };
-        return this.pharmacies[index];
+        // TODO: Implement update functionality in AuthService
+        throw new Error('Update functionality not implemented');
     }
 
     async deletePharmacy(id: string): Promise<boolean> {
-        const index = this.pharmacies.findIndex(p => p.id === id);
-        if (index === -1) return false;
-        
-        this.pharmacies.splice(index, 1);
-        return true;
+        // TODO: Implement delete functionality in AuthService
+        throw new Error('Delete functionality not implemented');
     }
 
     // Courier Methods
     async getCouriers(): Promise<Courier[]> {
-        return this.couriers;
+        const users = this.authService.getRegisteredUsers();
+        return users.filter(user => user.role === 'courier') as Courier[];
     }
 
     async getCourierById(id: string): Promise<Courier | null> {
-        return this.couriers.find(c => c.id === id) || null;
+        const users = this.authService.getRegisteredUsers();
+        return users.find(user => user.role === 'courier' && user.id === id) as Courier || null;
     }
 
     async createCourier(courier: Partial<Courier>): Promise<Courier> {
-        const newCourier = {
-            id: Date.now().toString(),
-            ...courier
-        } as Courier;
-        this.couriers.push(newCourier);
-        return newCourier;
+        // Registration is now handled by AuthService
+        throw new Error('Use AuthService.register() instead');
     }
 
     async updateCourier(id: string, data: Partial<Courier>): Promise<Courier> {
-        const index = this.couriers.findIndex(c => c.id === id);
-        if (index === -1) throw new Error('Courier not found');
-        
-        this.couriers[index] = { ...this.couriers[index], ...data };
-        return this.couriers[index];
+        // TODO: Implement update functionality in AuthService
+        throw new Error('Update functionality not implemented');
     }
 
     async deleteCourier(id: string): Promise<boolean> {
-        const index = this.couriers.findIndex(c => c.id === id);
-        if (index === -1) return false;
-        
-        this.couriers.splice(index, 1);
-        return true;
+        // TODO: Implement delete functionality in AuthService
+        throw new Error('Delete functionality not implemented');
     }
 }
