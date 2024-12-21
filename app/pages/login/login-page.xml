@@ -2,7 +2,7 @@
     <ActionBar title="Login" class="bg-blue-500 text-white" />
     
     <StackLayout class="p-4">
-        <StackLayout class="bg-white p-4 rounded-lg shadow-lg">
+        <StackLayout class="bg-white p-4 rounded-lg shadow">
             <!-- Email Field -->
             <Label text="Email" class="text-gray-600 font-medium" />
             <TextField text="{{ email }}" 
