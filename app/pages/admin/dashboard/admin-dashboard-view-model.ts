@@ -1,11 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { AdminService } from '../../../services/admin.service';
 import { NavigationService } from '../../../services/navigation.service';
+import { AuthService } from '../../../services/auth.service';
 import { AdminStats } from '../../../models/admin.model';
 
 export class AdminDashboardViewModel extends Observable {
     private adminService: AdminService;
     private navigationService: NavigationService;
+    private authService: AuthService;
 
     public stats: AdminStats = {
         totalPharmacies: 0,
@@ -20,7 +22,19 @@ export class AdminDashboardViewModel extends Observable {
         super();
         this.adminService = AdminService.getInstance();
         this.navigationService = NavigationService.getInstance();
+        this.authService = AuthService.getInstance();
         this.loadDashboardData();
+    }
+
+    async loadDashboardData() {
+        try {
+            const stats = await this.adminService.getStats();
+            this.set('stats', stats);
+            this.notifyPropertyChange('showAddPharmacy', this.showAddPharmacy);
+            this.notifyPropertyChange('showAddCourier', this.showAddCourier);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        }
     }
 
     get showAddPharmacy(): boolean {
@@ -31,14 +45,13 @@ export class AdminDashboardViewModel extends Observable {
         return this.stats.totalCouriers === 0;
     }
 
-    async loadDashboardData() {
+    async onClearData() {
         try {
-            this.stats = await this.adminService.getStats();
-            this.notifyPropertyChange('stats', this.stats);
-            this.notifyPropertyChange('showAddPharmacy', this.showAddPharmacy);
-            this.notifyPropertyChange('showAddCourier', this.showAddCourier);
+            this.authService.clearAllUsers();
+            await this.loadDashboardData();
+            console.log('All data cleared successfully');
         } catch (error) {
-            console.error('Error loading dashboard data:', error);
+            console.error('Error clearing data:', error);
         }
     }
 
