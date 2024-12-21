@@ -1,10 +1,10 @@
 import { Observable } from '@nativescript/core';
 import { AdminStats, UserApproval } from '../models/admin.model';
-import { Pharmacist } from '../models/user.model';
 import { PharmacyDatabaseService } from './database/pharmacy.service';
 import { CourierDatabaseService } from './database/courier.service';
 import { ExchangeDatabaseService } from './database/exchange.service';
 import { MedicineService } from './medicine.service';
+import { AuthService } from './auth.service';
 
 export class AdminService extends Observable {
     private static instance: AdminService;
@@ -12,6 +12,7 @@ export class AdminService extends Observable {
     private courierDb: CourierDatabaseService;
     private exchangeDb: ExchangeDatabaseService;
     private medicineService: MedicineService;
+    private authService: AuthService;
 
     private constructor() {
         super();
@@ -19,6 +20,7 @@ export class AdminService extends Observable {
         this.courierDb = CourierDatabaseService.getInstance();
         this.exchangeDb = ExchangeDatabaseService.getInstance();
         this.medicineService = MedicineService.getInstance();
+        this.authService = AuthService.getInstance();
     }
 
     static getInstance(): AdminService {
@@ -31,26 +33,30 @@ export class AdminService extends Observable {
     async getStats(): Promise<AdminStats> {
         try {
             console.log('Getting admin stats...');
-            const [pharmacies, couriers, exchanges, medicines] = await Promise.all([
-                this.pharmacyDb.getAllPharmacies(),
-                this.courierDb.getAllCouriers(),
-                this.exchangeDb.getAllExchanges(),
-                this.medicineService.getAllMedicines()
-            ]);
-
-            console.log('Retrieved data for stats:', {
-                pharmacies: pharmacies.length,
-                couriers: couriers.length,
-                exchanges: exchanges.length,
-                medicines: medicines.length
-            });
+            
+            // Get registered users
+            const registeredUsers = this.authService.getRegisteredUsers();
+            
+            // Filter pharmacies and couriers
+            const pharmacies = registeredUsers.filter(user => user.role === 'pharmacist');
+            const couriers = registeredUsers.filter(user => user.role === 'courier');
+            
+            // Get exchanges and medicines
+            const exchanges = await this.exchangeDb.getAllExchanges();
+            const medicines = await this.medicineService.getAllMedicines();
+            
+            // Calculate active exchanges
+            const activeExchanges = exchanges.filter(e => 
+                e.status === 'pending' || e.status === 'in_transit'
+            ).length;
 
             return {
                 totalPharmacies: pharmacies.length,
                 totalCouriers: couriers.length,
                 totalExchanges: exchanges.length,
+                activeExchanges: activeExchanges,
                 totalMedicines: medicines.length,
-                savingsAmount: 0
+                savingsAmount: this.calculateSavings(exchanges)
             };
         } catch (error) {
             console.error('Error getting stats:', error);
@@ -58,41 +64,16 @@ export class AdminService extends Observable {
                 totalPharmacies: 0,
                 totalCouriers: 0,
                 totalExchanges: 0,
+                activeExchanges: 0,
                 totalMedicines: 0,
                 savingsAmount: 0
             };
         }
     }
 
-    async getPendingApprovals(): Promise<UserApproval[]> {
-        return [];
-    }
-
-    async approveUser(userId: string): Promise<boolean> {
-        return true;
-    }
-
-    async rejectUser(userId: string): Promise<boolean> {
-        return true;
-    }
-
-    async getUserAnalytics(): Promise<any> {
-        const pharmacies = await this.getPharmacies();
-        return {
-            activeUsers: pharmacies.length,
-            weeklyGrowth: 0
-        };
-    }
-
-    async getPharmacies(): Promise<Pharmacist[]> {
-        try {
-            console.log('Getting pharmacies from admin service...');
-            const pharmacies = await this.pharmacyDb.getAllPharmacies();
-            console.log('Retrieved pharmacies:', pharmacies);
-            return pharmacies;
-        } catch (error) {
-            console.error('Error getting pharmacies:', error);
-            return [];
-        }
+    private calculateSavings(exchanges: any[]): number {
+        // Implement your savings calculation logic here
+        // For now, return a placeholder value
+        return exchanges.length * 100; // Example: €100 per exchange
     }
 }
