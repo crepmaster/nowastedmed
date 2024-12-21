@@ -5,6 +5,7 @@ import { NavigationService } from '../../services/navigation.service';
 export class LoginViewModel extends Observable {
     private authService: AuthService;
     private navigationService: NavigationService;
+    
     public email: string = '';
     public password: string = '';
     public errorMessage: string = '';
@@ -17,61 +18,49 @@ export class LoginViewModel extends Observable {
 
     async onLogin() {
         try {
-            if (!this.validateInput()) {
+            if (!this.validateInput()) return;
+
+            const success = await this.authService.login(this.email, this.password);
+            if (!success) {
+                this.set('errorMessage', 'Invalid credentials');
                 return;
             }
 
-            const success = await this.authService.login(this.email, this.password);
-            if (success) {
-                const user = this.authService.getCurrentUser();
-                if (!user) {
-                    this.set('errorMessage', 'User data not found');
-                    return;
-                }
-
-                let targetPage = '';
-                switch (user.role) {
-                    case 'admin':
-                        targetPage = 'pages/admin/dashboard/admin-dashboard-page';
-                        break;
-                    case 'pharmacist':
-                        targetPage = 'pages/pharmacist/dashboard/dashboard-page';
-                        break;
-                    case 'courier':
-                        targetPage = 'pages/courier/dashboard/dashboard-page';
-                        break;
-                    default:
-                        this.set('errorMessage', 'Invalid user role');
-                        return;
-                }
-
-                this.navigationService.navigate({
-                    moduleName: targetPage,
-                    clearHistory: true,
-                    animated: true,
-                    transition: {
-                        name: 'fade',
-                        duration: 200
-                    }
-                });
-            } else {
-                this.set('errorMessage', 'Invalid credentials');
+            const user = this.authService.getCurrentUser();
+            if (!user) {
+                this.set('errorMessage', 'User data not found');
+                return;
             }
+
+            let targetPage = '';
+            switch (user.role) {
+                case 'admin':
+                    targetPage = 'pages/admin/dashboard/admin-dashboard-page';
+                    break;
+                case 'pharmacist':
+                    targetPage = 'pages/pharmacist/dashboard/dashboard-page';
+                    break;
+                case 'courier':
+                    targetPage = 'pages/courier/dashboard/dashboard-page';
+                    break;
+                default:
+                    this.set('errorMessage', 'Invalid user role');
+                    return;
+            }
+
+            this.navigationService.navigate({
+                moduleName: targetPage,
+                clearHistory: true,
+                animated: true,
+                transition: {
+                    name: 'fade',
+                    duration: 200
+                }
+            });
         } catch (error) {
             console.error('Login error:', error);
             this.set('errorMessage', 'An error occurred during login');
         }
-    }
-
-    onRegister() {
-        this.navigationService.navigate({
-            moduleName: 'pages/registration/registration-page',
-            animated: true,
-            transition: {
-                name: 'slide',
-                duration: 200
-            }
-        });
     }
 
     private validateInput(): boolean {
@@ -80,5 +69,11 @@ export class LoginViewModel extends Observable {
             return false;
         }
         return true;
+    }
+
+    onRegister() {
+        this.navigationService.navigate({
+            moduleName: 'pages/registration/registration-page'
+        });
     }
 }
