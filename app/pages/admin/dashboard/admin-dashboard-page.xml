@@ -9,47 +9,62 @@
         <TabViewItem title="Overview">
             <ScrollView>
                 <StackLayout class="p-4">
-                    <GridLayout columns="*, *" rows="auto, auto, auto" class="mb-4">
-                        <!-- Pharmacy Stats -->
-                        <StackLayout col="0" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
-                            <Label text="Total Pharmacies" class="text-gray-600" />
+                    <!-- Clear Data Button -->
+                    <Button text="Clear All Data" 
+                            tap="{{ onClearData }}" 
+                            class="bg-red-500 text-white p-3 rounded-lg mb-4" />
+
+                    <!-- Users Overview -->
+                    <Label text="Users Overview" class="text-xl font-bold mb-2" />
+                    <GridLayout columns="*, *" rows="auto" class="mb-4">
+                        <!-- Pharmacies -->
+                        <StackLayout col="0" class="bg-white p-4 m-1 rounded-lg shadow">
+                            <Label text="Pharmacies" class="text-gray-600" />
                             <Label text="{{ stats.totalPharmacies }}" class="text-2xl font-bold text-blue-500" />
-                            <Button text="Add Pharmacy" 
-                                    tap="{{ onAddPharmacy }}" 
-                                    class="bg-blue-100 text-blue-700 text-sm p-2 rounded mt-2" 
-                                    visibility="{{ showAddPharmacy ? 'visible' : 'collapsed' }}" />
-                            <Button text="View All" 
-                                    tap="{{ onViewPharmacies }}" 
-                                    class="bg-blue-100 text-blue-700 text-sm p-2 rounded mt-2" 
-                                    visibility="{{ !showAddPharmacy ? 'visible' : 'collapsed' }}" />
+                            <Button text="{{ showAddPharmacy ? 'Add Pharmacy' : 'View All' }}" 
+                                    tap="{{ showAddPharmacy ? onAddPharmacy : onViewPharmacies }}" 
+                                    class="bg-blue-100 text-blue-700 text-sm p-2 rounded mt-2" />
                         </StackLayout>
 
-                        <!-- Courier Stats -->
-                        <StackLayout col="1" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
-                            <Label text="Total Couriers" class="text-gray-600" />
+                        <!-- Couriers -->
+                        <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg shadow">
+                            <Label text="Couriers" class="text-gray-600" />
                             <Label text="{{ stats.totalCouriers }}" class="text-2xl font-bold text-green-500" />
-                            <Button text="Add Courier" 
-                                    tap="{{ onAddCourier }}" 
-                                    class="bg-green-100 text-green-700 text-sm p-2 rounded mt-2" 
-                                    visibility="{{ showAddCourier ? 'visible' : 'collapsed' }}" />
-                            <Button text="View All" 
-                                    tap="{{ onViewCouriers }}" 
-                                    class="bg-green-100 text-green-700 text-sm p-2 rounded mt-2" 
-                                    visibility="{{ !showAddCourier ? 'visible' : 'collapsed' }}" />
+                            <Button text="{{ showAddCourier ? 'Add Courier' : 'View All' }}" 
+                                    tap="{{ showAddCourier ? onAddCourier : onViewCouriers }}" 
+                                    class="bg-green-100 text-green-700 text-sm p-2 rounded mt-2" />
                         </StackLayout>
+                    </GridLayout>
 
-                        <!-- Other Stats (unchanged) -->
-                        <StackLayout col="0" row="1" class="bg-white p-4 m-1 rounded-lg shadow">
+                    <!-- Exchange Overview -->
+                    <Label text="Exchange Overview" class="text-xl font-bold mb-2" />
+                    <GridLayout columns="*, *" rows="auto, auto" class="mb-4">
+                        <!-- Total Exchanges -->
+                        <StackLayout col="0" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Exchanges" class="text-gray-600" />
                             <Label text="{{ stats.totalExchanges }}" class="text-2xl font-bold text-purple-500" />
+                            <Label text="All time" class="text-sm text-gray-500" />
                         </StackLayout>
-                        <StackLayout col="1" row="1" class="bg-white p-4 m-1 rounded-lg shadow">
+
+                        <!-- Active Exchanges -->
+                        <StackLayout col="1" row="0" class="bg-white p-4 m-1 rounded-lg shadow">
+                            <Label text="Active Exchanges" class="text-gray-600" />
+                            <Label text="{{ stats.activeExchanges }}" class="text-2xl font-bold text-orange-500" />
+                            <Label text="In progress" class="text-sm text-gray-500" />
+                        </StackLayout>
+
+                        <!-- Total Medicines -->
+                        <StackLayout col="0" row="1" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Medicines" class="text-gray-600" />
-                            <Label text="{{ stats.totalMedicines }}" class="text-2xl font-bold text-orange-500" />
+                            <Label text="{{ stats.totalMedicines }}" class="text-2xl font-bold text-indigo-500" />
+                            <Label text="Available" class="text-sm text-gray-500" />
                         </StackLayout>
-                        <StackLayout col="0" colSpan="2" row="2" class="bg-white p-4 m-1 rounded-lg shadow">
+
+                        <!-- Total Savings -->
+                        <StackLayout col="1" row="1" class="bg-white p-4 m-1 rounded-lg shadow">
                             <Label text="Total Savings (€)" class="text-gray-600" />
                             <Label text="{{ stats.savingsAmount }}" class="text-2xl font-bold text-green-500" />
+                            <Label text="Cost avoided" class="text-sm text-gray-500" />
                         </StackLayout>
                     </GridLayout>
                 </StackLayout>
