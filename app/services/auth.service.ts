@@ -1,16 +1,24 @@
-import { Observable, ApplicationSettings } from '@nativescript/core';
-import { Pharmacist, User, Courier } from '../models/user.model';
+import { Observable } from '@nativescript/core';
+import { User, UserRole } from '../auth/types/auth.types';
+import { AuthStorage } from '../auth/storage/auth.storage';
+import { AuthValidator } from '../auth/validation/auth.validator';
 import { SecurityService } from './security.service';
 
 export class AuthService extends Observable {
     private static instance: AuthService;
     private currentUser: User | null = null;
+    private authStorage: AuthStorage;
+    private authValidator: AuthValidator;
     private securityService: SecurityService;
     private registeredUsers: User[] = [];
 
-    private readonly ADMIN_EMAIL = 'ebongueandre@promoshake.net';
-    private readonly ADMIN_PASSWORD = '184vi@Tespi!';
-    private readonly USERS_KEY = 'registered_users';
+    private constructor() {
+        super();
+        this.authStorage = AuthStorage.getInstance();
+        this.authValidator = AuthValidator.getInstance();
+        this.securityService = SecurityService.getInstance();
+        this.loadUsers();
+    }
 
     static getInstance(): AuthService {
         if (!AuthService.instance) {
@@ -19,57 +27,31 @@ export class AuthService extends Observable {
         return AuthService.instance;
     }
 
-    constructor() {
-        super();
-        this.securityService = SecurityService.getInstance();
-        this.loadUsers();
-    }
-
-    private loadUsers() {
-        try {
-            const usersJson = ApplicationSettings.getString(this.USERS_KEY);
-            if (usersJson) {
-                this.registeredUsers = JSON.parse(usersJson);
-                console.log('Loaded users:', this.registeredUsers);
-            }
-        } catch (error) {
-            console.error('Error loading users:', error);
-            this.registeredUsers = [];
-        }
-    }
-
-    private saveUsers() {
-        try {
-            ApplicationSettings.setString(this.USERS_KEY, JSON.stringify(this.registeredUsers));
-            console.log('Saved users:', this.registeredUsers);
-        } catch (error) {
-            console.error('Error saving users:', error);
-        }
+    private loadUsers(): void {
+        this.registeredUsers = this.authStorage.loadUsers();
     }
 
     async register(userData: any): Promise<boolean> {
         try {
-            const newUser: User = {
-                id: userData.id || `user-${Date.now()}`,
-                email: userData.email,
-                role: userData.role,
-                name: userData.pharmacyName || userData.name,
-                phoneNumber: userData.phoneNumber,
-                password: userData.password
-            };
-
-            if (userData.role === 'pharmacist') {
-                (newUser as Pharmacist).pharmacyName = userData.pharmacyName;
-                (newUser as Pharmacist).address = userData.address;
-                (newUser as Pharmacist).license = userData.license;
-            } else if (userData.role === 'courier') {
-                (newUser as Courier).vehicleType = userData.vehicleType;
-                (newUser as Courier).licenseNumber = userData.licenseNumber;
+            if (!this.authValidator.validateRegistrationData(userData)) {
+                return false;
             }
 
+            if (this.registeredUsers.some(u => u.email === userData.email)) {
+                return false;
+            }
+
+            const newUser: User = {
+                id: `user-${Date.now()}`,
+                email: userData.email,
+                role: userData.role as UserRole,
+                name: userData.pharmacyName || userData.name,
+                phoneNumber: userData.phoneNumber,
+                password: this.securityService.hashPassword(userData.password)
+            };
+
             this.registeredUsers.push(newUser);
-            this.saveUsers();
-            console.log('User registered:', newUser);
+            this.authStorage.saveUsers(this.registeredUsers);
             return true;
         } catch (error) {
             console.error('Registration error:', error);
@@ -79,8 +61,7 @@ export class AuthService extends Observable {
 
     async login(email: string, password: string): Promise<boolean> {
         try {
-            // Admin login check
-            if (email === this.ADMIN_EMAIL && password === this.ADMIN_PASSWORD) {
+            if (this.authValidator.validateAdminCredentials(email, password)) {
                 this.currentUser = {
                     id: 'admin-1',
                     email: email,
@@ -91,8 +72,12 @@ export class AuthService extends Observable {
                 return true;
             }
 
-            // Check registered users
-            const user = this.registeredUsers.find(u => u.email === email && u.password === password);
+            this.loadUsers();
+            const hashedPassword = this.securityService.hashPassword(password);
+            const user = this.registeredUsers.find(u => 
+                u.email === email && u.password === hashedPassword
+            );
+
             if (user) {
                 this.currentUser = user;
                 return true;
@@ -105,16 +90,8 @@ export class AuthService extends Observable {
         }
     }
 
-    isLoggedIn(): boolean {
-        return this.currentUser !== null;
-    }
-
     getCurrentUser(): User | null {
         return this.currentUser;
-    }
-
-    logout(): void {
-        this.currentUser = null;
     }
 
     getRegisteredUsers(): User[] {
@@ -123,6 +100,14 @@ export class AuthService extends Observable {
 
     clearAllUsers(): void {
         this.registeredUsers = [];
-        this.saveUsers();
+        this.authStorage.clearUsers();
+    }
+
+    logout(): void {
+        this.currentUser = null;
+    }
+
+    isLoggedIn(): boolean {
+        return this.currentUser !== null;
     }
 }
