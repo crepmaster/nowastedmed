@@ -23,9 +23,11 @@
                         <Label text="{{ phoneNumber }}" class="text-sm text-gray-600" />
                         <Label text="{{ vehicleType }}" class="text-sm text-gray-600" />
                     </StackLayout>
-                    <Button col="1" text="Edit" tap="{{ $parent.onEditCourier }}" 
+                    <Button col="1" text="Edit" 
+                            tap="{{ $parents['ListView'].onEditCourier }}" 
                             class="bg-blue-500 text-white p-2 rounded mr-2" />
-                    <Button col="2" text="Delete" tap="{{ $parent.onDeleteCourier }}" 
+                    <Button col="2" text="Delete" 
+                            tap="{{ $parents['ListView'].onDeleteCourier }}" 
                             class="bg-red-500 text-white p-2 rounded" />
                 </GridLayout>
             </ListView.itemTemplate>
