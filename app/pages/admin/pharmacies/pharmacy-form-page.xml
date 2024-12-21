@@ -18,6 +18,20 @@
                           keyboardType="email" 
                           class="mb-4 p-3 border rounded" />
 
+                <Label text="Password" class="text-gray-600" visibility="{{ !isEditMode ? 'visible' : 'collapsed' }}" />
+                <TextField text="{{ password }}" 
+                          hint="Enter password" 
+                          secure="true"
+                          class="mb-4 p-3 border rounded"
+                          visibility="{{ !isEditMode ? 'visible' : 'collapsed' }}" />
+
+                <Label text="Confirm Password" class="text-gray-600" visibility="{{ !isEditMode ? 'visible' : 'collapsed' }}" />
+                <TextField text="{{ confirmPassword }}" 
+                          hint="Confirm password" 
+                          secure="true"
+                          class="mb-4 p-3 border rounded"
+                          visibility="{{ !isEditMode ? 'visible' : 'collapsed' }}" />
+
                 <Label text="Phone Number" class="text-gray-600" />
                 <TextField text="{{ phoneNumber }}" 
                           hint="Enter phone number" 
