@@ -14,8 +14,12 @@ export class AuthStorage {
 
     saveUsers(users: User[]): void {
         try {
-            console.log('Saving users to storage:', users);
-            ApplicationSettings.setString(this.USERS_KEY, JSON.stringify(users));
+            console.log('Saving users:', users);
+            const usersJson = JSON.stringify(users);
+            ApplicationSettings.setString(this.USERS_KEY, usersJson);
+            // Verify the save
+            const savedJson = ApplicationSettings.getString(this.USERS_KEY);
+            console.log('Saved users JSON:', savedJson);
         } catch (error) {
             console.error('Error saving users:', error);
         }
@@ -24,9 +28,8 @@ export class AuthStorage {
     loadUsers(): User[] {
         try {
             const usersJson = ApplicationSettings.getString(this.USERS_KEY);
-            const users = usersJson ? JSON.parse(usersJson) : [];
-            console.log('Loaded users from storage:', users);
-            return users;
+            console.log('Loading users from storage:', usersJson);
+            return usersJson ? JSON.parse(usersJson) : [];
         } catch (error) {
             console.error('Error loading users:', error);
             return [];
