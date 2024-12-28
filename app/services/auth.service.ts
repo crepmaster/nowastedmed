@@ -10,14 +10,12 @@ export class AuthService extends Observable {
     private authStorage: AuthStorage;
     private authValidator: AuthValidator;
     private securityService: SecurityService;
-    private registeredUsers: User[] = [];
 
     private constructor() {
         super();
         this.authStorage = AuthStorage.getInstance();
         this.authValidator = AuthValidator.getInstance();
         this.securityService = SecurityService.getInstance();
-        this.loadUsers();
     }
 
     static getInstance(): AuthService {
@@ -27,17 +25,13 @@ export class AuthService extends Observable {
         return AuthService.instance;
     }
 
-    private loadUsers(): void {
-        this.registeredUsers = this.authStorage.loadUsers();
-    }
-
     async register(userData: any): Promise<boolean> {
         try {
-            if (!this.authValidator.validateRegistrationData(userData)) {
-                return false;
-            }
+            console.log('Registering user:', userData);
 
-            if (this.registeredUsers.some(u => u.email === userData.email)) {
+            const users = this.authStorage.loadUsers();
+            if (users.some(u => u.email === userData.email)) {
+                console.error('Email already registered');
                 return false;
             }
 
@@ -50,8 +44,9 @@ export class AuthService extends Observable {
                 password: this.securityService.hashPassword(userData.password)
             };
 
-            this.registeredUsers.push(newUser);
-            this.authStorage.saveUsers(this.registeredUsers);
+            users.push(newUser);
+            this.authStorage.saveUsers(users);
+            console.log('User registered successfully');
             return true;
         } catch (error) {
             console.error('Registration error:', error);
@@ -61,6 +56,8 @@ export class AuthService extends Observable {
 
     async login(email: string, password: string): Promise<boolean> {
         try {
+            console.log('Attempting login for:', email);
+
             if (this.authValidator.validateAdminCredentials(email, password)) {
                 this.currentUser = {
                     id: 'admin-1',
@@ -69,20 +66,25 @@ export class AuthService extends Observable {
                     name: 'Administrator',
                     phoneNumber: ''
                 };
+                console.log('Admin login successful');
                 return true;
             }
 
-            this.loadUsers();
+            const users = this.authStorage.loadUsers();
+            console.log('Registered users:', users);
+
             const hashedPassword = this.securityService.hashPassword(password);
-            const user = this.registeredUsers.find(u => 
+            const user = users.find(u => 
                 u.email === email && u.password === hashedPassword
             );
 
             if (user) {
                 this.currentUser = user;
+                console.log('User login successful:', user);
                 return true;
             }
 
+            console.log('Login failed: Invalid credentials');
             return false;
         } catch (error) {
             console.error('Login error:', error);
@@ -95,19 +97,14 @@ export class AuthService extends Observable {
     }
 
     getRegisteredUsers(): User[] {
-        return this.registeredUsers;
+        return this.authStorage.loadUsers();
     }
 
     clearAllUsers(): void {
-        this.registeredUsers = [];
         this.authStorage.clearUsers();
     }
 
     logout(): void {
         this.currentUser = null;
-    }
-
-    isLoggedIn(): boolean {
-        return this.currentUser !== null;
     }
 }
