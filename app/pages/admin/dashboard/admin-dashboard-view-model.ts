@@ -13,6 +13,7 @@ export class AdminDashboardViewModel extends Observable {
         totalPharmacies: 0,
         totalCouriers: 0,
         totalExchanges: 0,
+        activeExchanges: 0,
         totalMedicines: 0,
         savingsAmount: 0
     };
@@ -24,14 +25,25 @@ export class AdminDashboardViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.authService = AuthService.getInstance();
         this.loadDashboardData();
+
+        // Bind methods to maintain correct 'this' context
+        this.onViewPharmacies = this.onViewPharmacies.bind(this);
+        this.onViewCouriers = this.onViewCouriers.bind(this);
+        this.onAddCourier = this.onAddCourier.bind(this);
+        this.onLogout = this.onLogout.bind(this);
     }
 
     async loadDashboardData() {
         try {
-            const stats = await this.adminService.getStats();
-            this.set('stats', stats);
-            this.notifyPropertyChange('showAddPharmacy', this.showAddPharmacy);
-            this.notifyPropertyChange('showAddCourier', this.showAddCourier);
+            const users = this.authService.getRegisteredUsers();
+            const pharmacies = users.filter(user => user.role === 'pharmacist');
+            const couriers = users.filter(user => user.role === 'courier');
+            
+            this.set('stats', {
+                ...this.stats,
+                totalPharmacies: pharmacies.length,
+                totalCouriers: couriers.length
+            });
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         }
@@ -45,24 +57,8 @@ export class AdminDashboardViewModel extends Observable {
         return this.stats.totalCouriers === 0;
     }
 
-    async onClearData() {
-        try {
-            this.authService.clearAllUsers();
-            await this.loadDashboardData();
-            console.log('All data cleared successfully');
-        } catch (error) {
-            console.error('Error clearing data:', error);
-        }
-    }
-
-    onAddPharmacy() {
-        this.navigationService.navigate({
-            moduleName: 'pages/admin/pharmacies/pharmacy-form-page',
-            context: { mode: 'create' }
-        });
-    }
-
     onAddCourier() {
+        console.log('Navigating to add courier page');
         this.navigationService.navigate({
             moduleName: 'pages/admin/couriers/courier-form-page',
             context: { mode: 'create' }
@@ -70,12 +66,14 @@ export class AdminDashboardViewModel extends Observable {
     }
 
     onViewPharmacies() {
+        console.log('Navigating to pharmacy list');
         this.navigationService.navigate({
             moduleName: 'pages/admin/pharmacies/pharmacy-list-page'
         });
     }
 
     onViewCouriers() {
+        console.log('Navigating to courier list');
         this.navigationService.navigate({
             moduleName: 'pages/admin/couriers/courier-list-page'
         });
@@ -85,10 +83,7 @@ export class AdminDashboardViewModel extends Observable {
         this.authService.logout();
         this.navigationService.navigate({
             moduleName: 'pages/login/login-page',
-            clearHistory: true,
-            transition: {
-                name: 'fade'
-            }
+            clearHistory: true
         });
     }
 }
