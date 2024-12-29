@@ -1,17 +1,23 @@
 import { AuthService } from '../auth.service';
 import { SecurityService } from '../security.service';
 import { AuthStorage } from '../../auth/storage/auth.storage';
+import { ExchangeStorage } from '../storage/exchange.storage';
+import { MedicineService } from '../medicine.service';
 
 export class DemoDataService {
     private static instance: DemoDataService;
     private authService: AuthService;
     private securityService: SecurityService;
     private authStorage: AuthStorage;
+    private exchangeStorage: ExchangeStorage;
+    private medicineService: MedicineService;
 
     private constructor() {
         this.authService = AuthService.getInstance();
         this.securityService = SecurityService.getInstance();
         this.authStorage = AuthStorage.getInstance();
+        this.exchangeStorage = ExchangeStorage.getInstance();
+        this.medicineService = MedicineService.getInstance();
     }
 
     static getInstance(): DemoDataService {
@@ -23,8 +29,9 @@ export class DemoDataService {
 
     async initializeDemoData(): Promise<void> {
         try {
-            // Clear existing users for demo purposes
+            // Clear existing data
             this.authStorage.clearUsers();
+            this.exchangeStorage.clearExchanges();
             
             // Create first demo pharmacy
             const demoPharmacy1 = {
@@ -56,19 +63,60 @@ export class DemoDataService {
 
             if (success1 && success2) {
                 console.log('Demo pharmacies created successfully');
-                console.log('Pharmacy 1 credentials:', {
-                    email: demoPharmacy1.email,
-                    password: demoPharmacy1.password
-                });
-                console.log('Pharmacy 2 credentials:', {
-                    email: demoPharmacy2.email,
-                    password: demoPharmacy2.password
-                });
                 
+                // Get registered users to get their IDs
                 const users = this.authStorage.loadUsers();
-                console.log('Current users:', users);
-            } else {
-                console.error('Failed to create demo pharmacies');
+                const pharmacy1 = users.find(u => u.email === demoPharmacy1.email);
+                const pharmacy2 = users.find(u => u.email === demoPharmacy2.email);
+
+                if (pharmacy1 && pharmacy2) {
+                    // Add some demo medicines for pharmacy1
+                    await this.medicineService.addMedicine({
+                        name: 'Aspirin 100mg',
+                        quantity: 100,
+                        expiryDate: new Date('2024-12-31'),
+                        pharmacyId: pharmacy1.id,
+                        status: 'available',
+                        batchNumber: 'ASP100-001'
+                    });
+
+                    // Add demo medicines for pharmacy2
+                    await this.medicineService.addMedicine({
+                        name: 'Paracetamol 500mg',
+                        quantity: 200,
+                        expiryDate: new Date('2024-12-31'),
+                        pharmacyId: pharmacy2.id,
+                        status: 'available',
+                        batchNumber: 'PCM500-001'
+                    });
+
+                    // Create a demo exchange
+                    const exchange = {
+                        id: 'DEMO-001',
+                        proposedBy: pharmacy1.id,
+                        status: 'pending',
+                        proposedMedicines: [{
+                            medicineId: 'ASP100-001',
+                            quantity: 50,
+                            medicine: {
+                                name: 'Aspirin 100mg',
+                                quantity: 50,
+                                expiryDate: new Date('2024-12-31')
+                            }
+                        }],
+                        offeredMedicines: [],
+                        priority: 'medium',
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    };
+
+                    this.exchangeStorage.saveExchanges([exchange]);
+
+                    console.log('Demo data initialized successfully');
+                    console.log('Pharmacy 1:', pharmacy1);
+                    console.log('Pharmacy 2:', pharmacy2);
+                    console.log('Demo exchange created:', exchange);
+                }
             }
         } catch (error) {
             console.error('Error initializing demo data:', error);

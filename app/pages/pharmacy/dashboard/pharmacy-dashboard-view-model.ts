@@ -2,18 +2,15 @@ import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
 import { AuthService } from '../../../services/auth.service';
 import { MedicineService } from '../../../services/medicine.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
 import { Medicine } from '../../../models/medicine.model';
-import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 
 export class PharmacyDashboardViewModel extends Observable {
     private navigationService: NavigationService;
     private authService: AuthService;
     private medicineService: MedicineService;
-    private exchangeService: ExchangeService;
 
     public medicines: Medicine[] = [];
-    public activeExchanges: any[] = [];
+    public availableExchanges: any[] = [];
     public selectedTabIndex: number = 0;
     public stats = {
         available: 0,
@@ -26,7 +23,12 @@ export class PharmacyDashboardViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.authService = AuthService.getInstance();
         this.medicineService = MedicineService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
+        
+        // Bind methods
+        this.onExchangeMedicine = this.onExchangeMedicine.bind(this);
+        this.onRequestExchange = this.onRequestExchange.bind(this);
+        this.onAddMedicine = this.onAddMedicine.bind(this);
+        
         this.loadData();
     }
 
@@ -35,18 +37,17 @@ export class PharmacyDashboardViewModel extends Observable {
             const user = this.authService.getCurrentUser();
             if (!user) return;
 
+            console.log('Loading data for user:', user.id);
+
             // Load medicines
             const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
+            console.log('Loaded medicines:', medicines);
             this.set('medicines', medicines);
 
-            // Load exchanges
-            const exchanges = await this.exchangeService.getExchangesByPharmacy(user.id);
-            const processedExchanges = exchanges.map(exchange => ({
-                ...exchange,
-                title: `Exchange #${exchange.id.slice(-4)}`,
-                statusColor: this.getStatusColor(exchange.status)
-            }));
-            this.set('activeExchanges', processedExchanges);
+            // Load available exchanges
+            const exchanges = await this.medicineService.getAvailableExchanges(user.id);
+            console.log('Loaded exchanges:', exchanges);
+            this.set('availableExchanges', exchanges);
 
             // Update stats
             this.updateStats(medicines);
@@ -62,15 +63,6 @@ export class PharmacyDashboardViewModel extends Observable {
         this.notifyPropertyChange('stats', this.stats);
     }
 
-    private getStatusColor(status: string): string {
-        switch (status) {
-            case 'pending': return '#f97316';
-            case 'accepted': return '#22c55e';
-            case 'rejected': return '#ef4444';
-            default: return '#6b7280';
-        }
-    }
-
     onAddMedicine() {
         this.navigationService.navigate({
             moduleName: 'pages/pharmacy/medicine/add-medicine-page'
@@ -78,28 +70,31 @@ export class PharmacyDashboardViewModel extends Observable {
     }
 
     onExchangeMedicine(args: any) {
-        const medicine = args.object.bindingContext;
-        this.navigationService.navigate({
-            moduleName: 'pages/pharmacy/exchange/exchange-details-page',
-            context: { 
-                mode: 'create',
-                medicineId: medicine.id
-            }
-        });
+        try {
+            const medicine = args.object.bindingContext;
+            console.log('Creating exchange for medicine:', medicine);
+            
+            this.navigationService.navigate({
+                moduleName: 'pages/pharmacy/exchange/create-exchange-page',
+                context: { medicine }
+            });
+        } catch (error) {
+            console.error('Error navigating to create exchange:', error);
+        }
     }
 
-    onViewExchanges() {
-        this.navigationService.navigate({
-            moduleName: 'pages/pharmacy/exchange/exchange-list-page'
-        });
-    }
+    async onRequestExchange(args: any) {
+        try {
+            const exchange = args.object.bindingContext;
+            const user = this.authService.getCurrentUser();
+            
+            if (!user) return;
 
-    onViewExchange(args: any) {
-        const exchange = args.object.bindingContext;
-        this.navigationService.navigate({
-            moduleName: 'pages/pharmacy/exchange/exchange-details-page',
-            context: { exchangeId: exchange.id }
-        });
+            await this.medicineService.requestExchange(exchange.id, user.id);
+            await this.loadData(); // Refresh data
+        } catch (error) {
+            console.error('Error requesting exchange:', error);
+        }
     }
 
     onLogout() {

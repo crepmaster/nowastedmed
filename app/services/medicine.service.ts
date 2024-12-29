@@ -1,16 +1,21 @@
 import { Observable } from '@nativescript/core';
 import { Medicine, Exchange } from '../models/medicine.model';
 import { QRCodeUtil } from '../utils/qrcode.util';
+import { ExchangeStorage } from './storage/exchange.storage';
+import { AuthService } from './auth.service';
 
 export class MedicineService extends Observable {
     private static instance: MedicineService;
     private medicines: Medicine[] = [];
-    private exchanges: Exchange[] = [];
+    private exchangeStorage: ExchangeStorage;
     private qrCodeUtil: QRCodeUtil;
+    private authService: AuthService;
 
     private constructor() {
         super();
+        this.exchangeStorage = ExchangeStorage.getInstance();
         this.qrCodeUtil = QRCodeUtil.getInstance();
+        this.authService = AuthService.getInstance();
     }
 
     static getInstance(): MedicineService {
@@ -25,11 +30,9 @@ export class MedicineService extends Observable {
     }
 
     async getMedicinesByPharmacy(pharmacyId: string): Promise<Medicine[]> {
+        console.log('Getting medicines for pharmacy:', pharmacyId);
+        console.log('Current medicines:', this.medicines);
         return this.medicines.filter(m => m.pharmacyId === pharmacyId);
-    }
-
-    async getAvailableExchanges(): Promise<Exchange[]> {
-        return this.exchanges.filter(e => e.status === 'pending');
     }
 
     async addMedicine(medicine: Partial<Medicine>): Promise<Medicine> {
@@ -38,73 +41,89 @@ export class MedicineService extends Observable {
             ...medicine,
             status: 'available'
         } as Medicine;
+        
         this.medicines.push(newMedicine);
+        console.log('Added new medicine:', newMedicine);
+        console.log('Current medicines:', this.medicines);
+        
         return newMedicine;
     }
 
-    async createExchange(medicineId: string): Promise<Exchange> {
-        const medicine = this.medicines.find(m => m.id === medicineId);
-        if (!medicine) {
-            throw new Error('Medicine not found');
+    async createExchange(medicine: Medicine): Promise<Exchange> {
+        console.log('Creating exchange for medicine:', medicine);
+        
+        const user = this.authService.getCurrentUser();
+        if (!user) {
+            throw new Error('User not authenticated');
         }
 
         const exchange: Exchange = {
             id: Date.now().toString(),
-            medicineId,
-            fromPharmacyId: medicine.pharmacyId,
+            medicineId: medicine.id,
+            fromPharmacyId: user.id,
             toPharmacyId: '',
             status: 'pending',
             createdAt: new Date(),
-            qrCode: ''
+            qrCode: '',
+            medicineName: medicine.name, // Add medicine name for display
+            fromPharmacyName: user.name, // Add pharmacy name for display
+            quantity: medicine.quantity
         };
 
-        // Generate QR code
-        const qrData = await this.qrCodeUtil.generateQRCode({
-            exchangeId: exchange.id,
-            medicineId: exchange.medicineId,
-            fromPharmacyId: exchange.fromPharmacyId,
-            timestamp: exchange.createdAt.toISOString()
-        });
+        // Update medicine status
+        const medicineToUpdate = this.medicines.find(m => m.id === medicine.id);
+        if (medicineToUpdate) {
+            medicineToUpdate.status = 'pending';
+        }
         
-        exchange.qrCode = qrData;
-        this.exchanges.push(exchange);
-        medicine.status = 'pending';
+        // Save exchange
+        const exchanges = this.exchangeStorage.loadExchanges();
+        exchanges.push(exchange);
+        this.exchangeStorage.saveExchanges(exchanges);
         
+        console.log('Created new exchange:', exchange);
         return exchange;
     }
 
-    async requestExchange(exchangeId: string): Promise<boolean> {
-        const exchange = this.exchanges.find(e => e.id === exchangeId);
+    async getAvailableExchanges(currentPharmacyId: string): Promise<Exchange[]> {
+        console.log('Getting available exchanges for pharmacy:', currentPharmacyId);
+        const exchanges = this.exchangeStorage.loadExchanges();
+        console.log('All exchanges:', exchanges);
+        
+        // Filter exchanges that are:
+        // 1. In 'pending' status
+        // 2. Not created by the current pharmacy
+        // 3. Not yet accepted by another pharmacy
+        const availableExchanges = exchanges.filter(e => 
+            e.status === 'pending' && 
+            e.fromPharmacyId !== currentPharmacyId &&
+            !e.toPharmacyId
+        );
+        
+        console.log('Available exchanges:', availableExchanges);
+        return availableExchanges;
+    }
+
+    async requestExchange(exchangeId: string, toPharmacyId: string): Promise<boolean> {
+        console.log('Requesting exchange:', exchangeId, 'for pharmacy:', toPharmacyId);
+        
+        const exchanges = this.exchangeStorage.loadExchanges();
+        const exchange = exchanges.find(e => e.id === exchangeId);
+        
         if (exchange) {
             exchange.status = 'accepted';
+            exchange.toPharmacyId = toPharmacyId;
+            this.exchangeStorage.saveExchanges(exchanges);
+            
+            // Update medicine status
+            const medicine = this.medicines.find(m => m.id === exchange.medicineId);
+            if (medicine) {
+                medicine.status = 'exchanged';
+            }
+            
+            console.log('Exchange updated:', exchange);
             return true;
         }
         return false;
-    }
-
-    async verifyExchangeQR(qrCode: string): Promise<Exchange | null> {
-        try {
-            const data = JSON.parse(qrCode);
-            const exchange = this.exchanges.find(e => e.id === data.exchangeId);
-            
-            if (!exchange) {
-                return null;
-            }
-
-            // Verify timestamp is within 24 hours
-            const timestamp = new Date(data.timestamp);
-            const now = new Date();
-            const timeDiff = now.getTime() - timestamp.getTime();
-            const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-            if (hoursDiff > 24) {
-                return null;
-            }
-
-            return exchange;
-        } catch (error) {
-            console.error('Error verifying QR code:', error);
-            return null;
-        }
     }
 }

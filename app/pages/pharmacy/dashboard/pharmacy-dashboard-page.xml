@@ -27,38 +27,40 @@
             <TabViewItem title="My Medicines">
                 <GridLayout rows="auto, *">
                     <Button text="Add Medicine" tap="{{ onAddMedicine }}" class="bg-blue-500 text-white m-2 rounded" />
-                    <ListView row="1" items="{{ medicines }}" class="list-group">
+                    <ListView row="1" items="{{ medicines }}">
                         <ListView.itemTemplate>
                             <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
                                 <StackLayout col="0">
                                     <Label text="{{ name }}" class="text-lg font-semibold" />
                                     <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
                                     <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ status }}" class="text-sm" 
+                                           color="{{ status === 'available' ? '#22c55e' : '#f97316' }}" />
                                 </StackLayout>
-                                <Button col="1" text="Exchange" tap="{{ $parent.onExchangeMedicine }}" 
+                                <Button col="1" text="Exchange" 
+                                        tap="{{ $parents['ListView'].onExchangeMedicine }}"
+                                        visibility="{{ status === 'available' ? 'visible' : 'collapsed' }}"
                                         class="bg-green-500 text-white p-2 rounded" />
                             </GridLayout>
                         </ListView.itemTemplate>
                     </ListView>
                 </GridLayout>
             </TabViewItem>
-            <TabViewItem title="Exchanges">
-                <GridLayout rows="auto, *">
-                    <Button text="View All Exchanges" tap="{{ onViewExchanges }}" class="bg-blue-500 text-white m-2 rounded" />
-                    <ListView row="1" items="{{ activeExchanges }}" class="list-group">
-                        <ListView.itemTemplate>
-                            <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
-                                <StackLayout col="0">
-                                    <Label text="{{ title }}" class="text-lg font-semibold" />
-                                    <Label text="{{ status }}" class="text-sm" color="{{ statusColor }}" />
-                                    <Label text="{{ 'Updated: ' + updatedAt, 'dd/MM/yyyy' }}" class="text-sm text-gray-600" />
-                                </StackLayout>
-                                <Button col="1" text="View" tap="{{ $parent.onViewExchange }}" 
-                                        class="bg-blue-500 text-white p-2 rounded" />
-                            </GridLayout>
-                        </ListView.itemTemplate>
-                    </ListView>
-                </GridLayout>
+            <TabViewItem title="Available Exchanges">
+                <ListView items="{{ availableExchanges }}">
+                    <ListView.itemTemplate>
+                        <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
+                            <StackLayout col="0">
+                                <Label text="{{ medicineName }}" class="text-lg font-semibold" />
+                                <Label text="{{ 'From: ' + fromPharmacyName }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                            </StackLayout>
+                            <Button col="1" text="Request" 
+                                    tap="{{ $parents['ListView'].onRequestExchange }}"
+                                    class="bg-blue-500 text-white p-2 rounded" />
+                        </GridLayout>
+                    </ListView.itemTemplate>
+                </ListView>
             </TabViewItem>
         </TabView>
     </GridLayout>

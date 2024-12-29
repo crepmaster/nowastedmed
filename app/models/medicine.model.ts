@@ -17,4 +17,7 @@ export interface Exchange {
   status: 'pending' | 'accepted' | 'in_transit' | 'completed';
   createdAt: Date;
   qrCode: string;
+  medicineName: string; // Added for display
+  fromPharmacyName: string; // Added for display
+  quantity: number; // Added for display
 }
