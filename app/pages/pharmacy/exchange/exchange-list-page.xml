@@ -1,0 +1,36 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Medicine Exchanges" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <GridLayout rows="auto, *">
+        <!-- Filters -->
+        <StackLayout row="0" class="p-4">
+            <SegmentedBar selectedIndex="{{ filterIndex }}" class="mb-2">
+                <SegmentedBar.items>
+                    <SegmentedBarItem title="Available" />
+                    <SegmentedBarItem title="My Proposals" />
+                    <SegmentedBarItem title="Received" />
+                </SegmentedBar.items>
+            </SegmentedBar>
+        </StackLayout>
+
+        <!-- Exchange List -->
+        <ListView row="1" items="{{ exchanges }}" class="list-group">
+            <ListView.itemTemplate>
+                <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
+                    <StackLayout col="0">
+                        <Label text="{{ title }}" class="text-lg font-bold" />
+                        <Label text="{{ 'From: ' + fromPharmacy }}" class="text-sm text-gray-600" />
+                        <Label text="{{ 'Medicines: ' + medicineCount }}" class="text-sm text-gray-600" />
+                        <Label text="{{ priority }}" class="text-sm" 
+                               color="{{ priority === 'high' ? '#ef4444' : (priority === 'medium' ? '#f97316' : '#3b82f6') }}" />
+                    </StackLayout>
+                    <Button col="1" text="{{ actionText }}" 
+                            tap="{{ $parent.onExchangeAction }}"
+                            class="{{ actionClass }} text-white p-2 rounded" />
+                </GridLayout>
+            </ListView.itemTemplate>
+        </ListView>
+    </GridLayout>
+</Page>

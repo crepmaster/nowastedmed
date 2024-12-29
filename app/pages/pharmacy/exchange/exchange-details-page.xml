@@ -1,0 +1,54 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Exchange Details" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Exchange Info -->
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="{{ 'Exchange #' + exchange.id }}" class="text-xl font-bold mb-2" />
+                <Label text="{{ 'Status: ' + exchange.status }}" class="text-lg text-gray-600" />
+                <Label text="{{ 'Priority: ' + exchange.priority }}" class="text-lg text-gray-600" />
+                <Label text="{{ 'Created: ' + exchange.createdAt, 'dd/MM/yyyy HH:mm' }}" class="text-sm text-gray-500" />
+            </StackLayout>
+
+            <!-- Proposed Medicines -->
+            <Label text="Proposed Medicines" class="text-lg font-bold mb-2" />
+            <ListView items="{{ exchange.proposedMedicines }}" height="200" class="mb-4">
+                <ListView.itemTemplate>
+                    <GridLayout columns="*, auto" class="p-2 bg-white border-b">
+                        <Label col="0" text="{{ medicine.name }}" />
+                        <Label col="1" text="{{ 'Qty: ' + quantity }}" />
+                    </GridLayout>
+                </ListView.itemTemplate>
+            </ListView>
+
+            <!-- Offered Medicines (if responding) -->
+            <StackLayout visibility="{{ isResponding ? 'visible' : 'collapsed' }}">
+                <Label text="Select Medicines to Offer" class="text-lg font-bold mb-2" />
+                <ListView items="{{ availableMedicines }}" height="200" class="mb-4">
+                    <ListView.itemTemplate>
+                        <GridLayout columns="*, auto, auto" class="p-2 bg-white border-b">
+                            <Label col="0" text="{{ name }}" />
+                            <TextField col="1" text="{{ quantity }}" 
+                                     hint="Qty" keyboardType="number" 
+                                     width="60" class="text-right" />
+                            <Switch col="2" checked="{{ selected }}" />
+                        </GridLayout>
+                    </ListView.itemTemplate>
+                </ListView>
+            </StackLayout>
+
+            <!-- Action Buttons -->
+            <GridLayout columns="*, *" class="mt-4">
+                <Button col="0" text="{{ primaryActionText }}" 
+                        tap="{{ onPrimaryAction }}" 
+                        class="{{ primaryActionClass }} text-white p-3 rounded-lg m-1" />
+                <Button col="1" text="Cancel" 
+                        tap="{{ onCancel }}" 
+                        class="bg-gray-500 text-white p-3 rounded-lg m-1" />
+            </GridLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

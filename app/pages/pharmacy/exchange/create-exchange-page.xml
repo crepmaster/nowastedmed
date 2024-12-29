@@ -1,0 +1,51 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Create Exchange" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Medicine Selection -->
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="Selected Medicine" class="text-lg font-bold mb-2" />
+                <Label text="{{ medicine.name }}" class="text-lg" />
+                <Label text="{{ 'Quantity Available: ' + medicine.quantity }}" class="text-gray-600" />
+                <Label text="{{ 'Expires: ' + medicine.expiryDate }}" class="text-gray-600" />
+                
+                <Label text="Exchange Quantity" class="mt-4 mb-2" />
+                <TextField text="{{ exchangeQuantity }}" 
+                          keyboardType="number" 
+                          hint="Enter quantity to exchange"
+                          class="p-2 border rounded" />
+            </StackLayout>
+
+            <!-- Priority Selection -->
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="Priority Level" class="text-lg font-bold mb-2" />
+                <ListPicker items="{{ priorityLevels }}" 
+                           selectedIndex="{{ selectedPriorityIndex }}"
+                           class="mb-2" />
+            </StackLayout>
+
+            <!-- Notes -->
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="Additional Notes" class="text-lg font-bold mb-2" />
+                <TextView text="{{ notes }}" 
+                          hint="Add any additional information"
+                          height="100"
+                          class="p-2 border rounded" />
+            </StackLayout>
+
+            <!-- Submit Button -->
+            <Button text="Create Exchange" 
+                    tap="{{ onSubmit }}" 
+                    class="bg-blue-500 text-white p-4 rounded-lg" />
+
+            <!-- Error Message -->
+            <Label text="{{ errorMessage }}" 
+                   class="text-red-500 text-center mt-2" 
+                   textWrap="true"
+                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+        </StackLayout>
+    </ScrollView>
+</Page>
