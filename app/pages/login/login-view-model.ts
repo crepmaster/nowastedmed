@@ -38,10 +38,10 @@ export class LoginViewModel extends Observable {
                     targetPage = 'pages/admin/dashboard/admin-dashboard-page';
                     break;
                 case 'pharmacist':
-                    targetPage = 'pages/pharmacist/dashboard/dashboard-page';
+                    targetPage = 'pages/pharmacy/dashboard/pharmacy-dashboard-page';
                     break;
                 case 'courier':
-                    targetPage = 'pages/courier/dashboard/dashboard-page';
+                    targetPage = 'pages/courier/dashboard/courier-dashboard-page';
                     break;
                 default:
                     this.set('errorMessage', 'Invalid user role');

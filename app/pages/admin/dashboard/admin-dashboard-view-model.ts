@@ -26,11 +26,12 @@ export class AdminDashboardViewModel extends Observable {
         this.authService = AuthService.getInstance();
         this.loadDashboardData();
 
-        // Bind methods to maintain correct 'this' context
+        // Bind methods
         this.onViewPharmacies = this.onViewPharmacies.bind(this);
         this.onViewCouriers = this.onViewCouriers.bind(this);
         this.onAddCourier = this.onAddCourier.bind(this);
         this.onLogout = this.onLogout.bind(this);
+        this.refreshData = this.refreshData.bind(this);
     }
 
     async loadDashboardData() {
@@ -49,6 +50,10 @@ export class AdminDashboardViewModel extends Observable {
         }
     }
 
+    async refreshData() {
+        await this.loadDashboardData();
+    }
+
     get showAddPharmacy(): boolean {
         return this.stats.totalPharmacies === 0;
     }
@@ -58,7 +63,6 @@ export class AdminDashboardViewModel extends Observable {
     }
 
     onAddCourier() {
-        console.log('Navigating to add courier page');
         this.navigationService.navigate({
             moduleName: 'pages/admin/couriers/courier-form-page',
             context: { mode: 'create' }
@@ -66,14 +70,12 @@ export class AdminDashboardViewModel extends Observable {
     }
 
     onViewPharmacies() {
-        console.log('Navigating to pharmacy list');
         this.navigationService.navigate({
             moduleName: 'pages/admin/pharmacies/pharmacy-list-page'
         });
     }
 
     onViewCouriers() {
-        console.log('Navigating to courier list');
         this.navigationService.navigate({
             moduleName: 'pages/admin/couriers/courier-list-page'
         });

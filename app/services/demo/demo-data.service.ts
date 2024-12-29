@@ -38,11 +38,27 @@ export class DemoDataService {
                 address: '123 Pharmacy St'
             };
 
-            const success = await this.authService.register(demoPharmacy);
-            if (success) {
-                console.log('Demo pharmacy created successfully');
+            // Create demo courier
+            const demoCourier = {
+                email: 'demo.courier@example.com',
+                password: 'Demo@123',
+                role: 'courier',
+                name: 'John Delivery',
+                phoneNumber: '+1987654321',
+                vehicleType: 'Motorcycle',
+                licenseNumber: 'CDL789012'
+            };
+
+            // Register users with proper password hashing
+            const pharmacySuccess = await this.authService.register(demoPharmacy);
+            const courierSuccess = await this.authService.register(demoCourier);
+            
+            if (pharmacySuccess && courierSuccess) {
+                console.log('Demo data initialized successfully');
                 const users = this.authStorage.loadUsers();
                 console.log('Current users:', users);
+            } else {
+                console.error('Failed to initialize some demo data');
             }
         } catch (error) {
             console.error('Error initializing demo data:', error);
