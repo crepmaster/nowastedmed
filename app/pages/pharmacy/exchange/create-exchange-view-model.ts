@@ -38,7 +38,6 @@ export class CreateExchangeViewModel extends Observable {
 
             const exchange = await this.exchangeService.createExchange({
                 proposedBy: user.id,
-                proposedTo: '', // Will be set when a pharmacy accepts
                 status: 'pending',
                 priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase(),
                 proposedMedicines: [{
@@ -51,12 +50,12 @@ export class CreateExchangeViewModel extends Observable {
             });
 
             this.navigationService.navigate({
-                moduleName: 'pages/pharmacy/exchange/exchange-list-page',
+                moduleName: 'pages/pharmacy/dashboard/pharmacy-dashboard-page',
                 clearHistory: true
             });
         } catch (error) {
-            console.error('Error creating exchange:', error);
-            this.set('errorMessage', 'Failed to create exchange');
+            console.error('Error making medicine available:', error);
+            this.set('errorMessage', 'Failed to make medicine available');
         }
     }
 

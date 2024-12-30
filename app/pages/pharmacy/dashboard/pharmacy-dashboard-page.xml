@@ -37,8 +37,8 @@
                                     <Label text="{{ status }}" class="text-sm" 
                                            color="{{ status === 'available' ? '#22c55e' : '#f97316' }}" />
                                 </StackLayout>
-                                <Button col="1" text="Exchange" 
-                                        tap="{{ $parents['ListView'].onExchangeMedicine }}"
+                                <Button col="1" text="Make Available" 
+                                        tap="{{ $parents['ListView'].onMakeAvailable }}"
                                         visibility="{{ status === 'available' ? 'visible' : 'collapsed' }}"
                                         class="bg-green-500 text-white p-2 rounded" />
                             </GridLayout>
@@ -51,12 +51,14 @@
                     <ListView.itemTemplate>
                         <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
                             <StackLayout col="0">
-                                <Label text="{{ medicineName }}" class="text-lg font-semibold" />
+                                <Label text="{{ proposedMedicines[0].medicine.name }}" class="text-lg font-semibold" />
                                 <Label text="{{ 'From: ' + fromPharmacyName }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Quantity: ' + proposedMedicines[0].quantity }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Priority: ' + priority }}" class="text-sm" 
+                                       color="{{ priority === 'high' ? '#ef4444' : (priority === 'medium' ? '#f97316' : '#3b82f6') }}" />
                             </StackLayout>
-                            <Button col="1" text="Request" 
-                                    tap="{{ $parents['ListView'].onRequestExchange }}"
+                            <Button col="1" text="Create Proposal" 
+                                    tap="{{ $parents['ListView'].onCreateProposal }}"
                                     class="bg-blue-500 text-white p-2 rounded" />
                         </GridLayout>
                     </ListView.itemTemplate>

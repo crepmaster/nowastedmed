@@ -1,13 +1,13 @@
 <Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
-    <ActionBar title="Create Exchange" class="bg-blue-500 text-white">
+    <ActionBar title="Make Medicine Available" class="bg-blue-500 text-white">
         <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
     </ActionBar>
 
     <ScrollView>
         <StackLayout class="p-4">
-            <!-- Medicine Selection -->
+            <!-- Medicine Details -->
             <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
-                <Label text="Selected Medicine" class="text-lg font-bold mb-2" />
+                <Label text="Medicine Details" class="text-lg font-bold mb-2" />
                 <Label text="{{ medicine.name }}" class="text-lg" />
                 <Label text="{{ 'Quantity Available: ' + medicine.quantity }}" class="text-gray-600" />
                 <Label text="{{ 'Expires: ' + medicine.expiryDate }}" class="text-gray-600" />
@@ -15,7 +15,7 @@
                 <Label text="Exchange Quantity" class="mt-4 mb-2" />
                 <TextField text="{{ exchangeQuantity }}" 
                           keyboardType="number" 
-                          hint="Enter quantity to exchange"
+                          hint="Enter quantity to make available"
                           class="p-2 border rounded" />
             </StackLayout>
 
@@ -37,7 +37,7 @@
             </StackLayout>
 
             <!-- Submit Button -->
-            <Button text="Create Exchange" 
+            <Button text="Make Available for Exchange" 
                     tap="{{ onSubmit }}" 
                     class="bg-blue-500 text-white p-4 rounded-lg" />
 

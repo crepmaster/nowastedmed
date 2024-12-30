@@ -25,8 +25,8 @@ export class PharmacyDashboardViewModel extends Observable {
         this.medicineService = MedicineService.getInstance();
         
         // Bind methods
-        this.onExchangeMedicine = this.onExchangeMedicine.bind(this);
-        this.onRequestExchange = this.onRequestExchange.bind(this);
+        this.onMakeAvailable = this.onMakeAvailable.bind(this);
+        this.onCreateProposal = this.onCreateProposal.bind(this);
         this.onAddMedicine = this.onAddMedicine.bind(this);
         
         this.loadData();
@@ -37,16 +37,12 @@ export class PharmacyDashboardViewModel extends Observable {
             const user = this.authService.getCurrentUser();
             if (!user) return;
 
-            console.log('Loading data for user:', user.id);
-
             // Load medicines
             const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
-            console.log('Loaded medicines:', medicines);
             this.set('medicines', medicines);
 
             // Load available exchanges
             const exchanges = await this.medicineService.getAvailableExchanges(user.id);
-            console.log('Loaded exchanges:', exchanges);
             this.set('availableExchanges', exchanges);
 
             // Update stats
@@ -69,11 +65,9 @@ export class PharmacyDashboardViewModel extends Observable {
         });
     }
 
-    onExchangeMedicine(args: any) {
+    onMakeAvailable(args: any) {
         try {
             const medicine = args.object.bindingContext;
-            console.log('Creating exchange for medicine:', medicine);
-            
             this.navigationService.navigate({
                 moduleName: 'pages/pharmacy/exchange/create-exchange-page',
                 context: { medicine }
@@ -83,17 +77,15 @@ export class PharmacyDashboardViewModel extends Observable {
         }
     }
 
-    async onRequestExchange(args: any) {
+    onCreateProposal(args: any) {
         try {
             const exchange = args.object.bindingContext;
-            const user = this.authService.getCurrentUser();
-            
-            if (!user) return;
-
-            await this.medicineService.requestExchange(exchange.id, user.id);
-            await this.loadData(); // Refresh data
+            this.navigationService.navigate({
+                moduleName: 'pages/pharmacy/exchange/exchange-proposal-page',
+                context: { exchange }
+            });
         } catch (error) {
-            console.error('Error requesting exchange:', error);
+            console.error('Error navigating to create proposal:', error);
         }
     }
 

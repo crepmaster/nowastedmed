@@ -30,8 +30,6 @@ export class MedicineService extends Observable {
     }
 
     async getMedicinesByPharmacy(pharmacyId: string): Promise<Medicine[]> {
-        console.log('Getting medicines for pharmacy:', pharmacyId);
-        console.log('Current medicines:', this.medicines);
         return this.medicines.filter(m => m.pharmacyId === pharmacyId);
     }
 
@@ -43,15 +41,10 @@ export class MedicineService extends Observable {
         } as Medicine;
         
         this.medicines.push(newMedicine);
-        console.log('Added new medicine:', newMedicine);
-        console.log('Current medicines:', this.medicines);
-        
         return newMedicine;
     }
 
-    async createExchange(medicine: Medicine): Promise<Exchange> {
-        console.log('Creating exchange for medicine:', medicine);
-        
+    async createExchange(medicine: Medicine, quantity: number, priority: string, notes: string): Promise<Exchange> {
         const user = this.authService.getCurrentUser();
         if (!user) {
             throw new Error('User not authenticated');
@@ -61,13 +54,18 @@ export class MedicineService extends Observable {
             id: Date.now().toString(),
             medicineId: medicine.id,
             fromPharmacyId: user.id,
+            fromPharmacyName: user.name,
             toPharmacyId: '',
             status: 'pending',
             createdAt: new Date(),
             qrCode: '',
-            medicineName: medicine.name, // Add medicine name for display
-            fromPharmacyName: user.name, // Add pharmacy name for display
-            quantity: medicine.quantity
+            priority: priority,
+            notes: notes,
+            proposedMedicines: [{
+                medicineId: medicine.id,
+                quantity: quantity,
+                medicine: medicine
+            }]
         };
 
         // Update medicine status
@@ -81,49 +79,20 @@ export class MedicineService extends Observable {
         exchanges.push(exchange);
         this.exchangeStorage.saveExchanges(exchanges);
         
-        console.log('Created new exchange:', exchange);
         return exchange;
     }
 
     async getAvailableExchanges(currentPharmacyId: string): Promise<Exchange[]> {
-        console.log('Getting available exchanges for pharmacy:', currentPharmacyId);
         const exchanges = this.exchangeStorage.loadExchanges();
-        console.log('All exchanges:', exchanges);
         
         // Filter exchanges that are:
         // 1. In 'pending' status
         // 2. Not created by the current pharmacy
         // 3. Not yet accepted by another pharmacy
-        const availableExchanges = exchanges.filter(e => 
+        return exchanges.filter(e => 
             e.status === 'pending' && 
             e.fromPharmacyId !== currentPharmacyId &&
             !e.toPharmacyId
         );
-        
-        console.log('Available exchanges:', availableExchanges);
-        return availableExchanges;
-    }
-
-    async requestExchange(exchangeId: string, toPharmacyId: string): Promise<boolean> {
-        console.log('Requesting exchange:', exchangeId, 'for pharmacy:', toPharmacyId);
-        
-        const exchanges = this.exchangeStorage.loadExchanges();
-        const exchange = exchanges.find(e => e.id === exchangeId);
-        
-        if (exchange) {
-            exchange.status = 'accepted';
-            exchange.toPharmacyId = toPharmacyId;
-            this.exchangeStorage.saveExchanges(exchanges);
-            
-            // Update medicine status
-            const medicine = this.medicines.find(m => m.id === exchange.medicineId);
-            if (medicine) {
-                medicine.status = 'exchanged';
-            }
-            
-            console.log('Exchange updated:', exchange);
-            return true;
-        }
-        return false;
     }
 }

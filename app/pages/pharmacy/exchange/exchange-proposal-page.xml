@@ -1,0 +1,56 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Create Exchange Proposal" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Available Medicine Details -->
+            <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
+                <Label text="Available Medicine" class="text-lg font-bold mb-2" />
+                <Label text="{{ availableMedicine.name }}" class="text-lg" />
+                <Label text="{{ 'From: ' + availableMedicine.fromPharmacyName }}" class="text-gray-600" />
+                <Label text="{{ 'Quantity: ' + availableMedicine.quantity }}" class="text-gray-600" />
+            </StackLayout>
+
+            <!-- Select Medicines to Offer -->
+            <Label text="Select Medicines to Offer" class="text-lg font-bold mb-2" />
+            <ListView items="{{ myMedicines }}" class="mb-4">
+                <ListView.itemTemplate>
+                    <GridLayout columns="auto, *, auto" class="p-4 bg-white border-b">
+                        <CheckBox col="0" checked="{{ selected }}" />
+                        <StackLayout col="1" class="ml-2">
+                            <Label text="{{ name }}" class="font-semibold" />
+                            <Label text="{{ 'Available: ' + quantity }}" class="text-sm text-gray-600" />
+                        </StackLayout>
+                        <TextField col="2" 
+                                 text="{{ offerQuantity }}"
+                                 hint="Qty" 
+                                 keyboardType="number"
+                                 visibility="{{ selected ? 'visible' : 'collapsed' }}"
+                                 width="60"
+                                 class="text-right" />
+                    </GridLayout>
+                </ListView.itemTemplate>
+            </ListView>
+
+            <!-- Notes -->
+            <Label text="Additional Notes" class="text-lg font-bold mb-2" />
+            <TextView text="{{ notes }}" 
+                      hint="Add any notes about your proposal"
+                      height="100"
+                      class="p-2 border rounded mb-4" />
+
+            <!-- Submit Button -->
+            <Button text="Submit Proposal" 
+                    tap="{{ onSubmitProposal }}" 
+                    class="bg-blue-500 text-white p-4 rounded-lg" />
+
+            <!-- Error Message -->
+            <Label text="{{ errorMessage }}" 
+                   class="text-red-500 text-center mt-2" 
+                   textWrap="true"
+                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+        </StackLayout>
+    </ScrollView>
+</Page>
