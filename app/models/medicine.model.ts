@@ -4,20 +4,22 @@ export interface Medicine {
   expiryDate: Date;
   quantity: number;
   pharmacyId: string;
-  status: 'available' | 'pending' | 'exchanged';
+  pharmacyName?: string; // Added for display purposes
+  status: 'available' | 'for_exchange' | 'pending' | 'exchanged';
   batchNumber: string;
+  exchangeQuantity?: number; // Quantity available for exchange
 }
 
 export interface Exchange {
   id: string;
   medicineId: string;
   fromPharmacyId: string;
-  toPharmacyId: string;
+  toPharmacyId?: string;
   courierId?: string;
   status: 'pending' | 'accepted' | 'in_transit' | 'completed';
   createdAt: Date;
   qrCode: string;
-  medicineName: string; // Added for display
-  fromPharmacyName: string; // Added for display
-  quantity: number; // Added for display
+  medicineName: string;
+  fromPharmacyName: string;
+  quantity: number;
 }

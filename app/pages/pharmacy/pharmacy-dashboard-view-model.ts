@@ -1,20 +1,6 @@
-import { Observable } from '@nativescript/core';
-import { NavigationService } from '../../services/navigation.service';
-import { AuthService } from '../../services/auth.service';
-import { Medicine } from '../../models/medicine.model';
-import { MedicineService } from '../../services/medicine.service';
-
 export class PharmacyDashboardViewModel extends Observable {
-    private navigationService: NavigationService;
-    private authService: AuthService;
-    private medicineService: MedicineService;
-
-    public medicines: Medicine[] = [];
-    public stats = {
-        available: 0,
-        pending: 0,
-        exchanged: 0
-    };
+    // ... existing properties ...
+    public availableMedicines: Medicine[] = [];
 
     constructor() {
         super();
@@ -32,40 +18,26 @@ export class PharmacyDashboardViewModel extends Observable {
                 return;
             }
 
+            // Load my medicines
             const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
             this.set('medicines', medicines);
             this.updateStats(medicines);
+
+            // Load available medicines from other pharmacies
+            const availableMedicines = await this.medicineService.getAvailableMedicinesForExchange(user.id);
+            this.set('availableMedicines', availableMedicines);
         } catch (error) {
             console.error('Error loading pharmacy data:', error);
         }
     }
 
-    private updateStats(medicines: Medicine[]) {
-        this.stats.available = medicines.filter(m => m.status === 'available').length;
-        this.stats.pending = medicines.filter(m => m.status === 'pending').length;
-        this.stats.exchanged = medicines.filter(m => m.status === 'exchanged').length;
-        this.notifyPropertyChange('stats', this.stats);
-    }
+    // ... existing methods ...
 
-    onAddMedicine() {
-        this.navigationService.navigate({
-            moduleName: 'pages/pharmacy/medicine/add-medicine-page'
-        });
-    }
-
-    onExchangeMedicine(args: any) {
+    async onRequestExchange(args: any) {
         const medicine = args.object.bindingContext;
         this.navigationService.navigate({
             moduleName: 'pages/pharmacy/exchange/create-exchange-page',
-            context: { medicine }
-        });
-    }
-
-    onLogout() {
-        this.authService.logout();
-        this.navigationService.navigate({
-            moduleName: 'pages/login/login-page',
-            clearHistory: true
+            context: { medicine, isRequest: true }
         });
     }
 }

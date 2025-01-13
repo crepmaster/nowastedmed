@@ -1,42 +1,29 @@
-import { Observable } from '@nativescript/core';
-import { NavigationService } from '../../../services/navigation.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
-import { AuthService } from '../../../services/auth.service';
-import { Medicine } from '../../../models/medicine.model';
-
 export class CreateExchangeViewModel extends Observable {
-    private navigationService: NavigationService;
-    private exchangeService: ExchangeService;
-    private authService: AuthService;
-
-    public medicine: Medicine;
-    public exchangeQuantity: number = 0;
-    public priorityLevels = ['Low', 'Medium', 'High'];
-    public selectedPriorityIndex: number = 1;
-    public notes: string = '';
-    public errorMessage: string = '';
-
-    constructor(medicine: Medicine) {
-        super();
-        this.navigationService = NavigationService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.medicine = medicine;
-    }
+    // ... existing properties ...
 
     async onSubmit() {
         try {
-            if (!this.validateForm()) {
-                return;
-            }
+            if (!this.validateForm()) return;
 
             const user = this.authService.getCurrentUser();
             if (!user) {
-                this.set('errorMessage', 'User not authenticated');
+                this.set('errorMessage', 'User not logged in');
                 return;
             }
 
-            const exchange = await this.exchangeService.createExchange({
+            // First make the medicine available for exchange
+            const success = await this.medicineService.makeAvailableForExchange(
+                this.medicine.id,
+                this.exchangeQuantity
+            );
+
+            if (!success) {
+                this.set('errorMessage', 'Failed to make medicine available for exchange');
+                return;
+            }
+
+            // Create the exchange record
+            await this.exchangeService.createExchange({
                 proposedBy: user.id,
                 status: 'pending',
                 priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase(),
@@ -57,19 +44,5 @@ export class CreateExchangeViewModel extends Observable {
             console.error('Error making medicine available:', error);
             this.set('errorMessage', 'Failed to make medicine available');
         }
-    }
-
-    private validateForm(): boolean {
-        if (!this.exchangeQuantity || this.exchangeQuantity <= 0) {
-            this.set('errorMessage', 'Please enter a valid quantity');
-            return false;
-        }
-
-        if (this.exchangeQuantity > this.medicine.quantity) {
-            this.set('errorMessage', 'Exchange quantity cannot exceed available quantity');
-            return false;
-        }
-
-        return true;
     }
 }

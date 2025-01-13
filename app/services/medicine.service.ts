@@ -33,15 +33,47 @@ export class MedicineService extends Observable {
         return this.medicines.filter(m => m.pharmacyId === pharmacyId);
     }
 
+    async getAvailableMedicinesForExchange(currentPharmacyId: string): Promise<Medicine[]> {
+        return this.medicines.filter(m => 
+            m.status === 'for_exchange' && 
+            m.pharmacyId !== currentPharmacyId &&
+            m.exchangeQuantity > 0
+        );
+    }
+
     async addMedicine(medicine: Partial<Medicine>): Promise<Medicine> {
         const newMedicine: Medicine = {
             id: Date.now().toString(),
             ...medicine,
-            status: 'available'
+            status: 'available',
+            exchangeQuantity: 0
         } as Medicine;
         
         this.medicines.push(newMedicine);
         return newMedicine;
+    }
+
+    async makeAvailableForExchange(medicineId: string, quantity: number): Promise<boolean> {
+        try {
+            const medicine = this.medicines.find(m => m.id === medicineId);
+            if (!medicine) {
+                console.error('Medicine not found');
+                return false;
+            }
+
+            if (quantity > medicine.quantity) {
+                console.error('Exchange quantity exceeds available quantity');
+                return false;
+            }
+
+            medicine.status = 'for_exchange';
+            medicine.exchangeQuantity = quantity;
+            
+            return true;
+        } catch (error) {
+            console.error('Error making medicine available for exchange:', error);
+            return false;
+        }
     }
 
     async createExchange(medicine: Medicine, quantity: number, priority: string, notes: string): Promise<Exchange> {
@@ -55,23 +87,18 @@ export class MedicineService extends Observable {
             medicineId: medicine.id,
             fromPharmacyId: user.id,
             fromPharmacyName: user.name,
-            toPharmacyId: '',
             status: 'pending',
             createdAt: new Date(),
             qrCode: '',
-            priority: priority,
-            notes: notes,
-            proposedMedicines: [{
-                medicineId: medicine.id,
-                quantity: quantity,
-                medicine: medicine
-            }]
+            medicineName: medicine.name,
+            quantity: quantity
         };
 
         // Update medicine status
         const medicineToUpdate = this.medicines.find(m => m.id === medicine.id);
         if (medicineToUpdate) {
             medicineToUpdate.status = 'pending';
+            medicineToUpdate.exchangeQuantity = quantity;
         }
         
         // Save exchange
@@ -84,11 +111,6 @@ export class MedicineService extends Observable {
 
     async getAvailableExchanges(currentPharmacyId: string): Promise<Exchange[]> {
         const exchanges = this.exchangeStorage.loadExchanges();
-        
-        // Filter exchanges that are:
-        // 1. In 'pending' status
-        // 2. Not created by the current pharmacy
-        // 3. Not yet accepted by another pharmacy
         return exchanges.filter(e => 
             e.status === 'pending' && 
             e.fromPharmacyId !== currentPharmacyId &&
