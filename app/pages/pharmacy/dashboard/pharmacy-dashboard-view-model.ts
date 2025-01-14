@@ -8,6 +8,7 @@ export class PharmacyDashboardViewModel extends Observable {
     private navigationService: NavigationService;
     private authService: AuthService;
     private medicineService: MedicineService;
+    private refreshInterval: number;
 
     public medicines: Medicine[] = [];
     public availableExchanges: any[] = [];
@@ -24,39 +25,77 @@ export class PharmacyDashboardViewModel extends Observable {
         this.authService = AuthService.getInstance();
         this.medicineService = MedicineService.getInstance();
         
-        // Bind methods
+        // Bind all methods to maintain correct 'this' context
         this.onMakeAvailable = this.onMakeAvailable.bind(this);
         this.onCreateProposal = this.onCreateProposal.bind(this);
         this.onAddMedicine = this.onAddMedicine.bind(this);
+        this.onLogout = this.onLogout.bind(this);
+        this.refreshData = this.refreshData.bind(this);
         
+        // Initial data load
         this.loadData();
+        
+        // Set up auto-refresh
+        this.startAutoRefresh();
+    }
+
+    private startAutoRefresh() {
+        // Refresh every 30 seconds
+        this.refreshInterval = setInterval(() => {
+            this.refreshData();
+        }, 30000);
+    }
+
+    async refreshData() {
+        await this.loadData();
     }
 
     async loadData() {
         try {
             const user = this.authService.getCurrentUser();
-            if (!user) return;
+            if (!user) {
+                console.error('No user found');
+                return;
+            }
 
-            // Load medicines
+            // Load my medicines
             const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
             this.set('medicines', medicines);
-
-            // Load available exchanges
-            const exchanges = await this.medicineService.getAvailableExchanges(user.id);
-            this.set('availableExchanges', exchanges);
-
-            // Update stats
             this.updateStats(medicines);
+
+            // Load available medicines from other pharmacies
+            const availableMedicines = await this.medicineService.getAvailableMedicinesForExchange(user.id);
+            this.set('availableExchanges', availableMedicines);
+
+            // Notify all changes
+            this.notifyPropertyChange('medicines', this.medicines);
+            this.notifyPropertyChange('availableExchanges', this.availableExchanges);
+            this.notifyPropertyChange('stats', this.stats);
         } catch (error) {
-            console.error('Error loading dashboard data:', error);
+            console.error('Error loading pharmacy data:', error);
         }
     }
 
     private updateStats(medicines: Medicine[]) {
-        this.stats.available = medicines.filter(m => m.status === 'available').length;
-        this.stats.pending = medicines.filter(m => m.status === 'pending').length;
-        this.stats.exchanged = medicines.filter(m => m.status === 'exchanged').length;
+        const newStats = {
+            available: medicines.filter(m => m.status === 'available').length,
+            pending: medicines.filter(m => m.status === 'pending').length,
+            exchanged: medicines.filter(m => m.status === 'exchanged').length
+        };
+        
+        this.stats = newStats;
         this.notifyPropertyChange('stats', this.stats);
+    }
+
+    onMakeAvailable(args: any) {
+        console.log('Make Available clicked');
+        const medicine = args.object.bindingContext;
+        console.log('Medicine:', medicine);
+        
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/create-exchange-page',
+            context: { medicine }
+        });
     }
 
     onAddMedicine() {
@@ -65,31 +104,23 @@ export class PharmacyDashboardViewModel extends Observable {
         });
     }
 
-    onMakeAvailable(args: any) {
-        try {
-            const medicine = args.object.bindingContext;
-            this.navigationService.navigate({
-                moduleName: 'pages/pharmacy/exchange/create-exchange-page',
-                context: { medicine }
-            });
-        } catch (error) {
-            console.error('Error navigating to create exchange:', error);
-        }
-    }
-
     onCreateProposal(args: any) {
-        try {
-            const exchange = args.object.bindingContext;
-            this.navigationService.navigate({
-                moduleName: 'pages/pharmacy/exchange/exchange-proposal-page',
-                context: { exchange }
-            });
-        } catch (error) {
-            console.error('Error navigating to create proposal:', error);
-        }
+        console.log('Create Proposal clicked');
+        const exchange = args.object.bindingContext;
+        console.log('Exchange:', exchange);
+        
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/exchange-proposal-page',
+            context: { exchange }
+        });
     }
 
     onLogout() {
+        // Clear the refresh interval
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+        }
+
         this.authService.logout();
         this.navigationService.navigate({
             moduleName: 'pages/login/login-page',

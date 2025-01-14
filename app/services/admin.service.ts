@@ -14,6 +14,15 @@ export class AdminService extends Observable {
     private medicineService: MedicineService;
     private authService: AuthService;
 
+    private stats: AdminStats = {
+        totalPharmacies: 0,
+        totalCouriers: 0,
+        totalExchanges: 0,
+        activeExchanges: 0,
+        totalMedicines: 0,
+        savingsAmount: 0
+    };
+
     private constructor() {
         super();
         this.pharmacyDb = PharmacyDatabaseService.getInstance();
@@ -21,6 +30,9 @@ export class AdminService extends Observable {
         this.exchangeDb = ExchangeDatabaseService.getInstance();
         this.medicineService = MedicineService.getInstance();
         this.authService = AuthService.getInstance();
+
+        // Initialize stats
+        this.refreshStats();
     }
 
     static getInstance(): AdminService {
@@ -30,27 +42,20 @@ export class AdminService extends Observable {
         return AdminService.instance;
     }
 
-    async getStats(): Promise<AdminStats> {
+    async refreshStats(): Promise<void> {
         try {
-            console.log('Getting admin stats...');
+            console.log('Refreshing admin stats...');
             
-            // Get registered users
             const registeredUsers = this.authService.getRegisteredUsers();
-            
-            // Filter pharmacies and couriers
             const pharmacies = registeredUsers.filter(user => user.role === 'pharmacist');
             const couriers = registeredUsers.filter(user => user.role === 'courier');
-            
-            // Get exchanges and medicines
             const exchanges = await this.exchangeDb.getAllExchanges();
             const medicines = await this.medicineService.getAllMedicines();
-            
-            // Calculate active exchanges
             const activeExchanges = exchanges.filter(e => 
                 e.status === 'pending' || e.status === 'in_transit'
             ).length;
 
-            return {
+            const newStats = {
                 totalPharmacies: pharmacies.length,
                 totalCouriers: couriers.length,
                 totalExchanges: exchanges.length,
@@ -58,22 +63,19 @@ export class AdminService extends Observable {
                 totalMedicines: medicines.length,
                 savingsAmount: this.calculateSavings(exchanges)
             };
+
+            this.stats = newStats;
+            this.notifyPropertyChange('stats', this.stats);
         } catch (error) {
-            console.error('Error getting stats:', error);
-            return {
-                totalPharmacies: 0,
-                totalCouriers: 0,
-                totalExchanges: 0,
-                activeExchanges: 0,
-                totalMedicines: 0,
-                savingsAmount: 0
-            };
+            console.error('Error refreshing stats:', error);
         }
     }
 
+    getStats(): AdminStats {
+        return this.stats;
+    }
+
     private calculateSavings(exchanges: any[]): number {
-        // Implement your savings calculation logic here
-        // For now, return a placeholder value
-        return exchanges.length * 100; // Example: €100 per exchange
+        return exchanges.length * 100;
     }
 }

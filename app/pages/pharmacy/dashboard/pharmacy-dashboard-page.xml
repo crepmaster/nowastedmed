@@ -13,8 +13,8 @@
                 <Label text="{{ stats.available }}" class="text-2xl text-center text-blue-500" />
             </StackLayout>
             <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg shadow">
-                <Label text="Pending" class="text-gray-600" />
-                <Label text="{{ stats.pending }}" class="text-2xl text-center text-orange-500" />
+                <Label text="For Exchange" class="text-gray-600" />
+                <Label text="{{ stats.forExchange }}" class="text-2xl text-center text-orange-500" />
             </StackLayout>
             <StackLayout col="2" class="bg-white p-4 m-1 rounded-lg shadow">
                 <Label text="Exchanged" class="text-gray-600" />
@@ -22,20 +22,22 @@
             </StackLayout>
         </GridLayout>
 
-        <!-- TabView for Medicines and Exchanges -->
+        <!-- Main Content -->
         <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white">
+            <!-- My Medicines Tab -->
             <TabViewItem title="My Medicines">
                 <GridLayout rows="auto, *">
                     <Button text="Add Medicine" tap="{{ onAddMedicine }}" class="bg-blue-500 text-white m-2 rounded" />
-                    <ListView row="1" items="{{ medicines }}">
+                    <ListView row="1" items="{{ medicines }}" class="list-group">
                         <ListView.itemTemplate>
-                            <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
+                            <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
                                 <StackLayout col="0">
-                                    <Label text="{{ name }}" class="text-lg font-semibold" />
+                                    <Label text="{{ name }}" class="text-lg font-bold" />
+                                    <Label text="{{ 'Available: ' + quantity }}" class="text-sm text-gray-600" />
                                     <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
-                                    <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
-                                    <Label text="{{ status }}" class="text-sm" 
-                                           color="{{ status === 'available' ? '#22c55e' : '#f97316' }}" />
+                                    <Label text="{{ exchangeQuantity ? 'For Exchange: ' + exchangeQuantity : '' }}" 
+                                           class="text-sm text-orange-500"
+                                           visibility="{{ exchangeQuantity ? 'visible' : 'collapsed' }}" />
                                 </StackLayout>
                                 <Button col="1" text="Make Available" 
                                         tap="{{ $parents['ListView'].onMakeAvailable }}"
@@ -46,16 +48,17 @@
                     </ListView>
                 </GridLayout>
             </TabViewItem>
+
+            <!-- Available Exchanges Tab -->
             <TabViewItem title="Available Exchanges">
-                <ListView items="{{ availableExchanges }}">
+                <ListView items="{{ availableExchanges }}" class="list-group">
                     <ListView.itemTemplate>
-                        <GridLayout columns="*, auto" class="p-2 border-b border-gray-200">
+                        <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
                             <StackLayout col="0">
-                                <Label text="{{ proposedMedicines[0].medicine.name }}" class="text-lg font-semibold" />
-                                <Label text="{{ 'From: ' + fromPharmacyName }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'Quantity: ' + proposedMedicines[0].quantity }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'Priority: ' + priority }}" class="text-sm" 
-                                       color="{{ priority === 'high' ? '#ef4444' : (priority === 'medium' ? '#f97316' : '#3b82f6') }}" />
+                                <Label text="{{ name }}" class="text-lg font-bold" />
+                                <Label text="{{ 'From: ' + pharmacyName }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Quantity: ' + exchangeQuantity }}" class="text-sm text-gray-600" />
+                                <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
                             </StackLayout>
                             <Button col="1" text="Create Proposal" 
                                     tap="{{ $parents['ListView'].onCreateProposal }}"
@@ -63,6 +66,32 @@
                         </GridLayout>
                     </ListView.itemTemplate>
                 </ListView>
+            </TabViewItem>
+
+            <!-- My Exchanges Tab -->
+            <TabViewItem title="My Exchanges">
+                <GridLayout rows="auto, *">
+                    <SegmentedBar selectedIndex="{{ exchangeViewIndex }}" class="m-2">
+                        <SegmentedBar.items>
+                            <SegmentedBarItem title="My Offers" />
+                            <SegmentedBarItem title="My Proposals" />
+                        </SegmentedBar.items>
+                    </SegmentedBar>
+                    <ListView row="1" items="{{ currentExchangeView }}" class="list-group">
+                        <ListView.itemTemplate>
+                            <GridLayout columns="*" class="p-4 bg-white border-b border-gray-200">
+                                <StackLayout>
+                                    <Label text="{{ name }}" class="text-lg font-bold" />
+                                    <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ status }}" class="text-sm" color="{{ statusColor }}" />
+                                    <Button text="View Details" 
+                                            tap="{{ $parents['ListView'].onViewExchangeDetails }}"
+                                            class="bg-blue-500 text-white p-2 rounded mt-2" />
+                                </StackLayout>
+                            </GridLayout>
+                        </ListView.itemTemplate>
+                    </ListView>
+                </GridLayout>
             </TabViewItem>
         </TabView>
     </GridLayout>

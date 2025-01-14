@@ -34,11 +34,21 @@ export class MedicineService extends Observable {
     }
 
     async getAvailableMedicinesForExchange(currentPharmacyId: string): Promise<Medicine[]> {
-        return this.medicines.filter(m => 
+        const exchanges = this.exchangeStorage.loadExchanges();
+        const availableMedicines = this.medicines.filter(m => 
             m.status === 'for_exchange' && 
             m.pharmacyId !== currentPharmacyId &&
             m.exchangeQuantity > 0
         );
+
+        // Enrich medicines with pharmacy names
+        return availableMedicines.map(medicine => {
+            const exchange = exchanges.find(e => e.medicineId === medicine.id);
+            return {
+                ...medicine,
+                pharmacyName: exchange?.fromPharmacyName || 'Unknown Pharmacy'
+            };
+        });
     }
 
     async addMedicine(medicine: Partial<Medicine>): Promise<Medicine> {
@@ -50,6 +60,7 @@ export class MedicineService extends Observable {
         } as Medicine;
         
         this.medicines.push(newMedicine);
+        this.notifyPropertyChange('medicines', this.medicines);
         return newMedicine;
     }
 
@@ -69,6 +80,7 @@ export class MedicineService extends Observable {
             medicine.status = 'for_exchange';
             medicine.exchangeQuantity = quantity;
             
+            this.notifyPropertyChange('medicines', this.medicines);
             return true;
         } catch (error) {
             console.error('Error making medicine available for exchange:', error);
@@ -99,6 +111,7 @@ export class MedicineService extends Observable {
         if (medicineToUpdate) {
             medicineToUpdate.status = 'pending';
             medicineToUpdate.exchangeQuantity = quantity;
+            this.notifyPropertyChange('medicines', this.medicines);
         }
         
         // Save exchange
