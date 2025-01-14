@@ -18,8 +18,14 @@ export class ExchangeService extends Observable {
         return ExchangeService.instance;
     }
 
+    async getExchangesByPharmacy(pharmacyId: string): Promise<MedicineExchange[]> {
+        const exchanges = this.exchangeStorage.loadExchanges();
+        return exchanges.filter(e => 
+            e.proposedBy === pharmacyId || e.proposedTo === pharmacyId
+        );
+    }
+
     async createExchange(exchange: Partial<MedicineExchange>): Promise<MedicineExchange> {
-        // For Flow 1: Making medicine available
         const newExchange: MedicineExchange = {
             id: Date.now().toString(),
             status: 'pending',
@@ -29,7 +35,7 @@ export class ExchangeService extends Observable {
             proposedMedicines: exchange.proposedMedicines || [],
             offeredMedicines: [],
             proposedBy: exchange.proposedBy,
-            proposedTo: '', // Empty for Flow 1
+            proposedTo: '', // Empty for new exchanges
             notes: exchange.notes || ''
         };
 
@@ -40,30 +46,16 @@ export class ExchangeService extends Observable {
         return newExchange;
     }
 
-    async createProposal(exchangeId: string, proposingPharmacyId: string, offeredMedicines: any[]): Promise<boolean> {
-        // For Flow 2: Creating a proposal
+    async updateExchangeStatus(exchangeId: string, status: string): Promise<boolean> {
         const exchanges = this.exchangeStorage.loadExchanges();
         const exchange = exchanges.find(e => e.id === exchangeId);
         
-        if (!exchange) {
-            throw new Error('Exchange not found');
-        }
+        if (!exchange) return false;
 
-        exchange.proposedTo = proposingPharmacyId;
-        exchange.offeredMedicines = offeredMedicines;
-        exchange.status = 'proposal_pending';
+        exchange.status = status;
         exchange.updatedAt = new Date();
-
+        
         this.exchangeStorage.saveExchanges(exchanges);
         return true;
-    }
-
-    async getAvailableExchanges(pharmacyId: string): Promise<MedicineExchange[]> {
-        const exchanges = this.exchangeStorage.loadExchanges();
-        return exchanges.filter(e => 
-            e.status === 'pending' && 
-            e.proposedBy !== pharmacyId &&
-            !e.proposedTo // No proposal yet
-        );
     }
 }
