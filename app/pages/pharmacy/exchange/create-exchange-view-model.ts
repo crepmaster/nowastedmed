@@ -26,8 +26,8 @@ export class CreateExchangeViewModel extends Observable {
         this.medicineService = MedicineService.getInstance();
         this.medicine = medicine;
 
-        // Bind methods
-        this.onSubmit = this.onSubmit.bind(this);
+        // Set medicine as observable property
+        this.set('medicine', medicine);
     }
 
     async onSubmit() {
@@ -40,19 +40,19 @@ export class CreateExchangeViewModel extends Observable {
                 return;
             }
 
-            // First update the medicine status and quantity
+            // First make the medicine available for exchange
             const success = await this.medicineService.makeAvailableForExchange(
                 this.medicine.id,
                 this.exchangeQuantity
             );
 
             if (!success) {
-                this.set('errorMessage', 'Failed to update medicine status');
+                this.set('errorMessage', 'Failed to make medicine available for exchange');
                 return;
             }
 
-            // Then create the exchange record
-            const exchange = await this.exchangeService.createExchange({
+            // Create the exchange record
+            await this.exchangeService.createExchange({
                 proposedBy: user.id,
                 status: 'pending',
                 priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase(),
@@ -65,15 +65,14 @@ export class CreateExchangeViewModel extends Observable {
                 notes: this.notes
             });
 
-            if (!exchange) {
-                this.set('errorMessage', 'Failed to create exchange');
-                return;
-            }
-
-            this.navigationService.goBack();
+            // Navigate back to dashboard
+            this.navigationService.navigate({
+                moduleName: 'pages/pharmacy/dashboard/pharmacy-dashboard-page',
+                clearHistory: true
+            });
         } catch (error) {
-            console.error('Error creating exchange:', error);
-            this.set('errorMessage', 'Failed to create exchange');
+            console.error('Error making medicine available:', error);
+            this.set('errorMessage', 'Failed to make medicine available');
         }
     }
 

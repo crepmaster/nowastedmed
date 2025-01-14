@@ -9,7 +9,7 @@
             <StackLayout class="bg-white p-4 rounded-lg shadow mb-4">
                 <Label text="Medicine Details" class="text-lg font-bold mb-2" />
                 <Label text="{{ medicine.name }}" class="text-lg" />
-                <Label text="{{ 'Quantity Available: ' + medicine.quantity }}" class="text-gray-600" />
+                <Label text="{{ 'Available Quantity: ' + medicine.quantity }}" class="text-gray-600" />
                 <Label text="{{ 'Expires: ' + medicine.expiryDate }}" class="text-gray-600" />
                 
                 <Label text="Exchange Quantity" class="mt-4 mb-2" />

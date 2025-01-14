@@ -13,8 +13,8 @@
                 <Label text="{{ stats.available }}" class="text-2xl text-center text-blue-500" />
             </StackLayout>
             <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg shadow">
-                <Label text="For Exchange" class="text-gray-600" />
-                <Label text="{{ stats.forExchange }}" class="text-2xl text-center text-orange-500" />
+                <Label text="Pending" class="text-gray-600" />
+                <Label text="{{ stats.pending }}" class="text-2xl text-center text-orange-500" />
             </StackLayout>
             <StackLayout col="2" class="bg-white p-4 m-1 rounded-lg shadow">
                 <Label text="Exchanged" class="text-gray-600" />
@@ -22,7 +22,6 @@
             </StackLayout>
         </GridLayout>
 
-        <!-- Main Content -->
         <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white">
             <!-- My Medicines Tab -->
             <TabViewItem title="My Medicines">
@@ -33,16 +32,44 @@
                             <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
                                 <StackLayout col="0">
                                     <Label text="{{ name }}" class="text-lg font-bold" />
-                                    <Label text="{{ 'Available: ' + quantity }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ 'Total Quantity: ' + quantity }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ exchangeQuantity ? 'Available for Exchange: ' + exchangeQuantity : '' }}" 
+                                           class="text-sm text-blue-600"
+                                           visibility="{{ exchangeQuantity > 0 ? 'visible' : 'collapsed' }}" />
                                     <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
-                                    <Label text="{{ exchangeQuantity ? 'For Exchange: ' + exchangeQuantity : '' }}" 
-                                           class="text-sm text-orange-500"
-                                           visibility="{{ exchangeQuantity ? 'visible' : 'collapsed' }}" />
                                 </StackLayout>
                                 <Button col="1" text="Make Available" 
                                         tap="{{ $parents['ListView'].onMakeAvailable }}"
                                         visibility="{{ status === 'available' ? 'visible' : 'collapsed' }}"
                                         class="bg-green-500 text-white p-2 rounded" />
+                            </GridLayout>
+                        </ListView.itemTemplate>
+                    </ListView>
+                </GridLayout>
+            </TabViewItem>
+
+            <!-- Exchange Hub Tab -->
+            <TabViewItem title="Exchange Hub">
+                <GridLayout rows="auto, *">
+                    <SegmentedBar selectedIndex="{{ exchangeViewIndex }}" class="m-2">
+                        <SegmentedBar.items>
+                            <SegmentedBarItem title="My Offers" />
+                            <SegmentedBarItem title="My Proposals" />
+                        </SegmentedBar.items>
+                    </SegmentedBar>
+                    
+                    <ListView row="1" items="{{ currentExchangeView }}" class="list-group">
+                        <ListView.itemTemplate>
+                            <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
+                                <StackLayout col="0">
+                                    <Label text="{{ proposedMedicines[0].medicine.name }}" class="text-lg font-bold" />
+                                    <Label text="{{ 'Quantity: ' + proposedMedicines[0].quantity }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ 'Status: ' + status }}" class="text-sm" 
+                                           color="{{ status === 'pending' ? '#f97316' : '#22c55e' }}" />
+                                </StackLayout>
+                                <Button col="1" text="{{ actionButtonText }}" 
+                                        tap="{{ $parents['ListView'].onExchangeAction }}"
+                                        class="{{ actionButtonClass }}" />
                             </GridLayout>
                         </ListView.itemTemplate>
                     </ListView>
@@ -66,32 +93,6 @@
                         </GridLayout>
                     </ListView.itemTemplate>
                 </ListView>
-            </TabViewItem>
-
-            <!-- My Exchanges Tab -->
-            <TabViewItem title="My Exchanges">
-                <GridLayout rows="auto, *">
-                    <SegmentedBar selectedIndex="{{ exchangeViewIndex }}" class="m-2">
-                        <SegmentedBar.items>
-                            <SegmentedBarItem title="My Offers" />
-                            <SegmentedBarItem title="My Proposals" />
-                        </SegmentedBar.items>
-                    </SegmentedBar>
-                    <ListView row="1" items="{{ currentExchangeView }}" class="list-group">
-                        <ListView.itemTemplate>
-                            <GridLayout columns="*" class="p-4 bg-white border-b border-gray-200">
-                                <StackLayout>
-                                    <Label text="{{ name }}" class="text-lg font-bold" />
-                                    <Label text="{{ 'Quantity: ' + quantity }}" class="text-sm text-gray-600" />
-                                    <Label text="{{ status }}" class="text-sm" color="{{ statusColor }}" />
-                                    <Button text="View Details" 
-                                            tap="{{ $parents['ListView'].onViewExchangeDetails }}"
-                                            class="bg-blue-500 text-white p-2 rounded mt-2" />
-                                </StackLayout>
-                            </GridLayout>
-                        </ListView.itemTemplate>
-                    </ListView>
-                </GridLayout>
             </TabViewItem>
         </TabView>
     </GridLayout>
