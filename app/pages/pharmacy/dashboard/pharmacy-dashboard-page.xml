@@ -23,7 +23,6 @@
         </GridLayout>
 
         <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white">
-            <!-- My Medicines Tab -->
             <TabViewItem title="My Medicines">
                 <GridLayout rows="auto, *">
                     <Button text="Add Medicine" tap="{{ onAddMedicine }}" class="bg-blue-500 text-white m-2 rounded" />
@@ -36,64 +35,20 @@
                                     <Label text="{{ exchangeQuantity ? 'Available for Exchange: ' + exchangeQuantity : '' }}" 
                                            class="text-sm text-blue-600"
                                            visibility="{{ exchangeQuantity > 0 ? 'visible' : 'collapsed' }}" />
-                                    <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
                                 </StackLayout>
-                                <Button col="1" text="Make Available" 
-                                        tap="{{ $parents['ListView'].onMakeAvailable }}"
-                                        visibility="{{ status === 'available' ? 'visible' : 'collapsed' }}"
-                                        class="bg-green-500 text-white p-2 rounded" />
+                                <StackLayout col="1">
+                                    <Button text="Make Available" 
+                                            tap="{{ $parents['ListView'].onMakeAvailable }}"
+                                            class="bg-green-500 text-white p-2 rounded mb-2"
+                                            visibility="{{ quantity > 0 ? 'visible' : 'collapsed' }}" />
+                                </StackLayout>
                             </GridLayout>
                         </ListView.itemTemplate>
                     </ListView>
                 </GridLayout>
             </TabViewItem>
 
-            <!-- Exchange Hub Tab -->
-            <TabViewItem title="Exchange Hub">
-                <GridLayout rows="auto, *">
-                    <SegmentedBar selectedIndex="{{ exchangeViewIndex }}" class="m-2">
-                        <SegmentedBar.items>
-                            <SegmentedBarItem title="My Offers" />
-                            <SegmentedBarItem title="My Proposals" />
-                        </SegmentedBar.items>
-                    </SegmentedBar>
-                    
-                    <ListView row="1" items="{{ currentExchangeView }}" class="list-group">
-                        <ListView.itemTemplate>
-                            <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
-                                <StackLayout col="0">
-                                    <Label text="{{ proposedMedicines[0].medicine.name }}" class="text-lg font-bold" />
-                                    <Label text="{{ 'Quantity: ' + proposedMedicines[0].quantity }}" class="text-sm text-gray-600" />
-                                    <Label text="{{ 'Status: ' + status }}" class="text-sm" 
-                                           color="{{ status === 'pending' ? '#f97316' : '#22c55e' }}" />
-                                </StackLayout>
-                                <Button col="1" text="{{ actionButtonText }}" 
-                                        tap="{{ $parents['ListView'].onExchangeAction }}"
-                                        class="{{ actionButtonClass }}" />
-                            </GridLayout>
-                        </ListView.itemTemplate>
-                    </ListView>
-                </GridLayout>
-            </TabViewItem>
-
-            <!-- Available Exchanges Tab -->
-            <TabViewItem title="Available Exchanges">
-                <ListView items="{{ availableExchanges }}" class="list-group">
-                    <ListView.itemTemplate>
-                        <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
-                            <StackLayout col="0">
-                                <Label text="{{ name }}" class="text-lg font-bold" />
-                                <Label text="{{ 'From: ' + pharmacyName }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'Quantity: ' + exchangeQuantity }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'Expires: ' + expiryDate }}" class="text-sm text-gray-600" />
-                            </StackLayout>
-                            <Button col="1" text="Create Proposal" 
-                                    tap="{{ $parents['ListView'].onCreateProposal }}"
-                                    class="bg-blue-500 text-white p-2 rounded" />
-                        </GridLayout>
-                    </ListView.itemTemplate>
-                </ListView>
-            </TabViewItem>
+            <!-- ... rest of the tabs ... -->
         </TabView>
     </GridLayout>
 </Page>

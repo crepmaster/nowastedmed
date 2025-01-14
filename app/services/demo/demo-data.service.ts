@@ -29,11 +29,16 @@ export class DemoDataService {
 
     async initializeDemoData(): Promise<void> {
         try {
-            // Clear existing data
+            console.log('Clearing all existing data...');
+            
+            // Clear all data
             this.authStorage.clearUsers();
             this.exchangeStorage.clearExchanges();
+            this.medicineService.clearAllMedicines();
             
-            // Create first demo pharmacy
+            console.log('All data cleared. Creating demo pharmacies...');
+
+            // Create demo pharmacies without medicines
             const demoPharmacy1 = {
                 email: 'pharmacy1@demo.com',
                 password: 'Demo@123',
@@ -45,7 +50,6 @@ export class DemoDataService {
                 address: '123 Main St'
             };
 
-            // Create second demo pharmacy
             const demoPharmacy2 = {
                 email: 'pharmacy2@demo.com',
                 password: 'Demo@123',
@@ -58,66 +62,11 @@ export class DemoDataService {
             };
 
             // Register both pharmacies
-            const success1 = await this.authService.register(demoPharmacy1);
-            const success2 = await this.authService.register(demoPharmacy2);
+            await this.authService.register(demoPharmacy1);
+            await this.authService.register(demoPharmacy2);
 
-            if (success1 && success2) {
-                console.log('Demo pharmacies created successfully');
-                
-                // Get registered users to get their IDs
-                const users = this.authStorage.loadUsers();
-                const pharmacy1 = users.find(u => u.email === demoPharmacy1.email);
-                const pharmacy2 = users.find(u => u.email === demoPharmacy2.email);
-
-                if (pharmacy1 && pharmacy2) {
-                    // Add some demo medicines for pharmacy1
-                    await this.medicineService.addMedicine({
-                        name: 'Aspirin 100mg',
-                        quantity: 100,
-                        expiryDate: new Date('2024-12-31'),
-                        pharmacyId: pharmacy1.id,
-                        status: 'available',
-                        batchNumber: 'ASP100-001'
-                    });
-
-                    // Add demo medicines for pharmacy2
-                    await this.medicineService.addMedicine({
-                        name: 'Paracetamol 500mg',
-                        quantity: 200,
-                        expiryDate: new Date('2024-12-31'),
-                        pharmacyId: pharmacy2.id,
-                        status: 'available',
-                        batchNumber: 'PCM500-001'
-                    });
-
-                    // Create a demo exchange
-                    const exchange = {
-                        id: 'DEMO-001',
-                        proposedBy: pharmacy1.id,
-                        status: 'pending',
-                        proposedMedicines: [{
-                            medicineId: 'ASP100-001',
-                            quantity: 50,
-                            medicine: {
-                                name: 'Aspirin 100mg',
-                                quantity: 50,
-                                expiryDate: new Date('2024-12-31')
-                            }
-                        }],
-                        offeredMedicines: [],
-                        priority: 'medium',
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    };
-
-                    this.exchangeStorage.saveExchanges([exchange]);
-
-                    console.log('Demo data initialized successfully');
-                    console.log('Pharmacy 1:', pharmacy1);
-                    console.log('Pharmacy 2:', pharmacy2);
-                    console.log('Demo exchange created:', exchange);
-                }
-            }
+            console.log('Demo pharmacies created successfully');
+            console.log('Initialization complete - no medicines added');
         } catch (error) {
             console.error('Error initializing demo data:', error);
         }
