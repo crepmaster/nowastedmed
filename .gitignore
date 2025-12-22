@@ -32,3 +32,10 @@ typings/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Firebase - Sensitive configuration files
+google-services.json
+GoogleService-Info.plist
+firebase.config.ts
+documents/*.json
+documents/*.plist
