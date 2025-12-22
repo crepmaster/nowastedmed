@@ -37,5 +37,6 @@ typings/
 google-services.json
 GoogleService-Info.plist
 firebase.config.ts
-documents/*.json
-documents/*.plist
+
+# Documents folder - contains sensitive Firebase console exports
+documents/
