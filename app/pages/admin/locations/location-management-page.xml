@@ -1,0 +1,185 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd"
+      navigatingTo="onNavigatingTo"
+      class="bg-gray-100">
+
+    <ActionBar title="Location Management" class="bg-blue-600 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
+    </ActionBar>
+
+    <GridLayout rows="auto, *">
+        <!-- Tab Selection -->
+        <SegmentedBar row="0"
+                      selectedIndex="{{ selectedTabIndex }}"
+                      class="m-2">
+            <SegmentedBar.items>
+                <SegmentedBarItem title="Countries" />
+                <SegmentedBarItem title="Cities" />
+                <SegmentedBarItem title="Couriers" />
+            </SegmentedBar.items>
+        </SegmentedBar>
+
+        <!-- Content Area -->
+        <ScrollView row="1">
+            <StackLayout class="p-2">
+                <!-- Loading Indicator -->
+                <ActivityIndicator busy="{{ isLoading }}"
+                                   visibility="{{ isLoading ? 'visible' : 'collapsed' }}"
+                                   class="m-4" />
+
+                <!-- COUNTRIES TAB -->
+                <StackLayout visibility="{{ selectedTabIndex === 0 ? 'visible' : 'collapsed' }}">
+                    <!-- Add Country Button -->
+                    <Button text="+ Add Country"
+                            tap="{{ onAddCountry }}"
+                            class="bg-green-500 text-white m-2 p-3 rounded-lg" />
+
+                    <!-- Statistics -->
+                    <GridLayout columns="*, *" rows="auto" class="bg-white m-2 p-3 rounded-lg">
+                        <StackLayout col="0" class="text-center">
+                            <Label text="{{ stats.totalCountries }}" class="text-2xl font-bold text-blue-600" />
+                            <Label text="Total" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                        <StackLayout col="1" class="text-center">
+                            <Label text="{{ stats.activeCountries }}" class="text-2xl font-bold text-green-600" />
+                            <Label text="Active" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                    </GridLayout>
+
+                    <!-- Countries List -->
+                    <Label text="No countries configured"
+                           visibility="{{ countries.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           class="text-gray-500 text-center p-4" />
+
+                    <StackLayout>
+                        <Repeater items="{{ countries }}">
+                            <Repeater.itemTemplate>
+                                <GridLayout columns="*, auto, auto"
+                                            rows="auto, auto"
+                                            class="bg-white m-2 p-3 rounded-lg shadow">
+                                    <Label col="0" row="0"
+                                           text="{{ name }}"
+                                           class="font-bold text-lg" />
+                                    <Label col="0" row="1"
+                                           text="{{ code }} | {{ currency }} | {{ region }}"
+                                           class="text-gray-500 text-sm" />
+                                    <Label col="1" row="0" rowSpan="2"
+                                           text="{{ isActive ? 'Active' : 'Inactive' }}"
+                                           class="{{ isActive ? 'text-green-600' : 'text-red-600' }} m-2" />
+                                    <Button col="2" row="0" rowSpan="2"
+                                            text="Edit"
+                                            tap="{{ onEditCountry }}"
+                                            class="bg-blue-500 text-white p-2 rounded text-sm" />
+                                </GridLayout>
+                            </Repeater.itemTemplate>
+                        </Repeater>
+                    </StackLayout>
+                </StackLayout>
+
+                <!-- CITIES TAB -->
+                <StackLayout visibility="{{ selectedTabIndex === 1 ? 'visible' : 'collapsed' }}">
+                    <!-- Country Filter -->
+                    <StackLayout class="bg-white m-2 p-3 rounded-lg">
+                        <Label text="Select Country:" class="text-gray-600 mb-1" />
+                        <ListPicker items="{{ countryNames }}"
+                                    selectedIndex="{{ selectedCountryIndex }}"
+                                    class="border rounded" />
+                    </StackLayout>
+
+                    <!-- Add City Button -->
+                    <Button text="+ Add City"
+                            tap="{{ onAddCity }}"
+                            class="bg-green-500 text-white m-2 p-3 rounded-lg" />
+
+                    <!-- Cities Statistics -->
+                    <GridLayout columns="*, *" rows="auto" class="bg-white m-2 p-3 rounded-lg">
+                        <StackLayout col="0" class="text-center">
+                            <Label text="{{ filteredCities.length }}" class="text-2xl font-bold text-blue-600" />
+                            <Label text="Cities" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                        <StackLayout col="1" class="text-center">
+                            <Label text="{{ totalCouriersInCountry }}" class="text-2xl font-bold text-purple-600" />
+                            <Label text="Couriers" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                    </GridLayout>
+
+                    <!-- Cities List -->
+                    <Label text="No cities in this country"
+                           visibility="{{ filteredCities.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           class="text-gray-500 text-center p-4" />
+
+                    <StackLayout>
+                        <Repeater items="{{ filteredCities }}">
+                            <Repeater.itemTemplate>
+                                <GridLayout columns="*, auto, auto"
+                                            rows="auto, auto"
+                                            class="bg-white m-2 p-3 rounded-lg shadow"
+                                            tap="{{ onCityTap }}">
+                                    <Label col="0" row="0"
+                                           text="{{ name }}{{ isCapital ? ' (Capital)' : '' }}"
+                                           class="font-bold text-lg" />
+                                    <Label col="0" row="1"
+                                           text="{{ courierCount }} couriers assigned"
+                                           class="text-gray-500 text-sm" />
+                                    <Label col="1" row="0" rowSpan="2"
+                                           text="{{ isActive ? 'Active' : 'Inactive' }}"
+                                           class="{{ isActive ? 'text-green-600' : 'text-red-600' }} m-2" />
+                                    <Button col="2" row="0" rowSpan="2"
+                                            text="Manage"
+                                            tap="{{ onManageCity }}"
+                                            class="bg-purple-500 text-white p-2 rounded text-sm" />
+                                </GridLayout>
+                            </Repeater.itemTemplate>
+                        </Repeater>
+                    </StackLayout>
+                </StackLayout>
+
+                <!-- COURIERS TAB -->
+                <StackLayout visibility="{{ selectedTabIndex === 2 ? 'visible' : 'collapsed' }}">
+                    <!-- Courier Statistics -->
+                    <GridLayout columns="*, *, *" rows="auto" class="bg-white m-2 p-3 rounded-lg">
+                        <StackLayout col="0" class="text-center">
+                            <Label text="{{ stats.totalCouriers }}" class="text-2xl font-bold text-blue-600" />
+                            <Label text="Total" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                        <StackLayout col="1" class="text-center">
+                            <Label text="{{ stats.totalAssignments }}" class="text-2xl font-bold text-green-600" />
+                            <Label text="Assignments" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                        <StackLayout col="2" class="text-center">
+                            <Label text="{{ unassignedCouriers.length }}" class="text-2xl font-bold text-orange-600" />
+                            <Label text="Unassigned" class="text-gray-500 text-sm" />
+                        </StackLayout>
+                    </GridLayout>
+
+                    <!-- All Couriers List -->
+                    <Label text="All Couriers" class="font-bold text-lg m-2 mt-4" />
+
+                    <Label text="No couriers registered"
+                           visibility="{{ allCouriers.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           class="text-gray-500 text-center p-4" />
+
+                    <StackLayout>
+                        <Repeater items="{{ allCouriers }}">
+                            <Repeater.itemTemplate>
+                                <GridLayout columns="*, auto"
+                                            rows="auto, auto"
+                                            class="bg-white m-2 p-3 rounded-lg shadow">
+                                    <Label col="0" row="0"
+                                           text="{{ name }}"
+                                           class="font-bold text-lg" />
+                                    <Label col="0" row="1"
+                                           text="{{ phoneNumber }} | {{ operatingCities.length || 0 }} cities"
+                                           class="text-gray-500 text-sm" />
+                                    <Button col="1" row="0" rowSpan="2"
+                                            text="Assign"
+                                            tap="{{ onAssignCourier }}"
+                                            class="bg-purple-500 text-white p-2 rounded text-sm" />
+                                </GridLayout>
+                            </Repeater.itemTemplate>
+                        </Repeater>
+                    </StackLayout>
+                </StackLayout>
+            </StackLayout>
+        </ScrollView>
+    </GridLayout>
+</Page>

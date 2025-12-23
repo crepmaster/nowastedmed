@@ -1,0 +1,171 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd"
+      navigatingTo="onNavigatingTo"
+      class="page bg-gray-100">
+
+    <ActionBar title="Subscription Plans" class="action-bar">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" />
+    </ActionBar>
+
+    <GridLayout rows="auto, auto, *">
+        <!-- Statistics Header -->
+        <GridLayout row="0" columns="*, *, *" class="p-4 bg-white m-2 rounded-lg">
+            <StackLayout col="0" class="text-center">
+                <Label text="{{ stats.totalPlans }}" class="text-2xl font-bold text-blue-600" />
+                <Label text="Total Plans" class="text-xs text-gray-500" />
+            </StackLayout>
+            <StackLayout col="1" class="text-center">
+                <Label text="{{ stats.activePlans }}" class="text-2xl font-bold text-green-600" />
+                <Label text="Active" class="text-xs text-gray-500" />
+            </StackLayout>
+            <StackLayout col="2" class="text-center">
+                <Label text="{{ stats.countriesWithPlans }}" class="text-2xl font-bold text-purple-600" />
+                <Label text="Countries" class="text-xs text-gray-500" />
+            </StackLayout>
+        </GridLayout>
+
+        <!-- Tab Bar -->
+        <GridLayout row="1" columns="*, *" class="bg-white m-2 rounded-lg">
+            <Button col="0"
+                    text="All Plans"
+                    class="{{ selectedTabIndex === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700' }} p-3 m-1 rounded"
+                    tap="{{ onTabSelect }}"
+                    tag="0" />
+            <Button col="1"
+                    text="By Country"
+                    class="{{ selectedTabIndex === 1 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700' }} p-3 m-1 rounded"
+                    tap="{{ onTabSelect }}"
+                    tag="1" />
+        </GridLayout>
+
+        <!-- Content Area -->
+        <GridLayout row="2" rows="*, auto">
+            <!-- Loading Indicator -->
+            <ActivityIndicator busy="{{ isLoading }}"
+                               visibility="{{ isLoading ? 'visible' : 'collapsed' }}"
+                               class="text-blue-500" />
+
+            <!-- All Plans Tab -->
+            <ScrollView visibility="{{ selectedTabIndex === 0 && !isLoading ? 'visible' : 'collapsed' }}">
+                <StackLayout class="p-2">
+                    <!-- Country Filter -->
+                    <GridLayout columns="*, auto" class="bg-white p-3 m-2 rounded-lg">
+                        <StackLayout col="0">
+                            <Label text="Filter by Country" class="text-xs text-gray-500" />
+                            <ListPicker items="{{ countryFilterOptions }}"
+                                        selectedIndex="{{ selectedCountryFilterIndex }}"
+                                        class="picker" />
+                        </StackLayout>
+                        <Button col="1"
+                                text="+ Add Plan"
+                                class="bg-green-500 text-white p-3 rounded-lg"
+                                tap="{{ onAddPlan }}" />
+                    </GridLayout>
+
+                    <!-- Plans List -->
+                    <Label text="No plans found"
+                           class="text-center text-gray-500 p-4"
+                           visibility="{{ filteredPlans.length === 0 ? 'visible' : 'collapsed' }}" />
+
+                    <Repeater items="{{ filteredPlans }}">
+                        <Repeater.itemTemplate>
+                            <GridLayout columns="*, auto" class="bg-white p-4 m-2 rounded-lg" rows="auto, auto, auto, auto">
+                                <!-- Plan Header -->
+                                <GridLayout col="0" row="0" columns="auto, *, auto">
+                                    <Label col="0"
+                                           text="{{ type === 'free' ? 'F' : type === 'basic' ? 'B' : type === 'premium' ? 'P' : 'E' }}"
+                                           class="{{ type === 'free' ? 'bg-gray-500' : type === 'basic' ? 'bg-blue-500' : type === 'premium' ? 'bg-purple-500' : 'bg-yellow-500' }} text-white text-center w-8 h-8 rounded-full text-lg font-bold" />
+                                    <StackLayout col="1" class="ml-3">
+                                        <Label text="{{ name }}" class="font-bold text-lg" />
+                                        <Label text="{{ countryName || 'Global' }}" class="text-xs text-gray-500" />
+                                    </StackLayout>
+                                    <Label col="2"
+                                           text="{{ isActive ? 'Active' : 'Inactive' }}"
+                                           class="{{ isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }} text-xs px-2 py-1 rounded" />
+                                </GridLayout>
+
+                                <!-- Price -->
+                                <StackLayout col="0" row="1" class="mt-2">
+                                    <Label class="text-2xl font-bold text-blue-600">
+                                        <FormattedString>
+                                            <Span text="{{ price }}" />
+                                            <Span text=" {{ currency }}" class="text-sm" />
+                                        </FormattedString>
+                                    </Label>
+                                    <Label text="{{ billingCycle }}" class="text-xs text-gray-500" />
+                                </StackLayout>
+
+                                <!-- Limits Summary -->
+                                <WrapLayout col="0" row="2" class="mt-2">
+                                    <Label text="{{ limits.maxExchangesPerMonth === -1 ? 'Unlimited' : limits.maxExchangesPerMonth }} exchanges"
+                                           class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded m-1" />
+                                    <Label text="{{ limits.maxMedicinesInInventory === -1 ? 'Unlimited' : limits.maxMedicinesInInventory }} medicines"
+                                           class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded m-1" />
+                                    <Label text="{{ limits.prioritySupport ? 'Priority Support' : '' }}"
+                                           visibility="{{ limits.prioritySupport ? 'visible' : 'collapsed' }}"
+                                           class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded m-1" />
+                                </WrapLayout>
+
+                                <!-- Actions -->
+                                <StackLayout col="1" rowSpan="4" class="ml-2">
+                                    <Button text="Edit"
+                                            class="bg-blue-500 text-white p-2 rounded mb-2 text-sm"
+                                            tap="{{ $parents['SubscriptionManagementViewModel'].onEditPlan }}" />
+                                    <Button text="{{ isActive ? 'Deactivate' : 'Activate' }}"
+                                            class="{{ isActive ? 'bg-orange-500' : 'bg-green-500' }} text-white p-2 rounded mb-2 text-sm"
+                                            tap="{{ $parents['SubscriptionManagementViewModel'].onTogglePlanStatus }}" />
+                                    <Button text="Delete"
+                                            class="bg-red-500 text-white p-2 rounded text-sm"
+                                            tap="{{ $parents['SubscriptionManagementViewModel'].onDeletePlan }}" />
+                                </StackLayout>
+                            </GridLayout>
+                        </Repeater.itemTemplate>
+                    </Repeater>
+                </StackLayout>
+            </ScrollView>
+
+            <!-- By Country Tab -->
+            <ScrollView visibility="{{ selectedTabIndex === 1 && !isLoading ? 'visible' : 'collapsed' }}">
+                <StackLayout class="p-2">
+                    <Label text="Plans by Country" class="text-lg font-bold p-2" />
+
+                    <Label text="No country statistics available"
+                           class="text-center text-gray-500 p-4"
+                           visibility="{{ countryStats.length === 0 ? 'visible' : 'collapsed' }}" />
+
+                    <Repeater items="{{ countryStats }}">
+                        <Repeater.itemTemplate>
+                            <GridLayout columns="*, auto" class="bg-white p-4 m-2 rounded-lg" tap="{{ $parents['SubscriptionManagementViewModel'].onCountryTap }}">
+                                <StackLayout col="0">
+                                    <Label text="{{ countryName }}" class="font-bold text-lg" />
+                                    <Label text="{{ countryCode }}" class="text-xs text-gray-500" />
+                                    <GridLayout columns="auto, auto, auto, auto" class="mt-2">
+                                        <Label col="0" text="{{ plansByType.free }} Free" class="text-xs bg-gray-100 px-2 py-1 rounded mr-2" />
+                                        <Label col="1" text="{{ plansByType.basic }} Basic" class="text-xs bg-blue-100 px-2 py-1 rounded mr-2" />
+                                        <Label col="2" text="{{ plansByType.premium }} Premium" class="text-xs bg-purple-100 px-2 py-1 rounded mr-2" />
+                                        <Label col="3" text="{{ plansByType.enterprise }} Enterprise" class="text-xs bg-yellow-100 px-2 py-1 rounded" />
+                                    </GridLayout>
+                                </StackLayout>
+                                <StackLayout col="1" class="text-right">
+                                    <Label text="{{ totalPlans }}" class="text-2xl font-bold text-blue-600" />
+                                    <Label text="plans" class="text-xs text-gray-500" />
+                                    <Button text="Init Defaults"
+                                            class="bg-green-500 text-white p-2 rounded mt-2 text-sm"
+                                            visibility="{{ totalPlans === 0 ? 'visible' : 'collapsed' }}"
+                                            tap="{{ $parents['SubscriptionManagementViewModel'].onInitializeCountryPlans }}" />
+                                </StackLayout>
+                            </GridLayout>
+                        </Repeater.itemTemplate>
+                    </Repeater>
+                </StackLayout>
+            </ScrollView>
+
+            <!-- Add Plan FAB -->
+            <Button row="1"
+                    text="+ Add Plan"
+                    class="bg-blue-600 text-white p-4 rounded-full m-4"
+                    horizontalAlignment="right"
+                    tap="{{ onAddPlan }}"
+                    visibility="{{ !isLoading ? 'visible' : 'collapsed' }}" />
+        </GridLayout>
+    </GridLayout>
+</Page>

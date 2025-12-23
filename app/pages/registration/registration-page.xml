@@ -31,21 +31,37 @@
                           class="mb-4 p-3 border rounded" />
                 
                 <Label text="Phone Number" class="text-gray-600" />
-                <TextField text="{{ phoneNumber }}" 
-                          hint="Enter phone number" 
-                          keyboardType="phone" 
+                <TextField text="{{ phoneNumber }}"
+                          hint="Enter phone number"
+                          keyboardType="phone"
                           class="mb-4 p-3 border rounded" />
+
+                <!-- Location Selection (Required for all users) -->
+                <Label text="Country" class="text-gray-600" />
+                <ListPicker items="{{ countryNames }}"
+                           selectedIndex="{{ selectedCountryIndex }}"
+                           class="mb-4 p-3 border rounded" />
+
+                <Label text="City" class="text-gray-600" />
+                <ListPicker items="{{ cityNames }}"
+                           selectedIndex="{{ selectedCityIndex }}"
+                           class="mb-4 p-3 border rounded" />
 
                 <!-- Role-specific Fields -->
                 <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}">
                     <Label text="Pharmacy Name" class="text-gray-600" />
-                    <TextField text="{{ pharmacyName }}" 
-                              hint="Enter pharmacy name" 
+                    <TextField text="{{ pharmacyName }}"
+                              hint="Enter pharmacy name"
                               class="mb-4 p-3 border rounded" />
-                    
+
                     <Label text="License Number" class="text-gray-600" />
-                    <TextField text="{{ licenseNumber }}" 
-                              hint="Enter license number" 
+                    <TextField text="{{ licenseNumber }}"
+                              hint="Enter license number"
+                              class="mb-4 p-3 border rounded" />
+
+                    <Label text="Pharmacy Address" class="text-gray-600" />
+                    <TextField text="{{ address }}"
+                              hint="Enter street address"
                               class="mb-4 p-3 border rounded" />
                 </StackLayout>
 

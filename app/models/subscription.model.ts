@@ -22,7 +22,14 @@ export interface SubscriptionPlan {
     features: PlanFeature[];
     limits: PlanLimits;
     isActive: boolean;
+    // Country-specific fields
+    countryCode?: string;       // Optional: If set, plan is country-specific
+    countryName?: string;       // Country name for display
+    region?: string;            // Region for grouping (e.g., 'west_africa')
+    // Metadata
     createdAt: Date | any;
+    updatedAt?: Date | any;
+    createdBy?: string;         // Admin who created the plan
 }
 
 /**

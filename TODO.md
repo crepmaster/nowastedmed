@@ -1,5 +1,44 @@
 # NoWastedMed - TODO List
 
+## Completed (2024-12-23) - Session 5
+
+### Location-Based Organization & Same-City Exchange Enforcement
+- [x] **Location Model** - Comprehensive country/city configuration
+  - `app/models/location.model.ts` - 14 countries, 80+ cities across Africa
+  - Regions: West Africa (XOF, NGN, GHS, GNF), East Africa (KES, TZS, UGX), Southern Africa (BWP)
+  - Helper functions: getCountryByCode, getCitiesByCountry, isSameCity, etc.
+
+- [x] **User Model Updates** - Added structured location fields
+  - `UserLocation` interface with countryCode, cityId, cityName, region, currency
+  - `operatingCities` field for couriers to work in multiple cities
+  - Backwards compatible with legacy `address` field
+
+- [x] **Exchange Service** - Same-city validation MANDATORY
+  - `getPendingExchanges()` now filters by cityId
+  - `createExchange()` requires location data
+  - `validateSameCityExchange()` helper for validation
+  - Added `ExchangeLocation` to exchange model
+
+- [x] **Delivery Service** - City-based filtering for couriers
+  - `getPendingDeliveriesByCity()` for single-city couriers
+  - `getPendingDeliveriesByCities()` for multi-city couriers
+  - Couriers only see deliveries in their operating cities
+  - Added `DeliveryLocation` to delivery model
+
+- [x] **Registration Updates** - Country/city selection required
+  - Country dropdown with all supported countries
+  - City dropdown updates based on country selection
+  - Address field for street-level location
+  - Couriers get initial `operatingCities` set
+
+- [x] **Exchange Hub** - Same-city filtering
+  - Available exchanges filtered by user's city
+  - Uses Firebase service with city-based queries
+
+- [x] **Firestore Indexes** - Added city-based query indexes
+  - `exchanges` collection: status + location.cityId + createdAt
+  - `deliveries` collection: status + location.cityId + createdAt
+
 ## Completed (2024-12-23) - Session 4
 
 ### Missing Features Implementation
@@ -137,6 +176,21 @@ npm install @nativescript/firebase-app-check
 # 3. Register iOS app with DeviceCheck/App Attest
 # 4. Set environment.security.enableAppCheck = true for staging/production
 ```
+
+## New Files Created (Session 5)
+- `app/models/location.model.ts` - Country/city configuration (14 countries, 80+ cities)
+
+## Modified Files (Session 5)
+- `app/models/user.model.ts` - Added UserLocation interface and operatingCities
+- `app/models/exchange/medicine-exchange.model.ts` - Added ExchangeLocation
+- `app/models/delivery.model.ts` - Added DeliveryLocation
+- `app/services/firebase/exchange-firebase.service.ts` - Added same-city validation
+- `app/services/firebase/delivery-firebase.service.ts` - Added city-based filtering
+- `app/pages/registration/registration-view-model.ts` - Added country/city selection
+- `app/pages/registration/registration-page.xml` - Added country/city pickers
+- `app/pages/pharmacy/exchange/exchange-list-view-model.ts` - Added same-city filtering
+- `app/pages/courier/dashboard/courier-dashboard-view-model.ts` - Added city-based delivery filtering
+- `firestore.indexes.json` - Added city-based query indexes
 
 ## New Files Created (Session 4)
 - `app/models/wallet.model.ts` - Wallet and transaction models

@@ -40,3 +40,5 @@ firebase.config.ts
 
 # Documents folder - contains sensitive Firebase console exports
 documents/ns-review-report.json
+ns-review-report.json
+.claude/

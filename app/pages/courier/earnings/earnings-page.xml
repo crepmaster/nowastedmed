@@ -1,0 +1,121 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd"
+      navigatingTo="onNavigatingTo"
+      class="page bg-gray-100">
+
+    <ActionBar title="My Earnings" class="action-bar">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" />
+    </ActionBar>
+
+    <GridLayout rows="auto, auto, *, auto">
+        <!-- Balance Card -->
+        <GridLayout row="0" class="bg-gradient-to-r from-green-500 to-green-600 p-6 m-4 rounded-xl" rows="auto, auto, auto">
+            <Label row="0" text="Available Balance" class="text-white text-opacity-80 text-sm" />
+            <Label row="1" text="{{ availableBalanceFormatted }}" class="text-white text-4xl font-bold mt-1" />
+            <GridLayout row="2" columns="*, *" class="mt-4">
+                <StackLayout col="0">
+                    <Label text="Pending" class="text-white text-opacity-70 text-xs" />
+                    <Label text="{{ pendingBalanceFormatted }}" class="text-white font-bold" />
+                </StackLayout>
+                <StackLayout col="1" class="text-right">
+                    <Label text="This Month" class="text-white text-opacity-70 text-xs" />
+                    <Label text="{{ monthEarningsFormatted }}" class="text-white font-bold" />
+                </StackLayout>
+            </GridLayout>
+        </GridLayout>
+
+        <!-- Stats Row -->
+        <GridLayout row="1" columns="*, *, *" class="mx-4 mb-4">
+            <StackLayout col="0" class="bg-white p-3 rounded-lg mr-2 text-center">
+                <Label text="{{ todayDeliveries }}" class="text-2xl font-bold text-blue-600" />
+                <Label text="Today" class="text-xs text-gray-500" />
+            </StackLayout>
+            <StackLayout col="1" class="bg-white p-3 rounded-lg mx-1 text-center">
+                <Label text="{{ weekDeliveries }}" class="text-2xl font-bold text-purple-600" />
+                <Label text="This Week" class="text-xs text-gray-500" />
+            </StackLayout>
+            <StackLayout col="2" class="bg-white p-3 rounded-lg ml-2 text-center">
+                <Label text="{{ monthDeliveries }}" class="text-2xl font-bold text-green-600" />
+                <Label text="This Month" class="text-xs text-gray-500" />
+            </StackLayout>
+        </GridLayout>
+
+        <!-- Tab Bar & Content -->
+        <GridLayout row="2" rows="auto, *">
+            <!-- Tabs -->
+            <GridLayout row="0" columns="*, *" class="bg-white mx-4 rounded-lg">
+                <Button col="0"
+                        text="Earnings"
+                        class="{{ selectedTab === 'earnings' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700' }} p-3 m-1 rounded"
+                        tap="{{ onSelectEarningsTab }}" />
+                <Button col="1"
+                        text="Payouts"
+                        class="{{ selectedTab === 'payouts' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700' }} p-3 m-1 rounded"
+                        tap="{{ onSelectPayoutsTab }}" />
+            </GridLayout>
+
+            <!-- Loading -->
+            <ActivityIndicator row="1" busy="{{ isLoading }}"
+                               visibility="{{ isLoading ? 'visible' : 'collapsed' }}"
+                               class="text-blue-500 mt-4" />
+
+            <!-- Earnings List -->
+            <ScrollView row="1" visibility="{{ selectedTab === 'earnings' && !isLoading ? 'visible' : 'collapsed' }}">
+                <StackLayout class="p-4">
+                    <Label text="No earnings yet"
+                           class="text-center text-gray-500 p-4"
+                           visibility="{{ earnings.length === 0 ? 'visible' : 'collapsed' }}" />
+
+                    <Repeater items="{{ earnings }}">
+                        <Repeater.itemTemplate>
+                            <GridLayout columns="*, auto" class="bg-white p-4 mb-2 rounded-lg">
+                                <StackLayout col="0">
+                                    <Label text="{{ fromPharmacyName }} -> {{ toPharmacyName }}" class="font-medium" textWrap="true" />
+                                    <Label text="{{ cityName }}" class="text-xs text-gray-500" />
+                                    <Label text="{{ dateFormatted }}" class="text-xs text-gray-400 mt-1" />
+                                </StackLayout>
+                                <StackLayout col="1" class="items-end">
+                                    <Label text="+{{ netAmountFormatted }}" class="text-lg font-bold text-green-600" />
+                                    <Label text="{{ statusLabel }}"
+                                           class="{{ statusClass }} text-xs px-2 py-1 rounded mt-1" />
+                                </StackLayout>
+                            </GridLayout>
+                        </Repeater.itemTemplate>
+                    </Repeater>
+                </StackLayout>
+            </ScrollView>
+
+            <!-- Payouts List -->
+            <ScrollView row="1" visibility="{{ selectedTab === 'payouts' && !isLoading ? 'visible' : 'collapsed' }}">
+                <StackLayout class="p-4">
+                    <Label text="No payouts yet"
+                           class="text-center text-gray-500 p-4"
+                           visibility="{{ payouts.length === 0 ? 'visible' : 'collapsed' }}" />
+
+                    <Repeater items="{{ payouts }}">
+                        <Repeater.itemTemplate>
+                            <GridLayout columns="*, auto" class="bg-white p-4 mb-2 rounded-lg">
+                                <StackLayout col="0">
+                                    <Label text="{{ paymentMethodLabel }}" class="font-medium" />
+                                    <Label text="{{ paymentAccount }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ dateFormatted }}" class="text-xs text-gray-400 mt-1" />
+                                </StackLayout>
+                                <StackLayout col="1" class="items-end">
+                                    <Label text="{{ amountFormatted }}" class="text-lg font-bold" />
+                                    <Label text="{{ statusLabel }}"
+                                           class="{{ statusClass }} text-xs px-2 py-1 rounded mt-1" />
+                                </StackLayout>
+                            </GridLayout>
+                        </Repeater.itemTemplate>
+                    </Repeater>
+                </StackLayout>
+            </ScrollView>
+        </GridLayout>
+
+        <!-- Withdraw Button -->
+        <Button row="3"
+                text="Withdraw Funds"
+                class="bg-green-500 text-white p-4 m-4 rounded-lg font-bold"
+                tap="{{ onWithdraw }}"
+                visibility="{{ canWithdraw ? 'visible' : 'collapsed' }}" />
+    </GridLayout>
+</Page>

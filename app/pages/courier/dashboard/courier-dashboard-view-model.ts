@@ -5,6 +5,7 @@ import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.se
 import { DeliveryFirebaseService } from '../../../services/firebase/delivery-firebase.service';
 import { QRCodeUtil } from '../../../utils/qrcode.util';
 import { Delivery, DeliveryStatus, CourierStats } from '../../../models/delivery.model';
+import { User } from '../../../models/user.model';
 
 interface DeliveryDisplay extends Delivery {
     statusLabel: string;
@@ -22,6 +23,8 @@ export class CourierDashboardViewModel extends Observable {
 
     private unsubscribeActive: (() => void) | null = null;
     private currentUserId: string = '';
+    private currentUser: User | null = null;
+    private operatingCityIds: string[] = [];
 
     private _stats: CourierStats = {
         totalDeliveries: 0,
@@ -123,6 +126,18 @@ export class CourierDashboardViewModel extends Observable {
             }
 
             this.currentUserId = currentUser.id;
+            this.currentUser = currentUser;
+
+            // Determine courier's operating cities
+            // Couriers can have multiple operating cities or a primary location
+            if (currentUser.operatingCities && currentUser.operatingCities.length > 0) {
+                this.operatingCityIds = currentUser.operatingCities;
+            } else if (currentUser.location?.cityId) {
+                this.operatingCityIds = [currentUser.location.cityId];
+            } else {
+                // If no city is set, show all deliveries (backwards compatibility)
+                this.operatingCityIds = [];
+            }
 
             // Load all data in parallel
             await Promise.all([
@@ -182,10 +197,23 @@ export class CourierDashboardViewModel extends Observable {
 
     /**
      * Load pending deliveries (available to accept)
+     * IMPORTANT: Only shows deliveries in courier's operating cities
      */
     private async loadPendingDeliveries(): Promise<void> {
         try {
-            const deliveries = await this.deliveryService.getPendingDeliveries();
+            let deliveries: Delivery[];
+
+            if (this.operatingCityIds.length === 1) {
+                // Single city - use simple method
+                deliveries = await this.deliveryService.getPendingDeliveriesByCity(this.operatingCityIds[0]);
+            } else if (this.operatingCityIds.length > 1) {
+                // Multiple cities - use multi-city method
+                deliveries = await this.deliveryService.getPendingDeliveriesByCities(this.operatingCityIds);
+            } else {
+                // No city filter (backwards compatibility)
+                deliveries = await this.deliveryService.getPendingDeliveries();
+            }
+
             this.pendingDeliveries = deliveries.map(d => this.formatDeliveryForDisplay(d));
         } catch (error) {
             console.error('Error loading pending deliveries:', error);

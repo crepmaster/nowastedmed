@@ -9,10 +9,21 @@ export interface MedicineExchangeItem {
 export type ExchangeStatus = 'draft' | 'pending' | 'accepted' | 'rejected' | 'completed' | 'requested' | 'in_transit';
 export type PriorityLevel = 'low' | 'medium' | 'high';
 
+/**
+ * Location info stored with exchange for filtering and validation
+ */
+export interface ExchangeLocation {
+  countryCode: string;
+  cityId: string;
+  cityName: string;
+}
+
 export interface MedicineExchange {
   id: string;
   proposedBy: string; // Pharmacy ID
+  proposedByName?: string; // Pharmacy name for display
   proposedTo: string; // Pharmacy ID
+  proposedToName?: string; // Pharmacy name for display
   status: ExchangeStatus;
   proposedMedicines: MedicineExchangeItem[];
   offeredMedicines: MedicineExchangeItem[];
@@ -20,6 +31,8 @@ export interface MedicineExchange {
   createdAt: Date;
   updatedAt: Date;
   notes?: string;
+  // Location fields - REQUIRED for new exchanges
+  location?: ExchangeLocation; // City where exchange takes place (must be same for both parties)
 }
 
 export interface ExchangeProposal {

@@ -2,6 +2,9 @@
  * Delivery Firebase Service
  *
  * Handles delivery tracking and courier operations with Firebase
+ *
+ * IMPORTANT: Deliveries are city-based. Couriers see only deliveries in their operating cities.
+ * All exchanges (and thus deliveries) are between pharmacies in the SAME city.
  */
 
 import { firebase } from '@nativescript/firebase-core';
@@ -13,16 +16,24 @@ import {
     CourierStats,
     DeliveryFilter,
     DeliveryAssignment,
+    DeliveryLocation,
+    DeliveryPaymentStatus,
 } from '../../models/delivery.model';
+import { CourierEarningsFirebaseService } from './courier-earnings-firebase.service';
+import { DeliveryPaymentFirebaseService } from './delivery-payment-firebase.service';
 
 export class DeliveryFirebaseService {
     private static instance: DeliveryFirebaseService;
     private firestore: any;
+    private earningsService: CourierEarningsFirebaseService;
+    private paymentService: DeliveryPaymentFirebaseService;
     private readonly DELIVERIES_COLLECTION = 'deliveries';
     private readonly EXCHANGES_COLLECTION = 'exchanges';
 
     private constructor() {
         this.firestore = firebase().firestore();
+        this.earningsService = CourierEarningsFirebaseService.getInstance();
+        this.paymentService = DeliveryPaymentFirebaseService.getInstance();
     }
 
     static getInstance(): DeliveryFirebaseService {
@@ -103,8 +114,50 @@ export class DeliveryFirebaseService {
 
     /**
      * Get pending deliveries (for courier to accept)
+     * IMPORTANT: Only returns deliveries where BOTH pharmacies have paid
+     * Couriers should only see deliveries in their operating cities
+     *
+     * @param limit - Maximum number of deliveries to return
+     * @param cityId - Optional city ID to filter by (recommended for couriers)
      */
-    async getPendingDeliveries(limit: number = 20): Promise<Delivery[]> {
+    async getPendingDeliveries(limit: number = 20, cityId?: string): Promise<Delivery[]> {
+        try {
+            // Only get deliveries with payment_complete status (both pharmacies paid)
+            const snapshot = await this.firestore
+                .collection(this.DELIVERIES_COLLECTION)
+                .where('status', '==', 'pending')
+                .where('paymentStatus', '==', 'payment_complete')
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
+
+            let deliveries = snapshot.docs.map((doc: any) => this.transformDelivery(doc));
+
+            // Filter by city if provided (recommended for couriers)
+            if (cityId) {
+                deliveries = deliveries.filter(d => d.location?.cityId === cityId);
+            }
+
+            return deliveries;
+        } catch (error) {
+            console.error('Error getting pending deliveries:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get pending deliveries for a specific city
+     * Use this for couriers to see deliveries in their operating city
+     */
+    async getPendingDeliveriesByCity(cityId: string, limit: number = 20): Promise<Delivery[]> {
+        return this.getPendingDeliveries(limit, cityId);
+    }
+
+    /**
+     * Get pending deliveries for multiple cities
+     * Use this for couriers who operate in multiple cities
+     */
+    async getPendingDeliveriesByCities(cityIds: string[], limit: number = 50): Promise<Delivery[]> {
         try {
             const snapshot = await this.firestore
                 .collection(this.DELIVERIES_COLLECTION)
@@ -113,9 +166,13 @@ export class DeliveryFirebaseService {
                 .limit(limit)
                 .get();
 
-            return snapshot.docs.map((doc: any) => this.transformDelivery(doc));
+            const deliveries = snapshot.docs
+                .map((doc: any) => this.transformDelivery(doc))
+                .filter((d: Delivery) => d.location?.cityId && cityIds.includes(d.location.cityId));
+
+            return deliveries;
         } catch (error) {
-            console.error('Error getting pending deliveries:', error);
+            console.error('Error getting pending deliveries by cities:', error);
             throw error;
         }
     }
@@ -347,6 +404,7 @@ export class DeliveryFirebaseService {
 
     /**
      * Confirm delivery with verification
+     * Creates earning record for the courier
      */
     async confirmDelivery(
         deliveryId: string,
@@ -392,6 +450,23 @@ export class DeliveryFirebaseService {
                         status: 'completed',
                         updatedAt: new Date(),
                     });
+            }
+
+            // Release payment and create earning record for the courier
+            try {
+                // First, release the payment from escrow
+                await this.paymentService.releasePaymentToCourier(deliveryId);
+                console.log('Released payment to courier for delivery:', deliveryId);
+
+                // Then create earning record
+                const updatedDelivery = await this.getDelivery(deliveryId);
+                if (updatedDelivery) {
+                    await this.earningsService.createEarning(updatedDelivery);
+                    console.log('Created earning record for delivery:', deliveryId);
+                }
+            } catch (earningError) {
+                // Log but don't fail the delivery confirmation
+                console.error('Error processing courier payment:', earningError);
             }
         } catch (error) {
             console.error('Error confirming delivery:', error);
@@ -522,6 +597,11 @@ export class DeliveryFirebaseService {
             courierId: data.courierId,
             courierName: data.courierName,
             courierPhone: data.courierPhone,
+            location: data.location ? {
+                countryCode: data.location.countryCode,
+                cityId: data.location.cityId,
+                cityName: data.location.cityName,
+            } : undefined,
             fromPharmacyId: data.fromPharmacyId,
             fromPharmacyName: data.fromPharmacyName,
             fromAddress: data.fromAddress,
@@ -550,6 +630,18 @@ export class DeliveryFirebaseService {
             specialInstructions: data.specialInstructions,
             deliveryFee: data.deliveryFee,
             currency: data.currency || 'XOF',
+            feePerPharmacy: data.feePerPharmacy,
+            fromPharmacyPayment: data.fromPharmacyPayment ? {
+                ...data.fromPharmacyPayment,
+                paidAt: data.fromPharmacyPayment.paidAt?.toDate?.() || data.fromPharmacyPayment.paidAt,
+                refundedAt: data.fromPharmacyPayment.refundedAt?.toDate?.() || data.fromPharmacyPayment.refundedAt,
+            } : undefined,
+            toPharmacyPayment: data.toPharmacyPayment ? {
+                ...data.toPharmacyPayment,
+                paidAt: data.toPharmacyPayment.paidAt?.toDate?.() || data.toPharmacyPayment.paidAt,
+                refundedAt: data.toPharmacyPayment.refundedAt?.toDate?.() || data.toPharmacyPayment.refundedAt,
+            } : undefined,
+            paymentStatus: data.paymentStatus || 'awaiting_payment',
             createdAt: data.createdAt?.toDate?.() || data.createdAt,
             updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
         };

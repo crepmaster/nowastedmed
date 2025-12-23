@@ -1,10 +1,17 @@
 import { Observable } from '@nativescript/core';
 import { FirestoreService } from './firestore.service';
-import { MedicineExchange, ExchangeStatus, ExchangeProposal, MedicineExchangeItem } from '../../models/exchange/medicine-exchange.model';
+import { MedicineExchange, ExchangeStatus, ExchangeProposal, MedicineExchangeItem, ExchangeLocation } from '../../models/exchange/medicine-exchange.model';
+import { isSameCity } from '../../models/location.model';
 
 /**
  * Firebase-backed Exchange Service
  * Handles medicine exchange operations with Firestore
+ *
+ * IMPORTANT: All exchanges between pharmacies MUST be within the same city.
+ * This is enforced at:
+ * 1. getPendingExchanges - filters to show only same-city exchanges
+ * 2. createExchange - requires location data
+ * 3. createProposal - validates same-city requirement
  */
 export class ExchangeFirebaseService extends Observable {
     private static instance: ExchangeFirebaseService;
@@ -60,8 +67,12 @@ export class ExchangeFirebaseService extends Observable {
 
     /**
      * Get pending exchanges (available for other pharmacies to respond to)
+     * IMPORTANT: Only returns exchanges in the same city as the requesting pharmacy
+     *
+     * @param excludePharmacyId - Pharmacy ID to exclude (usually the requesting pharmacy)
+     * @param cityId - City ID to filter by (REQUIRED - only same-city exchanges allowed)
      */
-    async getPendingExchanges(excludePharmacyId?: string): Promise<MedicineExchange[]> {
+    async getPendingExchanges(excludePharmacyId?: string, cityId?: string): Promise<MedicineExchange[]> {
         try {
             const exchanges = await this.firestoreService.queryDocuments(
                 this.EXCHANGES_COLLECTION,
@@ -70,9 +81,17 @@ export class ExchangeFirebaseService extends Observable {
                 'pending'
             );
 
-            const filtered = excludePharmacyId
-                ? exchanges.filter(e => e.proposedBy !== excludePharmacyId)
-                : exchanges;
+            let filtered = exchanges;
+
+            // Exclude own pharmacy's exchanges
+            if (excludePharmacyId) {
+                filtered = filtered.filter(e => e.proposedBy !== excludePharmacyId);
+            }
+
+            // MANDATORY: Filter by same city
+            if (cityId) {
+                filtered = filtered.filter(e => e.location?.cityId === cityId);
+            }
 
             return filtered.map(e => this.transformFromFirestore(e));
         } catch (error) {
@@ -82,18 +101,39 @@ export class ExchangeFirebaseService extends Observable {
     }
 
     /**
+     * Get pending exchanges by city
+     * Use this to explicitly get exchanges for a specific city
+     */
+    async getPendingExchangesByCity(cityId: string, excludePharmacyId?: string): Promise<MedicineExchange[]> {
+        return this.getPendingExchanges(excludePharmacyId, cityId);
+    }
+
+    /**
      * Create a new exchange request
+     * IMPORTANT: Location is REQUIRED for all new exchanges
      */
     async createExchange(exchange: Partial<MedicineExchange>): Promise<string> {
         try {
+            // Validate that location is provided
+            if (!exchange.location || !exchange.location.cityId) {
+                throw new Error('Exchange location (cityId) is required. Exchanges can only happen within the same city.');
+            }
+
             const docId = await this.firestoreService.addDocument(this.EXCHANGES_COLLECTION, {
                 proposedBy: exchange.proposedBy,
+                proposedByName: exchange.proposedByName || '',
                 proposedTo: exchange.proposedTo || '',
+                proposedToName: exchange.proposedToName || '',
                 status: 'pending',
                 priority: exchange.priority || 'medium',
                 proposedMedicines: exchange.proposedMedicines || [],
                 offeredMedicines: exchange.offeredMedicines || [],
-                notes: exchange.notes || ''
+                notes: exchange.notes || '',
+                location: {
+                    countryCode: exchange.location.countryCode,
+                    cityId: exchange.location.cityId,
+                    cityName: exchange.location.cityName
+                }
             });
             console.log('✅ Exchange created in Firestore:', docId);
             return docId;
@@ -101,6 +141,18 @@ export class ExchangeFirebaseService extends Observable {
             console.error('Error creating exchange:', error);
             throw error;
         }
+    }
+
+    /**
+     * Validate that two pharmacies are in the same city
+     * This MUST be called before creating proposals
+     */
+    validateSameCityExchange(proposerCityId: string, responderCityId: string): boolean {
+        if (!proposerCityId || !responderCityId) {
+            console.error('City IDs are required for exchange validation');
+            return false;
+        }
+        return isSameCity(proposerCityId, responderCityId);
     }
 
     /**
@@ -260,12 +312,19 @@ export class ExchangeFirebaseService extends Observable {
         return {
             id: doc.id,
             proposedBy: doc.proposedBy,
+            proposedByName: doc.proposedByName,
             proposedTo: doc.proposedTo,
+            proposedToName: doc.proposedToName,
             status: doc.status,
             priority: doc.priority,
             proposedMedicines: doc.proposedMedicines || [],
             offeredMedicines: doc.offeredMedicines || [],
             notes: doc.notes,
+            location: doc.location ? {
+                countryCode: doc.location.countryCode,
+                cityId: doc.location.cityId,
+                cityName: doc.location.cityName
+            } : undefined,
             createdAt: doc.createdAt?.toDate?.() || new Date(doc.createdAt),
             updatedAt: doc.updatedAt?.toDate?.() || new Date(doc.updatedAt)
         };
