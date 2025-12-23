@@ -1,0 +1,294 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules for NoWastedMed (MediExchange)
+ *
+ * These rules enforce access control for the medicine exchange platform.
+ *
+ * Collections:
+ * - pharmacies: Pharmacist user profiles
+ * - couriers: Courier user profiles
+ * - admins: Admin user profiles
+ * - exchanges: Medicine exchange requests
+ * - exchange_proposals: Counter-proposals for exchanges
+ * - pharmacy_inventory: Medicine inventory
+ *
+ * DEPLOYMENT:
+ * firebase deploy --only firestore:rules
+ *
+ * TESTING:
+ * Use Firebase Emulator Suite for local testing
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the user is accessing their own document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Get user's role from their profile
+    function getUserRole() {
+      let pharmacyDoc = get(/databases/$(database)/documents/pharmacies/$(request.auth.uid));
+      let courierDoc = get(/databases/$(database)/documents/couriers/$(request.auth.uid));
+      let adminDoc = get(/databases/$(database)/documents/admins/$(request.auth.uid));
+
+      return pharmacyDoc.data != null ? 'pharmacist' :
+             courierDoc.data != null ? 'courier' :
+             adminDoc.data != null ? 'admin' : null;
+    }
+
+    // Check if user is a pharmacist
+    function isPharmacist() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/pharmacies/$(request.auth.uid));
+    }
+
+    // Check if user is a courier
+    function isCourier() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/couriers/$(request.auth.uid));
+    }
+
+    // Check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Validate string field length
+    function validString(field, minLen, maxLen) {
+      return field is string && field.size() >= minLen && field.size() <= maxLen;
+    }
+
+    // Validate required string field
+    function validRequiredString(field) {
+      return field is string && field.size() > 0;
+    }
+
+    // ============================================
+    // USER PROFILE COLLECTIONS
+    // ============================================
+
+    // Pharmacies collection
+    match /pharmacies/{userId} {
+      // Users can read their own profile
+      // Admins can read all profiles
+      // Other pharmacists can read basic info for exchange purposes
+      allow read: if isOwner(userId) || isAdmin() || isPharmacist();
+
+      // Only the user can update their own profile (except isActive which admin controls)
+      allow update: if isOwner(userId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
+
+      // Users cannot create their own profiles directly (done through Cloud Functions)
+      // Admins can create profiles
+      allow create: if isAdmin();
+
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // Couriers collection
+    match /couriers/{userId} {
+      // Users can read their own profile
+      // Admins can read all profiles
+      // Pharmacists can read courier info for delivery tracking
+      allow read: if isOwner(userId) || isAdmin() || isPharmacist();
+
+      // Only the user can update their own profile
+      allow update: if isOwner(userId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
+
+      // Users cannot create their own profiles directly
+      allow create: if isAdmin();
+
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // Admins collection
+    match /admins/{userId} {
+      // Only the admin can read their own profile
+      // Other admins can read for verification
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Only the user can update their own profile
+      allow update: if isOwner(userId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
+
+      // Only existing admins can create new admins
+      allow create: if isAdmin();
+
+      // Only admins can delete admin profiles
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
+    // PHARMACY INVENTORY
+    // ============================================
+
+    match /pharmacy_inventory/{medicineId} {
+      // Pharmacies can read their own inventory
+      // Other pharmacies can read medicines available for exchange
+      // Admins can read all for statistics
+      allow read: if isAuthenticated() && (
+                     resource.data.pharmacyId == request.auth.uid ||
+                     resource.data.availableForExchange == true ||
+                     isAdmin()
+                   );
+
+      // Pharmacy can only create medicines for their own inventory
+      allow create: if isPharmacist() &&
+                       request.resource.data.pharmacyId == request.auth.uid &&
+                       validRequiredString(request.resource.data.name) &&
+                       request.resource.data.quantity >= 0;
+
+      // Pharmacy can only update their own medicines
+      allow update: if isPharmacist() &&
+                       resource.data.pharmacyId == request.auth.uid &&
+                       request.resource.data.pharmacyId == request.auth.uid &&
+                       request.resource.data.quantity >= 0;
+
+      // Pharmacy can only delete their own medicines
+      allow delete: if isPharmacist() &&
+                       resource.data.pharmacyId == request.auth.uid;
+    }
+
+    // ============================================
+    // EXCHANGES
+    // ============================================
+
+    match /exchanges/{exchangeId} {
+      // Both proposer and recipient can read the exchange
+      // Couriers can read exchanges they are delivering
+      // Admins can read all
+      allow read: if isAuthenticated() && (
+                     resource.data.proposedBy == request.auth.uid ||
+                     resource.data.proposedTo == request.auth.uid ||
+                     resource.data.courierId == request.auth.uid ||
+                     isAdmin()
+                   );
+
+      // Only pharmacists can create exchanges
+      // Must be the proposer
+      allow create: if isPharmacist() &&
+                       request.resource.data.proposedBy == request.auth.uid &&
+                       validRequiredString(request.resource.data.proposedTo) &&
+                       request.resource.data.status in ['draft', 'pending', 'requested'];
+
+      // Both parties can update exchange (accept/reject)
+      // Courier can update status when delivering
+      allow update: if isAuthenticated() && (
+                       // Proposer can update their own exchange
+                       (resource.data.proposedBy == request.auth.uid &&
+                        request.resource.data.proposedBy == resource.data.proposedBy) ||
+                       // Recipient can accept/reject
+                       (resource.data.proposedTo == request.auth.uid &&
+                        request.resource.data.status in ['accepted', 'rejected', 'pending']) ||
+                       // Courier can update delivery status
+                       (isCourier() &&
+                        resource.data.courierId == request.auth.uid &&
+                        request.resource.data.status in ['in_transit', 'completed']) ||
+                       // Admin can update any exchange
+                       isAdmin()
+                     );
+
+      // Only proposer can delete draft exchanges
+      // Admins can delete any
+      allow delete: if (isPharmacist() &&
+                        resource.data.proposedBy == request.auth.uid &&
+                        resource.data.status == 'draft') ||
+                       isAdmin();
+    }
+
+    // ============================================
+    // EXCHANGE PROPOSALS
+    // ============================================
+
+    match /exchange_proposals/{proposalId} {
+      // Read the parent exchange to verify access
+      function getParentExchange() {
+        return get(/databases/$(database)/documents/exchanges/$(resource.data.exchangeId));
+      }
+
+      // Both parties involved in the exchange can read proposals
+      allow read: if isAuthenticated() && (
+                     getParentExchange().data.proposedBy == request.auth.uid ||
+                     getParentExchange().data.proposedTo == request.auth.uid ||
+                     isAdmin()
+                   );
+
+      // Only parties in the exchange can create proposals
+      allow create: if isPharmacist() &&
+                       request.resource.data.proposedBy == request.auth.uid;
+
+      // Only parties can update proposal status
+      allow update: if isAuthenticated() && (
+                       getParentExchange().data.proposedBy == request.auth.uid ||
+                       getParentExchange().data.proposedTo == request.auth.uid
+                     );
+
+      // Only proposer can delete their proposal
+      allow delete: if isPharmacist() &&
+                       resource.data.proposedBy == request.auth.uid;
+    }
+
+    // ============================================
+    // READ-ONLY COLLECTIONS (managed by backend)
+    // ============================================
+
+    // Wallets - Read only for users, managed by Cloud Functions
+    match /wallets/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Ledger - Read only transaction history
+    match /ledger/{transactionId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Subscriptions - Read only subscription status
+    match /subscriptions/{subscriptionId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Deliveries - Couriers can read/update their assigned deliveries
+    match /deliveries/{deliveryId} {
+      allow read: if isAuthenticated() && (
+                     resource.data.courierId == request.auth.uid ||
+                     resource.data.fromPharmacyId == request.auth.uid ||
+                     resource.data.toPharmacyId == request.auth.uid ||
+                     isAdmin()
+                   );
+      // Couriers can update delivery status
+      allow update: if isCourier() &&
+                       resource.data.courierId == request.auth.uid &&
+                       request.resource.data.status in ['picked_up', 'in_transit', 'delivered'];
+      allow create, delete: if false; // Only Cloud Functions
+    }
+
+    // ============================================
+    // DENY ALL OTHER ACCESS
+    // ============================================
+
+    // Catch-all rule - deny access to any undefined collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

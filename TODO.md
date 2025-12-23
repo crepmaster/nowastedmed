@@ -24,6 +24,16 @@
   - Auto-initializes based on environment config
   - Gracefully handles missing `@nativescript/firebase-app-check` package
 
+### Firebase Security Rules
+- [x] **firestore.rules** - Comprehensive security rules
+  - Role-based access control (pharmacist, courier, admin)
+  - User profile protection (users can only access own data)
+  - Exchange access control (both parties can access)
+  - Inventory protection (pharmacies own their inventory)
+  - Read-only collections for backend-managed data
+- [x] **firestore.indexes.json** - Query optimization indexes
+- [x] **firebase.json** - Firebase deployment configuration
+
 ## Completed (2024-12-23) - Session 2
 
 ### Security Fixes Applied
@@ -51,10 +61,26 @@
 - [x] Push changes to GitHub
 
 ## Next Steps (Priority)
-- [ ] Review and test all Firebase Security Rules
+- [ ] Deploy Firestore security rules to Firebase
 - [ ] Add rate limiting for API calls
 - [ ] Implement proper error handling UI
 - [ ] Add more input validation (date pickers, quantity limits)
+- [ ] Test security rules with Firebase Emulator
+
+## Firebase Security Rules Deployment
+```bash
+# Install Firebase CLI if not installed
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+
+# Deploy Firestore rules
+firebase deploy --only firestore:rules
+
+# Deploy Firestore indexes
+firebase deploy --only firestore:indexes
+```
 
 ## App Check Setup (When Ready for Production)
 ```bash
@@ -72,6 +98,9 @@ npm install @nativescript/firebase-app-check
 - `app/services/utils/input-sanitizer.service.ts` - Input sanitization utility
 - `app/config/environment.config.ts` - Environment configuration system
 - `app/services/firebase/app-check.service.ts` - Firebase App Check service
+- `firestore.rules` - Firestore security rules
+- `firestore.indexes.json` - Firestore query indexes
+- `firebase.json` - Firebase deployment configuration
 
 ## Code Review Notes
 - **firebase.config.ts** - API keys are client-side identifiers, security is through Firebase Security Rules
