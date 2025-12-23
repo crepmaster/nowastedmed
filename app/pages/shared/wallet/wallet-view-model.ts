@@ -1,6 +1,14 @@
 import { Observable, Frame, Dialogs } from '@nativescript/core';
 import { WalletFirebaseService } from '../../../services/firebase/wallet-firebase.service';
-import { Wallet, WalletTransaction, TopUpRequest } from '../../../models/wallet.model';
+import {
+    Wallet,
+    WalletTransaction,
+    TopUpRequest,
+    MobileMoneyProvider,
+    getProvidersByCurrency,
+    getCurrencyConfig,
+    SUPPORTED_CURRENCIES,
+} from '../../../models/wallet.model';
 import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
 
 export class WalletViewModel extends Observable {
@@ -173,12 +181,28 @@ export class WalletViewModel extends Observable {
      * Process top-up request
      */
     private async processTopUp(amount: number): Promise<void> {
-        const paymentMethods = ['Mobile Money (MTN)', 'Mobile Money (Orange)', 'Bank Transfer'];
+        // First, select currency if not already set
+        const currency = this._currency || 'XOF';
+        const currencyConfig = getCurrencyConfig(currency);
+
+        // Get available providers for this currency
+        const providers = getProvidersByCurrency(currency);
+
+        if (providers.length === 0) {
+            // Fallback: let user select currency first
+            await this.selectCurrencyAndProvider(amount);
+            return;
+        }
+
+        // Build payment method options
+        const paymentOptions: string[] = providers.map(p => p.name);
+        paymentOptions.push('Bank Transfer');
+
         const result = await Dialogs.action({
             title: 'Select Payment Method',
-            message: `Top up ${amount} XOF`,
+            message: `Top up ${amount} ${currency}`,
             cancelButtonText: 'Cancel',
-            actions: paymentMethods,
+            actions: paymentOptions,
         });
 
         if (result && result !== 'Cancel') {
@@ -187,25 +211,24 @@ export class WalletViewModel extends Observable {
                 if (!currentUser) return;
 
                 let paymentMethod: 'mobile_money' | 'card' | 'bank_transfer';
-                let provider: string | undefined;
+                let selectedProvider: MobileMoneyProvider | undefined;
 
-                if (result.includes('MTN')) {
-                    paymentMethod = 'mobile_money';
-                    provider = 'MTN';
-                } else if (result.includes('Orange')) {
-                    paymentMethod = 'mobile_money';
-                    provider = 'Orange';
-                } else {
+                if (result === 'Bank Transfer') {
                     paymentMethod = 'bank_transfer';
+                } else {
+                    paymentMethod = 'mobile_money';
+                    selectedProvider = providers.find(p => p.name === result);
                 }
 
                 // Get phone number for mobile money
                 let phoneNumber: string | undefined;
-                if (paymentMethod === 'mobile_money') {
+                if (paymentMethod === 'mobile_money' && selectedProvider) {
+                    const prefix = selectedProvider.phonePrefix?.[0] || '';
                     const phoneResult = await Dialogs.prompt({
                         title: 'Phone Number',
-                        message: 'Enter your mobile money number:',
+                        message: `Enter your ${selectedProvider.shortName} number:`,
                         inputType: 'phone',
+                        defaultText: prefix,
                         okButtonText: 'Submit',
                         cancelButtonText: 'Cancel',
                     });
@@ -218,16 +241,20 @@ export class WalletViewModel extends Observable {
 
                 const request: TopUpRequest = {
                     amount,
+                    currency,
                     paymentMethod,
                     phoneNumber,
-                    provider,
+                    providerId: selectedProvider?.id,
+                    provider: selectedProvider?.name,
                 };
 
                 await this.walletService.requestTopUp(currentUser.id, request);
 
                 Dialogs.alert({
                     title: 'Request Submitted',
-                    message: 'Your top-up request has been submitted. You will receive a payment prompt shortly.',
+                    message: selectedProvider
+                        ? `Your ${selectedProvider.shortName} top-up request has been submitted. You will receive a payment prompt shortly.`
+                        : 'Your top-up request has been submitted.',
                     okButtonText: 'OK',
                 });
             } catch (error) {
@@ -238,6 +265,29 @@ export class WalletViewModel extends Observable {
                     okButtonText: 'OK',
                 });
             }
+        }
+    }
+
+    /**
+     * Select currency and provider (for new wallets or currency change)
+     */
+    private async selectCurrencyAndProvider(amount: number): Promise<void> {
+        // Group currencies by region for better UX
+        const currencyOptions = SUPPORTED_CURRENCIES.map(c => `${c.code} - ${c.name}`);
+
+        const currencyResult = await Dialogs.action({
+            title: 'Select Currency',
+            message: 'Choose your currency',
+            cancelButtonText: 'Cancel',
+            actions: currencyOptions,
+        });
+
+        if (currencyResult && currencyResult !== 'Cancel') {
+            const selectedCurrency = currencyResult.split(' - ')[0];
+            this.currency = selectedCurrency;
+
+            // Now process with selected currency
+            await this.processTopUp(amount);
         }
     }
 
