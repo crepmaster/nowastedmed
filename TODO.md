@@ -1,5 +1,104 @@
 # NoWastedMed - TODO List
 
+## Completed (2024-12-24) - Session 6
+
+### Courier Payment & Earnings System
+- [x] **Courier Earnings Model** - Complete earnings tracking
+  - `CourierEarning` - Tracks earnings per delivery with platform fee deduction
+  - `CourierPayout` - Payout request with mobile money/bank transfer
+  - `CourierWallet` - Available/pending balance tracking
+  - `DeliveryFeeConfig` - Per-city fee configuration with commission rates
+  - Status flow: pending → available (24h hold) → processing → paid
+
+- [x] **Courier Earnings Service** - `app/services/firebase/courier-earnings-firebase.service.ts`
+  - `calculateDeliveryFee()` - City-based fee calculation with country defaults
+  - `createEarning()` - Creates earning record when delivery completed
+  - `processPendingEarnings()` - Moves pending to available after 24h hold
+  - `getCourierWallet()` - Gets/creates courier wallet
+  - `requestPayout()` - Courier requests withdrawal
+  - `completePayout()` / `failPayout()` - Admin payout processing
+
+### Pharmacy 50/50 Split Payment for Deliveries
+- [x] **Delivery Payment Model** - Split payment tracking
+  - `DeliveryPaymentStatus` - awaiting_payment → partial_payment → payment_complete → released_to_courier
+  - `DeliveryPayment` - Individual pharmacy payment record
+  - Payment flow: Both pharmacies must pay their 50% share before courier sees delivery
+
+- [x] **Delivery Payment Service** - `app/services/firebase/delivery-payment-firebase.service.ts`
+  - `initializeDeliveryPayment()` - Sets up 50/50 split when delivery created
+  - `payFromWallet()` - Pharmacy pays from wallet balance
+  - `initiateMobileMoneyPayment()` - Start mobile money payment flow
+  - `confirmMobileMoneyPayment()` - Webhook callback to confirm payment
+  - `refundDeliveryPayments()` - Refund if delivery cancelled
+  - `releasePaymentToCourier()` - Release funds after successful delivery
+
+- [x] **Delivery Service Updates** - Payment integration
+  - Couriers only see deliveries with `paymentStatus: 'payment_complete'`
+  - `getPendingDeliveries()` filters by both status and payment status
+  - Delivery completion triggers earnings creation and payment release
+
+### Courier UI Pages
+- [x] **Delivery Details Page** - `app/pages/courier/delivery-details/`
+  - QR code scanning for pickup/delivery verification
+  - Status updates with notes
+  - Medicine details display
+  - Pharmacy contact information
+
+- [x] **Earnings Page** - `app/pages/courier/earnings/`
+  - Earnings summary dashboard
+  - Available/pending balance display
+  - Earnings history list
+  - Payout request functionality
+
+### Firestore Updates
+- [x] **Security Rules** - Added rules for payment collections
+  - `courier_earnings` - Courier can read own earnings
+  - `courier_wallets` - Courier can read own wallet
+  - `courier_payouts` - Courier can create/read own payouts
+  - `delivery_fee_configs` - Read-only for authenticated users
+
+- [x] **Indexes** - Added payment query indexes
+  - `courier_earnings`: courierId + createdAt, courierId + status + createdAt, status + availableAt
+  - `courier_payouts`: courierId + createdAt, courierId + status + createdAt, status + createdAt
+  - `delivery_fee_configs`: cityId + isActive, countryCode + cityName
+  - `deliveries`: status + paymentStatus + createdAt (for paid deliveries query)
+
+## Critical Security Fixes Needed (Next Session)
+
+### From Code Review - Priority 1 (Critical)
+- [ ] **Payout Race Condition** - Concurrent payout requests could overdraft wallet
+  - Solution: Use Firestore transactions with balance check inside transaction
+  - File: `courier-earnings-firebase.service.ts:requestPayout()`
+
+- [ ] **Missing Auth Checks in Delivery Methods**
+  - `acceptDelivery()` - Anyone can accept any delivery
+  - `confirmPickup()` - Anyone can confirm pickup
+  - `confirmDelivery()` - Anyone can confirm delivery
+  - Solution: Add `courierId === currentUser.uid` validation
+  - File: `delivery-firebase.service.ts`
+
+- [ ] **Firestore Rules Block Wallet Creation**
+  - Current rule: `allow create: if false;` for courier_wallets
+  - Wallets are created by service, not directly by users
+  - Solution: Create wallets via Cloud Functions or allow service creation
+  - File: `firestore.rules`
+
+- [ ] **Race Condition in processPendingEarnings()**
+  - Multiple calls could process same earnings twice
+  - Solution: Use batch with transaction or add processing lock
+  - File: `courier-earnings-firebase.service.ts`
+
+- [ ] **Missing Auth Verification in Earnings Creation**
+  - `createEarning()` trusts courierId parameter
+  - Solution: Verify courierId matches delivery.courierId
+  - File: `courier-earnings-firebase.service.ts`
+
+### From Code Review - Priority 2 (High)
+- [ ] Add input validation for payout amounts (min/max limits)
+- [ ] Add rate limiting for payout requests
+- [ ] Implement proper error recovery for failed payouts
+- [ ] Add audit logging for financial transactions
+
 ## Completed (2024-12-23) - Session 5
 
 ### Location-Based Organization & Same-City Exchange Enforcement
@@ -176,6 +275,22 @@ npm install @nativescript/firebase-app-check
 # 3. Register iOS app with DeviceCheck/App Attest
 # 4. Set environment.security.enableAppCheck = true for staging/production
 ```
+
+## New Files Created (Session 6)
+- `app/services/firebase/courier-earnings-firebase.service.ts` - Courier earnings, wallet, payout service
+- `app/services/firebase/delivery-payment-firebase.service.ts` - Pharmacy 50/50 split payment service
+- `app/pages/courier/delivery-details/delivery-details-page.ts` - Delivery details page
+- `app/pages/courier/delivery-details/delivery-details-page.xml` - Delivery details UI
+- `app/pages/courier/delivery-details/delivery-details-view-model.ts` - Delivery details view model
+- `app/pages/courier/earnings/earnings-page.ts` - Earnings page
+- `app/pages/courier/earnings/earnings-page.xml` - Earnings UI
+- `app/pages/courier/earnings/earnings-view-model.ts` - Earnings view model
+
+## Modified Files (Session 6)
+- `app/models/delivery.model.ts` - Added CourierEarning, CourierPayout, CourierWallet, DeliveryFeeConfig, DeliveryPayment, DeliveryPaymentStatus
+- `app/services/firebase/delivery-firebase.service.ts` - Added payment status filtering, earnings integration
+- `firestore.rules` - Added courier payment collection rules
+- `firestore.indexes.json` - Added courier earnings/payout indexes
 
 ## New Files Created (Session 5)
 - `app/models/location.model.ts` - Country/city configuration (14 countries, 80+ cities)
