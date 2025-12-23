@@ -275,11 +275,43 @@ service cloud.firestore {
                      resource.data.toPharmacyId == request.auth.uid ||
                      isAdmin()
                    );
+      // Couriers can read pending deliveries to accept them
+      allow read: if isCourier() && resource.data.status == 'pending';
       // Couriers can update delivery status
       allow update: if isCourier() &&
                        resource.data.courierId == request.auth.uid &&
                        request.resource.data.status in ['picked_up', 'in_transit', 'delivered'];
+      // Couriers can accept pending deliveries (assign themselves)
+      allow update: if isCourier() &&
+                       resource.data.status == 'pending' &&
+                       request.resource.data.courierId == request.auth.uid &&
+                       request.resource.data.status == 'assigned';
       allow create, delete: if false; // Only Cloud Functions
+    }
+
+    // Subscription Plans - Read only for all authenticated users
+    match /subscription_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin via Cloud Functions
+    }
+
+    // Top-up Requests - Users can create and read their own requests
+    match /topup_requests/{requestId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.amount > 0;
+      allow update, delete: if false; // Only Cloud Functions
+    }
+
+    // Subscription Requests - Users can create and read their own requests
+    match /subscription_requests/{requestId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Only Cloud Functions
     }
 
     // ============================================

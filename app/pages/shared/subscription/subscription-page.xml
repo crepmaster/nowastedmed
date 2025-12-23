@@ -1,0 +1,107 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="Subscription" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Current Plan Card (if subscribed) -->
+            <StackLayout visibility="{{ hasSubscription ? 'visible' : 'collapsed' }}" class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Current Plan" class="text-gray-500 text-sm" />
+                <Label text="{{ currentPlanName }}" class="text-2xl font-bold text-blue-600" />
+
+                <GridLayout columns="*, *" class="mt-4">
+                    <StackLayout col="0">
+                        <Label text="Status" class="text-gray-500 text-sm" />
+                        <Label text="{{ subscriptionStatus }}"
+                               class="{{ subscriptionStatus === 'active' ? 'text-green-500' : 'text-orange-500' }} font-bold" />
+                    </StackLayout>
+                    <StackLayout col="1">
+                        <Label text="Days Remaining" class="text-gray-500 text-sm" />
+                        <Label text="{{ daysRemaining }}" class="text-blue-600 font-bold" />
+                    </StackLayout>
+                </GridLayout>
+
+                <StackLayout class="mt-4 pt-4 border-t border-gray-200">
+                    <Label text="Usage This Month" class="text-gray-500 text-sm mb-2" />
+                    <GridLayout columns="*, *, *" class="text-center">
+                        <StackLayout col="0">
+                            <Label text="{{ usageExchanges }}" class="text-lg font-bold" />
+                            <Label text="Exchanges" class="text-xs text-gray-500" />
+                        </StackLayout>
+                        <StackLayout col="1">
+                            <Label text="{{ usageMedicines }}" class="text-lg font-bold" />
+                            <Label text="Medicines" class="text-xs text-gray-500" />
+                        </StackLayout>
+                        <StackLayout col="2">
+                            <Label text="{{ usageActive }}" class="text-lg font-bold" />
+                            <Label text="Active" class="text-xs text-gray-500" />
+                        </StackLayout>
+                    </GridLayout>
+                </StackLayout>
+
+                <Button text="Manage Subscription" tap="{{ onManageSubscription }}"
+                        class="bg-gray-200 text-gray-700 mt-4 rounded-lg" />
+            </StackLayout>
+
+            <!-- No Subscription Message -->
+            <StackLayout visibility="{{ hasSubscription ? 'collapsed' : 'visible' }}" class="bg-white rounded-xl p-6 mb-4 shadow">
+                <Label text="No Active Subscription" class="text-xl font-bold text-center" />
+                <Label text="Choose a plan to unlock more features" class="text-gray-500 text-center mt-2" />
+            </StackLayout>
+
+            <!-- Available Plans -->
+            <Label text="Available Plans" class="text-lg font-bold mb-2" />
+
+            <StackLayout>
+                <!-- Plan Cards -->
+                <Repeater items="{{ plans }}">
+                    <Repeater.itemTemplate>
+                        <StackLayout class="bg-white rounded-xl p-4 mb-3 shadow"
+                                     borderColor="{{ isCurrentPlan ? '#3B82F6' : 'transparent' }}"
+                                     borderWidth="{{ isCurrentPlan ? 2 : 0 }}">
+                            <!-- Plan Header -->
+                            <GridLayout columns="*, auto">
+                                <StackLayout col="0">
+                                    <Label text="{{ name }}" class="text-xl font-bold" />
+                                    <Label text="{{ description }}" class="text-gray-500 text-sm" />
+                                </StackLayout>
+                                <StackLayout col="1" class="items-end">
+                                    <Label text="{{ price === 0 ? 'Free' : price + ' ' + currency }}"
+                                           class="text-2xl font-bold text-blue-600" />
+                                    <Label text="{{ price > 0 ? '/' + billingCycle : '' }}" class="text-gray-500 text-sm" />
+                                </StackLayout>
+                            </GridLayout>
+
+                            <!-- Features List -->
+                            <StackLayout class="mt-4">
+                                <Repeater items="{{ features }}">
+                                    <Repeater.itemTemplate>
+                                        <GridLayout columns="auto, *" class="mb-2">
+                                            <Label col="0" text="{{ included ? '✓' : '✗' }}"
+                                                   class="{{ included ? 'text-green-500' : 'text-gray-300' }} mr-2 font-bold" />
+                                            <Label col="1" text="{{ name }}"
+                                                   class="{{ included ? 'text-gray-700' : 'text-gray-400' }}" />
+                                        </GridLayout>
+                                    </Repeater.itemTemplate>
+                                </Repeater>
+                            </StackLayout>
+
+                            <!-- Limits Info -->
+                            <StackLayout class="mt-3 pt-3 border-t border-gray-100">
+                                <Label text="{{ limitsText }}" class="text-xs text-gray-500" />
+                            </StackLayout>
+
+                            <!-- Action Button -->
+                            <Button text="{{ buttonText }}"
+                                    tap="{{ $parents['Page'].bindingContext.onSelectPlan }}"
+                                    planId="{{ id }}"
+                                    class="{{ isCurrentPlan ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white' }} mt-4 rounded-lg"
+                                    isEnabled="{{ !isCurrentPlan }}" />
+                        </StackLayout>
+                    </Repeater.itemTemplate>
+                </Repeater>
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

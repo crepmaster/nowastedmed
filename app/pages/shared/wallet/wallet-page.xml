@@ -1,0 +1,67 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="My Wallet" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <GridLayout rows="auto, auto, *">
+        <!-- Balance Card -->
+        <StackLayout row="0" class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 m-4 rounded-xl shadow-lg">
+            <Label text="Available Balance" class="text-white text-opacity-80 text-center" />
+            <StackLayout orientation="horizontal" horizontalAlignment="center" class="m-2">
+                <Label text="{{ balance | number:'1.0-0' }}" class="text-4xl font-bold text-white" />
+                <Label text=" {{ currency }}" class="text-xl text-white mt-2" />
+            </StackLayout>
+            <GridLayout columns="*, *" class="mt-4">
+                <StackLayout col="0" class="text-center">
+                    <Label text="Pending In" class="text-white text-opacity-70 text-sm" />
+                    <Label text="{{ '+' + pendingCredits + ' ' + currency }}" class="text-green-300" />
+                </StackLayout>
+                <StackLayout col="1" class="text-center">
+                    <Label text="Pending Out" class="text-white text-opacity-70 text-sm" />
+                    <Label text="{{ '-' + pendingDebits + ' ' + currency }}" class="text-red-300" />
+                </StackLayout>
+            </GridLayout>
+        </StackLayout>
+
+        <!-- Action Buttons -->
+        <GridLayout row="1" columns="*, *" class="px-4 pb-4">
+            <Button col="0" text="Top Up" tap="{{ onTopUp }}" class="bg-green-500 text-white m-1 rounded-lg p-4" />
+            <Button col="1" text="History" tap="{{ onViewHistory }}" class="bg-gray-500 text-white m-1 rounded-lg p-4" />
+        </GridLayout>
+
+        <!-- Recent Transactions -->
+        <StackLayout row="2" class="bg-white mx-4 mb-4 rounded-lg shadow">
+            <Label text="Recent Transactions" class="text-lg font-bold p-4 border-b border-gray-200" />
+
+            <ListView items="{{ transactions }}" class="list-group" visibility="{{ hasTransactions ? 'visible' : 'collapsed' }}">
+                <ListView.itemTemplate>
+                    <GridLayout columns="auto, *, auto" class="p-4 border-b border-gray-100">
+                        <!-- Icon -->
+                        <StackLayout col="0" class="w-10 h-10 rounded-full mr-3 justify-center items-center"
+                                     backgroundColor="{{ type === 'credit' || type === 'refund' ? '#10B981' : '#EF4444' }}">
+                            <Label text="{{ type === 'credit' || type === 'refund' ? '+' : '-' }}"
+                                   class="text-white font-bold text-lg" />
+                        </StackLayout>
+
+                        <!-- Details -->
+                        <StackLayout col="1">
+                            <Label text="{{ description }}" class="text-base" />
+                            <Label text="{{ formattedDate }}" class="text-sm text-gray-500" />
+                        </StackLayout>
+
+                        <!-- Amount -->
+                        <StackLayout col="2" class="items-end">
+                            <Label text="{{ (type === 'credit' || type === 'refund' ? '+' : '-') + amount + ' ' + currency }}"
+                                   class="{{ type === 'credit' || type === 'refund' ? 'text-green-500' : 'text-red-500' }} font-bold" />
+                            <Label text="{{ status }}" class="text-xs text-gray-500" />
+                        </StackLayout>
+                    </GridLayout>
+                </ListView.itemTemplate>
+            </ListView>
+
+            <StackLayout visibility="{{ hasTransactions ? 'collapsed' : 'visible' }}" class="p-8">
+                <Label text="No transactions yet" class="text-center text-gray-500" />
+            </StackLayout>
+        </StackLayout>
+    </GridLayout>
+</Page>

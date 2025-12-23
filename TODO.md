@@ -1,5 +1,47 @@
 # NoWastedMed - TODO List
 
+## Completed (2024-12-23) - Session 4
+
+### Missing Features Implementation
+- [x] **Wallet Feature** - Complete wallet system with Firebase integration
+  - `app/models/wallet.model.ts` - Wallet and transaction models
+  - `app/services/firebase/wallet-firebase.service.ts` - Firebase wallet service
+  - `app/pages/shared/wallet/wallet-page.xml` - Wallet UI page
+  - `app/pages/shared/wallet/wallet-view-model.ts` - Wallet view model
+  - Real-time balance updates via Firestore subscriptions
+  - Top-up request flow (Mobile Money, Bank Transfer)
+  - Transaction history display
+
+- [x] **Subscription Feature** - Complete subscription and plan system
+  - `app/models/subscription.model.ts` - Subscription and plan models
+  - `app/services/firebase/subscription-firebase.service.ts` - Firebase subscription service
+  - `app/pages/shared/subscription/subscription-page.xml` - Subscription UI
+  - `app/pages/shared/subscription/subscription-view-model.ts` - Subscription view model
+  - 4 default plans: Free, Basic (5000 XOF), Premium (15000 XOF), Enterprise (50000 XOF)
+  - Plan feature comparison display
+  - Subscription request and cancellation flow
+
+- [x] **Courier/Delivery Feature** - Complete delivery tracking with Firebase
+  - `app/models/delivery.model.ts` - Delivery and courier models
+  - `app/services/firebase/delivery-firebase.service.ts` - Firebase delivery service
+  - Updated `courier-dashboard-view-model.ts` with real Firebase integration
+  - Delivery acceptance, pickup confirmation, and delivery confirmation
+  - QR code verification for pickup/delivery
+  - Real-time delivery status tracking
+  - Courier statistics (deliveries, earnings, rating)
+
+- [x] **Updated Firestore Security Rules** - Added rules for new collections
+  - `subscription_plans` - Read-only for authenticated users
+  - `topup_requests` - Users can create their own requests
+  - `subscription_requests` - Users can create their own requests
+  - `deliveries` - Couriers can accept pending and update their deliveries
+
+- [x] **Updated Firestore Indexes** - Added indexes for new queries
+  - Delivery queries (by courier, status, pharmacy)
+  - Ledger/transaction queries (by user, type, status)
+  - Subscription queries (by user, status)
+  - Subscription plan queries
+
 ## Completed (2024-12-23) - Session 3
 
 ### Input Sanitization & Environment Configuration
@@ -62,9 +104,11 @@
 
 ## Next Steps (Priority)
 - [ ] Deploy Firestore security rules to Firebase
+- [ ] Set up Cloud Functions for wallet/subscription management
 - [ ] Add rate limiting for API calls
 - [ ] Implement proper error handling UI
-- [ ] Add more input validation (date pickers, quantity limits)
+- [ ] Add navigation to wallet/subscription pages from dashboards
+- [ ] Test all features end-to-end
 - [ ] Test security rules with Firebase Emulator
 
 ## Firebase Security Rules Deployment
@@ -94,7 +138,21 @@ npm install @nativescript/firebase-app-check
 # 4. Set environment.security.enableAppCheck = true for staging/production
 ```
 
-## New Files Created
+## New Files Created (Session 4)
+- `app/models/wallet.model.ts` - Wallet and transaction models
+- `app/models/subscription.model.ts` - Subscription and plan models
+- `app/models/delivery.model.ts` - Delivery and courier models
+- `app/services/firebase/wallet-firebase.service.ts` - Wallet Firebase service
+- `app/services/firebase/subscription-firebase.service.ts` - Subscription Firebase service
+- `app/services/firebase/delivery-firebase.service.ts` - Delivery Firebase service
+- `app/pages/shared/wallet/wallet-page.ts` - Wallet page
+- `app/pages/shared/wallet/wallet-page.xml` - Wallet UI
+- `app/pages/shared/wallet/wallet-view-model.ts` - Wallet view model
+- `app/pages/shared/subscription/subscription-page.ts` - Subscription page
+- `app/pages/shared/subscription/subscription-page.xml` - Subscription UI
+- `app/pages/shared/subscription/subscription-view-model.ts` - Subscription view model
+
+## New Files Created (Session 3)
 - `app/services/utils/input-sanitizer.service.ts` - Input sanitization utility
 - `app/config/environment.config.ts` - Environment configuration system
 - `app/services/firebase/app-check.service.ts` - Firebase App Check service
