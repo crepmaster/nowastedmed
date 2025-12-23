@@ -2,11 +2,13 @@ import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
 import { AuthService } from '../../../services/auth.service';
 import { MedicineService } from '../../../services/medicine.service';
+import { InputSanitizerService } from '../../../services/utils/input-sanitizer.service';
 
 export class AddMedicineViewModel extends Observable {
     private navigationService: NavigationService;
     private authService: AuthService;
     private medicineService: MedicineService;
+    private sanitizer: InputSanitizerService;
 
     public name: string = '';
     public expiryDate: Date = new Date();
@@ -18,6 +20,7 @@ export class AddMedicineViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.authService = AuthService.getInstance();
         this.medicineService = MedicineService.getInstance();
+        this.sanitizer = InputSanitizerService.getInstance();
     }
 
     async onSubmit() {
@@ -30,10 +33,11 @@ export class AddMedicineViewModel extends Observable {
                 return;
             }
 
+            // Sanitize input data
             await this.medicineService.addMedicine({
-                name: this.name,
+                name: this.sanitizer.sanitizeName(this.name),
                 expiryDate: this.expiryDate,
-                quantity: this.quantity,
+                quantity: this.sanitizer.sanitizePositiveInteger(this.quantity),
                 pharmacyId: user.id,
                 status: 'available'
             });

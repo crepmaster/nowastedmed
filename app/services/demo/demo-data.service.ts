@@ -3,6 +3,7 @@ import { SecurityService } from '../security.service';
 import { AuthStorage } from '../../auth/storage/auth.storage';
 import { ExchangeStorage } from '../storage/exchange.storage';
 import { MedicineService } from '../medicine.service';
+import { environment } from '../../config/environment.config';
 
 /**
  * Demo Data Service - For development and testing only
@@ -17,9 +18,6 @@ export class DemoDataService {
     private authStorage: AuthStorage;
     private exchangeStorage: ExchangeStorage;
     private medicineService: MedicineService;
-
-    // Demo mode flag - should be false in production
-    private static readonly DEMO_MODE_ENABLED = __DEV__ ?? false;
 
     private constructor() {
         this.authService = AuthService.getInstance();
@@ -38,17 +36,18 @@ export class DemoDataService {
 
     /**
      * Check if demo mode is enabled
+     * Uses environment configuration
      */
     static isDemoModeEnabled(): boolean {
-        return DemoDataService.DEMO_MODE_ENABLED;
+        return environment.isFeatureEnabled('enableDemoMode');
     }
 
     /**
      * Initialize demo data for testing
-     * Only works when DEMO_MODE_ENABLED is true
+     * Only works when demo mode is enabled in environment config
      */
     async initializeDemoData(): Promise<void> {
-        if (!DemoDataService.DEMO_MODE_ENABLED) {
+        if (!DemoDataService.isDemoModeEnabled()) {
             console.warn('Demo mode is disabled. Skipping demo data initialization.');
             return;
         }

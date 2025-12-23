@@ -1,11 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { AuthService } from '../../services/auth.service';
 import { NavigationService } from '../../services/navigation.service';
+import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 
 export class LoginViewModel extends Observable {
     private authService: AuthService;
     private navigationService: NavigationService;
-    
+    private sanitizer: InputSanitizerService;
+
     public email: string = '';
     public password: string = '';
     public errorMessage: string = '';
@@ -14,13 +16,16 @@ export class LoginViewModel extends Observable {
         super();
         this.authService = AuthService.getInstance();
         this.navigationService = NavigationService.getInstance();
+        this.sanitizer = InputSanitizerService.getInstance();
     }
 
     async onLogin() {
         try {
             if (!this.validateInput()) return;
 
-            const success = await this.authService.login(this.email, this.password);
+            // Sanitize email before login attempt
+            const sanitizedEmail = this.sanitizer.sanitizeEmail(this.email);
+            const success = await this.authService.login(sanitizedEmail, this.password);
             if (!success) {
                 this.set('errorMessage', 'Invalid credentials');
                 return;

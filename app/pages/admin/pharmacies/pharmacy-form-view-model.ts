@@ -4,12 +4,14 @@ import { PharmacyCrudService } from '../../../services/crud/pharmacy.crud.servic
 import { NavigationService } from '../../../services/navigation.service';
 import { ValidationUtil } from '../../../utils/validation.util';
 import { AuthService } from '../../../services/auth.service';
+import { InputSanitizerService } from '../../../services/utils/input-sanitizer.service';
 
 export class PharmacyFormViewModel extends Observable {
     private pharmacyCrudService: PharmacyCrudService;
     private navigationService: NavigationService;
     private validationUtil: ValidationUtil;
     private authService: AuthService;
+    private sanitizer: InputSanitizerService;
     private pharmacyId: string | null = null;
 
     public isEditMode: boolean = false;
@@ -28,6 +30,7 @@ export class PharmacyFormViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.validationUtil = ValidationUtil.getInstance();
         this.authService = AuthService.getInstance();
+        this.sanitizer = InputSanitizerService.getInstance();
 
         this.isEditMode = params.mode === 'edit';
         if (this.isEditMode && params.pharmacyId) {
@@ -83,13 +86,14 @@ export class PharmacyFormViewModel extends Observable {
                 return;
             }
 
+            // Sanitize all input data
             const pharmacyData: Partial<Pharmacist> = {
-                pharmacyName: this.pharmacyName,
-                email: this.email,
-                password: this.password,
-                phoneNumber: this.phoneNumber,
-                license: this.licenseNumber,
-                address: this.address,
+                pharmacyName: this.sanitizer.sanitizeName(this.pharmacyName),
+                email: this.sanitizer.sanitizeEmail(this.email),
+                password: this.password, // Don't sanitize password
+                phoneNumber: this.sanitizer.sanitizePhoneNumber(this.phoneNumber),
+                license: this.sanitizer.sanitizeLicenseNumber(this.licenseNumber),
+                address: this.sanitizer.sanitizeAddress(this.address),
                 role: 'pharmacist' as const
             };
 

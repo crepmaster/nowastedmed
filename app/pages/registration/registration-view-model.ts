@@ -2,11 +2,13 @@ import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../services/navigation.service';
 import { AuthService } from '../../services/auth.service';
 import { ValidationUtil } from '../../utils/validation.util';
+import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 
 export class RegistrationViewModel extends Observable {
     private navigationService: NavigationService;
     private authService: AuthService;
     private validationUtil: ValidationUtil;
+    private sanitizer: InputSanitizerService;
 
     // Form fields
     public userTypeIndex: number = 0;
@@ -24,6 +26,7 @@ export class RegistrationViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.authService = AuthService.getInstance();
         this.validationUtil = ValidationUtil.getInstance();
+        this.sanitizer = InputSanitizerService.getInstance();
     }
 
     get isPharmacy(): boolean {
@@ -36,14 +39,15 @@ export class RegistrationViewModel extends Observable {
                 return;
             }
 
+            // Sanitize all input data before sending to auth service
             const registrationData = {
-                email: this.email,
-                password: this.password,
-                phoneNumber: this.phoneNumber,
+                email: this.sanitizer.sanitizeEmail(this.email),
+                password: this.password, // Don't sanitize password
+                phoneNumber: this.sanitizer.sanitizePhoneNumber(this.phoneNumber),
                 role: this.isPharmacy ? 'pharmacist' : 'courier',
                 ...(this.isPharmacy ? {
-                    pharmacyName: this.pharmacyName,
-                    licenseNumber: this.licenseNumber
+                    pharmacyName: this.sanitizer.sanitizeName(this.pharmacyName),
+                    licenseNumber: this.sanitizer.sanitizeLicenseNumber(this.licenseNumber)
                 } : {
                     vehicleType: this.vehicleTypes[this.selectedVehicleIndex]
                 })
