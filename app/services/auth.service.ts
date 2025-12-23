@@ -4,6 +4,12 @@ import { AuthStorage } from '../auth/storage/auth.storage';
 import { AuthValidator } from '../auth/validation/auth.validator';
 import { SecurityService } from './security.service';
 
+/**
+ * Local Auth Service - For offline/demo mode only
+ *
+ * NOTE: For production, use AuthFirebaseService instead.
+ * This service is kept for offline demo functionality.
+ */
 export class AuthService extends Observable {
     private static instance: AuthService;
     private currentUser: User | null = null;
@@ -27,7 +33,12 @@ export class AuthService extends Observable {
 
     async register(userData: any): Promise<boolean> {
         try {
-            console.log('Registering user:', userData);
+            // Validate registration data
+            const validation = this.authValidator.validateRegistrationData(userData);
+            if (!validation.valid) {
+                console.error('Registration validation failed:', validation.errors.join(', '));
+                return false;
+            }
 
             const users = this.authStorage.loadUsers();
             if (users.some(u => u.email === userData.email)) {
@@ -56,31 +67,22 @@ export class AuthService extends Observable {
 
     async login(email: string, password: string): Promise<boolean> {
         try {
-            console.log('Attempting login for:', email);
-
-            if (this.authValidator.validateAdminCredentials(email, password)) {
-                this.currentUser = {
-                    id: 'admin-1',
-                    email: email,
-                    role: 'admin',
-                    name: 'Administrator',
-                    phoneNumber: ''
-                };
-                console.log('Admin login successful');
-                return true;
+            // Validate credentials format first
+            const formatValidation = this.authValidator.validateCredentialsFormat(email, password);
+            if (!formatValidation.valid) {
+                console.log('Login failed: Invalid format');
+                return false;
             }
 
             const users = this.authStorage.loadUsers();
-            console.log('Registered users:', users);
-
             const hashedPassword = this.securityService.hashPassword(password);
-            const user = users.find(u => 
+            const user = users.find(u =>
                 u.email === email && u.password === hashedPassword
             );
 
             if (user) {
                 this.currentUser = user;
-                console.log('User login successful:', user);
+                console.log('Login successful for role:', user.role);
                 return true;
             }
 

@@ -25,7 +25,7 @@ export class AuthFirebaseService extends Observable {
     // Listen to auth state changes
     this.auth.addAuthStateChangeListener(async (firebaseUser: any) => {
       if (firebaseUser) {
-        console.log('🔐 User logged in:', firebaseUser.uid);
+        console.log('🔐 User authenticated');
         await this.loadUserProfile(firebaseUser.uid);
       } else {
         console.log('🔓 User logged out');
@@ -52,7 +52,7 @@ export class AuthFirebaseService extends Observable {
       const result = await this.auth.createUserWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
-      console.log('✅ Firebase Auth user created:', firebaseUser.uid);
+      console.log('✅ Firebase Auth user created');
 
       const userRole = userData.role as UserRole;
       const collectionName = this.getCollectionName(userRole);
@@ -102,7 +102,7 @@ export class AuthFirebaseService extends Observable {
       const result = await this.auth.signInWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
-      console.log('✅ Login successful:', firebaseUser.uid);
+      console.log('✅ Login successful');
       return true;
     } catch (error: any) {
       console.error('❌ Login error:', error.message);
@@ -145,7 +145,7 @@ export class AuthFirebaseService extends Observable {
   async resetPassword(email: string): Promise<boolean> {
     try {
       await this.auth.sendPasswordResetEmail(email);
-      console.log('✅ Password reset email sent to:', email);
+      console.log('✅ Password reset email sent');
       return true;
     } catch (error) {
       console.error('❌ Password reset error:', error);
