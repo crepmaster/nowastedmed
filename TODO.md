@@ -17,6 +17,13 @@
   - `pharmacy-form-view-model.ts`
   - `add-medicine-view-model.ts`
 
+### Firebase App Check
+- [x] **AppCheckService** - Created App Check service for production security
+  - Integrates with Firebase App Check
+  - Supports debug provider for development
+  - Auto-initializes based on environment config
+  - Gracefully handles missing `@nativescript/firebase-app-check` package
+
 ## Completed (2024-12-23) - Session 2
 
 ### Security Fixes Applied
@@ -44,15 +51,27 @@
 - [x] Push changes to GitHub
 
 ## Next Steps (Priority)
-- [ ] Add Firebase App Check for production security
 - [ ] Review and test all Firebase Security Rules
 - [ ] Add rate limiting for API calls
 - [ ] Implement proper error handling UI
 - [ ] Add more input validation (date pickers, quantity limits)
 
+## App Check Setup (When Ready for Production)
+```bash
+# Install App Check package
+npm install @nativescript/firebase-app-check
+
+# Then in Firebase Console:
+# 1. Go to App Check section
+# 2. Register Android app with SafetyNet/Play Integrity
+# 3. Register iOS app with DeviceCheck/App Attest
+# 4. Set environment.security.enableAppCheck = true for staging/production
+```
+
 ## New Files Created
 - `app/services/utils/input-sanitizer.service.ts` - Input sanitization utility
 - `app/config/environment.config.ts` - Environment configuration system
+- `app/services/firebase/app-check.service.ts` - Firebase App Check service
 
 ## Code Review Notes
 - **firebase.config.ts** - API keys are client-side identifiers, security is through Firebase Security Rules
