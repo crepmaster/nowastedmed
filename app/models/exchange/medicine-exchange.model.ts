@@ -6,7 +6,7 @@ export interface MedicineExchangeItem {
   medicine?: Medicine; // For UI display
 }
 
-export type ExchangeStatus = 'draft' | 'pending' | 'accepted' | 'rejected' | 'completed';
+export type ExchangeStatus = 'draft' | 'pending' | 'accepted' | 'rejected' | 'completed' | 'requested' | 'in_transit';
 export type PriorityLevel = 'low' | 'medium' | 'high';
 
 export interface MedicineExchange {

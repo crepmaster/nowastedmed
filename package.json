@@ -3,6 +3,9 @@
   "main": "app/app.ts",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "ns-review": "node ../tools/nativescript-reviewer/index.js ."
+  },
   "dependencies": {
     "@nativescript/core": "~8.3.0",
     "@nativescript/firebase-auth": "^5.0.2",
@@ -14,8 +17,8 @@
     "nativescript-barcodescanner": "~4.1.2"
   },
   "devDependencies": {
-    "@nativescript/android": "~8.3.0",
-    "@nativescript/ios": "~8.3.0",
+    "@nativescript/android": "9.0.1",
+    "@nativescript/ios": "~8.8.0",
     "@nativescript/preview-cli": "1.0.14",
     "@nativescript/stackblitz": "~0.0.7",
     "@nativescript/tailwind": "~2.0.1",

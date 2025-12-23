@@ -1,0 +1,36 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd"
+    navigatingTo="onNavigatingTo"
+    class="page">
+
+    <ActionBar title="Scan QR Code" class="action-bar">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap"/>
+    </ActionBar>
+
+    <GridLayout rows="auto, *, auto" class="page-content">
+        <!-- Status Message -->
+        <StackLayout row="0" class="m-20">
+            <Label text="{{ statusMessage }}" class="h2 text-center" textWrap="true"/>
+        </StackLayout>
+
+        <!-- Main Content -->
+        <StackLayout row="1" verticalAlignment="center" horizontalAlignment="center">
+            <Image src="res://qr_scan_placeholder" width="200" height="200" class="m-b-20"/>
+
+            <Label text="Point your camera at a QR code" class="body text-center m-b-20"/>
+
+            <!-- Scan Button -->
+            <Button text="{{ isScanning ? 'Scanning...' : 'Scan QR Code' }}"
+                    tap="{{ onScanQR }}"
+                    isEnabled="{{ !isScanning }}"
+                    class="btn btn-primary btn-lg m-t-20"/>
+        </StackLayout>
+
+        <!-- Instructions -->
+        <StackLayout row="2" class="p-20 bg-light">
+            <Label text="Instructions:" class="font-weight-bold m-b-10"/>
+            <Label text="• Courier: Scan pickup QR at source pharmacy" textWrap="true"/>
+            <Label text="• Courier: Show delivery QR to destination pharmacy" textWrap="true"/>
+            <Label text="• Pharmacy: Scan delivery QR to confirm receipt" textWrap="true"/>
+        </StackLayout>
+    </GridLayout>
+</Page>

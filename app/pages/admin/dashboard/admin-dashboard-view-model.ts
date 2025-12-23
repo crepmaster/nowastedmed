@@ -8,7 +8,7 @@ export class AdminDashboardViewModel extends Observable {
     private adminService: AdminService;
     private navigationService: NavigationService;
     private authService: AuthService;
-    private refreshInterval: number;
+    private refreshInterval: ReturnType<typeof setInterval>;
 
     public stats: AdminStats;
     public selectedTabIndex: number = 0;

@@ -1,5 +1,6 @@
 import { Observable, Frame } from '@nativescript/core';
-import { Medicine, Exchange } from '../../../models/medicine.model';
+import { Medicine } from '../../../models/medicine.model';
+import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 import { AuthService } from '../../../services/auth.service';
 import { MedicineService } from '../../../services/medicine.service';
 
@@ -8,7 +9,7 @@ export class DashboardViewModel extends Observable {
     private medicineService: MedicineService;
 
     public medicines: Medicine[] = [];
-    public availableExchanges: Exchange[] = [];
+    public availableExchanges: MedicineExchange[] = [];
     public selectedTabIndex: number = 0;
 
     public availableCount: number = 0;

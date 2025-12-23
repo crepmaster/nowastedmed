@@ -1,4 +1,5 @@
 import { Observable } from '@nativescript/core';
+import { Courier } from '../../../models/user.model';
 import { CourierCrudService } from '../../../services/crud/courier.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
 import { ValidationUtil } from '../../../utils/validation.util';
@@ -86,14 +87,14 @@ export class CourierFormViewModel extends Observable {
                 return;
             }
 
-            const courierData = {
+            const courierData: Partial<Courier> = {
                 name: this.name,
                 email: this.email,
                 password: this.password,
                 phoneNumber: this.phoneNumber,
                 licenseNumber: this.licenseNumber,
                 vehicleType: this.vehicleTypes[this.selectedVehicleIndex],
-                role: 'courier'
+                role: 'courier' as const
             };
 
             if (this.isEditMode && this.courierId) {

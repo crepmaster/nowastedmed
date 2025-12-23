@@ -1,4 +1,5 @@
 import { Observable } from '@nativescript/core';
+import { Pharmacist } from '../../../models/user.model';
 import { PharmacyCrudService } from '../../../services/crud/pharmacy.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
 import { ValidationUtil } from '../../../utils/validation.util';
@@ -82,14 +83,14 @@ export class PharmacyFormViewModel extends Observable {
                 return;
             }
 
-            const pharmacyData = {
+            const pharmacyData: Partial<Pharmacist> = {
                 pharmacyName: this.pharmacyName,
                 email: this.email,
                 password: this.password,
                 phoneNumber: this.phoneNumber,
                 license: this.licenseNumber,
                 address: this.address,
-                role: 'pharmacist'
+                role: 'pharmacist' as const
             };
 
             if (this.isEditMode && this.pharmacyId) {

@@ -1,20 +1,16 @@
-import { firebase } from '@nativescript/firebase-core';
+import { firebase, FirebaseApp } from '@nativescript/firebase-core';
 import '@nativescript/firebase-auth';
 import '@nativescript/firebase-firestore';
-import { getFirebaseConfig } from '../../config/firebase.config';
 
 /**
  * Firebase Service - Core Firebase Initialization
  *
  * This service initializes Firebase for the NativeScript app.
  * It should be called once when the app starts.
- *
- * Usage:
- *   import { FirebaseService } from './services/firebase/firebase.service';
- *   await FirebaseService.initialize();
  */
 export class FirebaseService {
   private static isInitialized = false;
+  private static app: FirebaseApp | null = null;
 
   /**
    * Initialize Firebase
@@ -29,16 +25,11 @@ export class FirebaseService {
     try {
       console.log('🔥 Initializing Firebase...');
 
-      const config = getFirebaseConfig();
-
-      // Initialize Firebase
-      await firebase().initializeApp({
-        ...config
-      });
+      // Initialize Firebase with default app (uses google-services.json / GoogleService-Info.plist)
+      this.app = await firebase().initializeApp();
 
       this.isInitialized = true;
       console.log('✅ Firebase initialized successfully');
-      console.log(`📱 Project: ${config.projectId}`);
     } catch (error) {
       console.error('❌ Firebase initialization failed:', error);
       throw error;

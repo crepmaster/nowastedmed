@@ -30,6 +30,11 @@ export class ExchangeStorage {
         }
     }
 
+    // Alias for loadExchanges for compatibility
+    getExchanges(): MedicineExchange[] {
+        return this.loadExchanges();
+    }
+
     clearExchanges(): void {
         ApplicationSettings.remove(this.EXCHANGES_KEY);
     }

@@ -11,11 +11,12 @@ export class ExchangeProposalViewModel extends Observable {
     private medicineService: MedicineService;
 
     public availableMedicine: any;
+    public exchangeId: string;
     public myMedicines: any[] = [];
     public notes: string = '';
     public errorMessage: string = '';
 
-    constructor(availableMedicine: any) {
+    constructor(availableMedicine: any, exchangeId?: string) {
         super();
         this.navigationService = NavigationService.getInstance();
         this.exchangeService = ExchangeService.getInstance();
@@ -23,6 +24,7 @@ export class ExchangeProposalViewModel extends Observable {
         this.medicineService = MedicineService.getInstance();
 
         this.availableMedicine = availableMedicine;
+        this.exchangeId = exchangeId || availableMedicine?.id;
         this.loadMyMedicines();
     }
 
@@ -59,12 +61,11 @@ export class ExchangeProposalViewModel extends Observable {
             const user = this.authService.getCurrentUser();
             if (!user) return;
 
-            await this.exchangeService.createProposal({
-                exchangeId: this.availableMedicine.id,
-                proposedBy: user.id,
-                medicines: selectedMedicines,
-                notes: this.notes
-            });
+            await this.exchangeService.createProposal(
+                this.availableMedicine.id,
+                user.id,
+                selectedMedicines
+            );
 
             this.navigationService.goBack();
         } catch (error) {

@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core';
-import { Exchange } from '../../models/medicine.model';
+import { MedicineExchange } from '../../models/exchange/medicine-exchange.model';
 import { MedicineService } from '../medicine.service';
 
 export class ExchangeDatabaseService extends Observable {
@@ -18,7 +18,7 @@ export class ExchangeDatabaseService extends Observable {
         return ExchangeDatabaseService.instance;
     }
 
-    async getAllExchanges(): Promise<Exchange[]> {
+    async getAllExchanges(): Promise<MedicineExchange[]> {
         try {
             const exchanges = await this.medicineService.getAvailableExchanges();
             return exchanges;

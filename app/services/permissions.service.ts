@@ -1,5 +1,8 @@
-import { Observable } from '@nativescript/core';
+import { Observable, Application } from '@nativescript/core';
 import * as Geolocation from '@nativescript/geolocation';
+
+// Declare Android types for TypeScript (available at runtime on Android)
+declare const android: any;
 
 export class PermissionsService extends Observable {
     private static instance: PermissionsService;
@@ -15,7 +18,8 @@ export class PermissionsService extends Observable {
         try {
             const isEnabled = await Geolocation.isEnabled();
             if (!isEnabled) {
-                return await Geolocation.enableLocationRequest(true);
+                await Geolocation.enableLocationRequest(true);
+                return await Geolocation.isEnabled();
             }
             return true;
         } catch (error) {

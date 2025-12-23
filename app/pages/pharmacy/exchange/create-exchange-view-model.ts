@@ -55,7 +55,7 @@ export class CreateExchangeViewModel extends Observable {
             await this.exchangeService.createExchange({
                 proposedBy: user.id,
                 status: 'pending',
-                priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase(),
+                priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase() as 'low' | 'medium' | 'high',
                 proposedMedicines: [{
                     medicineId: this.medicine.id,
                     quantity: this.exchangeQuantity,

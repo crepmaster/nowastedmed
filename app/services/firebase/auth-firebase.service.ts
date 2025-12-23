@@ -1,20 +1,19 @@
 import { firebase } from '@nativescript/firebase-core';
-import '@nativescript/firebase-auth';
+import { Auth } from '@nativescript/firebase-auth';
+import { Firestore } from '@nativescript/firebase-firestore';
 import { Observable } from '@nativescript/core';
 import { FirestoreService } from './firestore.service';
-import { User, UserRole } from '../../auth/types/auth.types';
+import { User, UserRole } from '../../models/user.model';
 
 /**
  * Firebase Authentication Service
  *
  * Handles user authentication with Firebase Auth
  * and retrieves user profiles from Firestore.
- *
- * This replaces the local AuthService for production use.
  */
 export class AuthFirebaseService extends Observable {
   private static instance: AuthFirebaseService;
-  private auth: any;
+  private auth: Auth;
   private firestoreService: FirestoreService;
   private currentUser: User | null = null;
 
@@ -24,10 +23,9 @@ export class AuthFirebaseService extends Observable {
     this.firestoreService = FirestoreService.getInstance();
 
     // Listen to auth state changes
-    this.auth.onAuthStateChanged(async (firebaseUser: any) => {
+    this.auth.addAuthStateChangeListener(async (firebaseUser: any) => {
       if (firebaseUser) {
         console.log('🔐 User logged in:', firebaseUser.uid);
-        // Load user profile from Firestore
         await this.loadUserProfile(firebaseUser.uid);
       } else {
         console.log('🔓 User logged out');
@@ -46,21 +44,15 @@ export class AuthFirebaseService extends Observable {
 
   /**
    * Register a new user with Firebase Auth
-   * Note: User profile creation is handled by Cloud Functions
    */
   async register(email: string, password: string, userData: any): Promise<boolean> {
     try {
       console.log('🔐 Registering user with Firebase Auth...');
 
-      // Create Firebase Auth user
       const result = await this.auth.createUserWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
       console.log('✅ Firebase Auth user created:', firebaseUser.uid);
-
-      // The Cloud Function (createPharmacyUser/createCourierUser) should be called
-      // separately to create the Firestore profile
-      // For now, we'll create the profile directly
 
       const userRole = userData.role as UserRole;
       const collectionName = this.getCollectionName(userRole);
@@ -71,8 +63,7 @@ export class AuthFirebaseService extends Observable {
         name: userData.pharmacyName || userData.name || '',
         phoneNumber: userData.phoneNumber || '',
         isActive: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        // Add role-specific fields
+        createdAt: new Date(),
         ...(userRole === 'pharmacist' && {
           pharmacyName: userData.pharmacyName || '',
           address: userData.address || '',
@@ -82,23 +73,16 @@ export class AuthFirebaseService extends Observable {
           vehicleType: userData.vehicleType || '',
           licenseNumber: userData.licenseNumber || ''
         }),
-        // Initialize subscription fields
         hasActiveSubscription: false,
-        subscriptionStatus: 'pendingPayment',
-        subscriptionPlan: null,
-        subscriptionStartDate: null,
-        subscriptionEndDate: null
+        subscriptionStatus: 'pendingPayment'
       };
 
-      // Save profile to Firestore
       await firebase().firestore()
         .collection(collectionName)
         .doc(firebaseUser.uid)
         .set(profileData);
 
       console.log('✅ User profile created in Firestore');
-
-      // Load the created profile
       await this.loadUserProfile(firebaseUser.uid);
 
       return true;
@@ -119,8 +103,6 @@ export class AuthFirebaseService extends Observable {
       const firebaseUser = result.user;
 
       console.log('✅ Login successful:', firebaseUser.uid);
-
-      // User profile will be loaded by onAuthStateChanged listener
       return true;
     } catch (error: any) {
       console.error('❌ Login error:', error.message);
@@ -172,69 +154,34 @@ export class AuthFirebaseService extends Observable {
   }
 
   /**
-   * Update user profile
-   */
-  async updateProfile(updates: Partial<User>): Promise<boolean> {
-    try {
-      if (!this.currentUser) {
-        throw new Error('No user logged in');
-      }
-
-      const collectionName = this.getCollectionName(this.currentUser.role);
-
-      await this.firestoreService.updateDocument(
-        collectionName,
-        this.currentUser.id,
-        updates
-      );
-
-      // Update local user object
-      this.currentUser = { ...this.currentUser, ...updates };
-      this.notifyPropertyChange('currentUser', this.currentUser);
-
-      console.log('✅ Profile updated');
-      return true;
-    } catch (error) {
-      console.error('❌ Profile update error:', error);
-      return false;
-    }
-  }
-
-  /**
    * Load user profile from Firestore
-   * Checks pharmacies, couriers, and admins collections
    */
   private async loadUserProfile(uid: string): Promise<void> {
     try {
-      // Try pharmacies collection
       let userData = await this.firestoreService.getDocument('pharmacies', uid);
       if (userData) {
-        this.currentUser = { ...userData, role: 'pharmacist' };
+        this.currentUser = { ...userData, role: 'pharmacist' as UserRole };
         this.notifyPropertyChange('currentUser', this.currentUser);
         return;
       }
 
-      // Try couriers collection
       userData = await this.firestoreService.getDocument('couriers', uid);
       if (userData) {
-        this.currentUser = { ...userData, role: 'courier' };
+        this.currentUser = { ...userData, role: 'courier' as UserRole };
         this.notifyPropertyChange('currentUser', this.currentUser);
         return;
       }
 
-      // Try admins collection
       userData = await this.firestoreService.getDocument('admins', uid);
       if (userData) {
-        this.currentUser = { ...userData, role: 'admin' };
+        this.currentUser = { ...userData, role: 'admin' as UserRole };
         this.notifyPropertyChange('currentUser', this.currentUser);
         return;
       }
 
-      console.error('❌ User profile not found in any collection');
-      throw new Error('User profile not found');
+      console.error('❌ User profile not found');
     } catch (error) {
       console.error('❌ Error loading user profile:', error);
-      throw error;
     }
   }
 
@@ -242,7 +189,7 @@ export class AuthFirebaseService extends Observable {
    * Get collection name for user role
    */
   private getCollectionName(role: UserRole): string {
-    const collections = {
+    const collections: Record<UserRole, string> = {
       pharmacist: 'pharmacies',
       courier: 'couriers',
       admin: 'admins'
@@ -255,12 +202,5 @@ export class AuthFirebaseService extends Observable {
    */
   isAuthenticated(): boolean {
     return this.currentUser !== null;
-  }
-
-  /**
-   * Get user ID
-   */
-  getUserId(): string | null {
-    return this.currentUser?.id || null;
   }
 }

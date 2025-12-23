@@ -111,8 +111,8 @@ export class FirestoreService extends Observable {
     try {
       const docRef = await this.firestore.collection(collection).add({
         ...data,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       console.log(`✅ Document added to ${collection}:`, docRef.id);
       return docRef.id;
@@ -129,7 +129,7 @@ export class FirestoreService extends Observable {
     try {
       await this.firestore.collection(collection).doc(docId).update({
         ...data,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        updatedAt: new Date()
       });
       console.log(`✅ Document updated in ${collection}:`, docId);
     } catch (error) {

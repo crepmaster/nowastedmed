@@ -1,6 +1,14 @@
+import { Observable } from '@nativescript/core';
+import { Medicine } from '../../models/medicine.model';
+import { NavigationService } from '../../services/navigation.service';
+import { AuthService } from '../../services/auth.service';
+import { MedicineService } from '../../services/medicine.service';
+
 export class PharmacyDashboardViewModel extends Observable {
-    // ... existing properties ...
     public availableMedicines: Medicine[] = [];
+    private navigationService: NavigationService;
+    private authService: AuthService;
+    private medicineService: MedicineService;
 
     constructor() {
         super();
@@ -31,7 +39,18 @@ export class PharmacyDashboardViewModel extends Observable {
         }
     }
 
-    // ... existing methods ...
+    updateStats(medicines: Medicine[]) {
+        const totalMedicines = medicines.length;
+        const expiringSoon = medicines.filter(m => {
+            const expiryDate = new Date(m.expiryDate);
+            const now = new Date();
+            const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            return diffDays <= 30 && diffDays > 0;
+        }).length;
+
+        this.set('totalMedicines', totalMedicines);
+        this.set('expiringSoon', expiringSoon);
+    }
 
     async onRequestExchange(args: any) {
         const medicine = args.object.bindingContext;
