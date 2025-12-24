@@ -99,6 +99,61 @@
 - [ ] Implement proper error recovery for failed payouts
 - [ ] Add audit logging for financial transactions
 
+## Future Features - Dispute Resolution System
+
+### Dispute Model & Types
+- [ ] **Dispute Model** - `app/models/dispute.model.ts`
+  - `DisputeType`: delivery_not_received, wrong_medicine, damaged_medicine, courier_misconduct, payment_issue, other
+  - `DisputeStatus`: open, under_review, resolved_refund, resolved_no_refund, escalated, closed
+  - `DisputeParty`: pharmacy_sender, pharmacy_receiver, courier
+  - Evidence attachments (photos, screenshots)
+  - Resolution notes and admin decisions
+
+### Dispute Scenarios to Handle
+- [ ] **Delivery Disputes**
+  - Medicine not delivered but marked as delivered
+  - Wrong medicine delivered
+  - Medicine damaged during transport
+  - Courier never picked up
+
+- [ ] **Payment Disputes**
+  - Pharmacy claims they paid but not recorded
+  - Courier not paid after successful delivery
+  - Refund not processed after cancellation
+
+- [ ] **Exchange Disputes**
+  - Medicine quality not as described
+  - Quantity mismatch
+  - Expired medicine received
+
+### Dispute Service
+- [ ] **Dispute Firebase Service** - `app/services/firebase/dispute-firebase.service.ts`
+  - `createDispute()` - Open new dispute with evidence
+  - `getDisputesByUser()` - User's dispute history
+  - `addEvidence()` - Upload photos/documents
+  - `addComment()` - Communication thread
+  - `resolveDispute()` - Admin resolution with refund/no-refund
+  - `escalateDispute()` - Escalate to higher authority
+
+### Dispute UI
+- [ ] **Dispute Pages**
+  - Dispute creation form with type selection
+  - Evidence upload (camera/gallery)
+  - Dispute details with timeline
+  - Admin dispute management panel
+
+### Dispute Resolution Rules
+- [ ] **Automatic Actions**
+  - Hold courier payout when dispute opened (if delivery-related)
+  - Freeze pharmacy wallet if payment dispute
+  - Notify all parties via push notification
+
+- [ ] **Resolution Outcomes**
+  - Full refund to pharmacy
+  - Partial refund
+  - Payment release to courier
+  - Account warnings/suspensions
+
 ## Completed (2024-12-23) - Session 5
 
 ### Location-Based Organization & Same-City Exchange Enforcement
