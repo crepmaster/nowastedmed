@@ -18,10 +18,12 @@ import {
     DeliveryAssignment,
     DeliveryLocation,
     DeliveryPaymentStatus,
+    DeliveryCoordinates,
 } from '../../models/delivery.model';
 import { CourierEarningsFirebaseService } from './courier-earnings-firebase.service';
 import { DeliveryPaymentFirebaseService } from './delivery-payment-firebase.service';
 import { AuthFirebaseService } from './auth-firebase.service';
+import { GeolocationService, GeoCoordinates } from '../geolocation.service';
 
 export class DeliveryFirebaseService {
     private static instance: DeliveryFirebaseService;
@@ -29,6 +31,7 @@ export class DeliveryFirebaseService {
     private authService: AuthFirebaseService;
     private earningsService: CourierEarningsFirebaseService;
     private paymentService: DeliveryPaymentFirebaseService;
+    private geolocationService: GeolocationService;
     private readonly DELIVERIES_COLLECTION = 'deliveries';
     private readonly EXCHANGES_COLLECTION = 'exchanges';
 
@@ -37,6 +40,7 @@ export class DeliveryFirebaseService {
         this.authService = AuthFirebaseService.getInstance();
         this.earningsService = CourierEarningsFirebaseService.getInstance();
         this.paymentService = DeliveryPaymentFirebaseService.getInstance();
+        this.geolocationService = GeolocationService.getInstance();
     }
 
     static getInstance(): DeliveryFirebaseService {
@@ -674,10 +678,18 @@ export class DeliveryFirebaseService {
             fromPharmacyName: data.fromPharmacyName,
             fromAddress: data.fromAddress,
             fromPhone: data.fromPhone,
+            fromCoordinates: data.fromCoordinates ? {
+                latitude: data.fromCoordinates.latitude,
+                longitude: data.fromCoordinates.longitude,
+            } : undefined,
             toPharmacyId: data.toPharmacyId,
             toPharmacyName: data.toPharmacyName,
             toAddress: data.toAddress,
             toPhone: data.toPhone,
+            toCoordinates: data.toCoordinates ? {
+                latitude: data.toCoordinates.latitude,
+                longitude: data.toCoordinates.longitude,
+            } : undefined,
             status: data.status,
             statusHistory: data.statusHistory || [],
             scheduledPickupTime: data.scheduledPickupTime?.toDate?.() || data.scheduledPickupTime,
@@ -712,6 +724,132 @@ export class DeliveryFirebaseService {
             paymentStatus: data.paymentStatus || 'awaiting_payment',
             createdAt: data.createdAt?.toDate?.() || data.createdAt,
             updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+        };
+    }
+
+    // ========================================
+    // NAVIGATION & GPS HELPERS
+    // ========================================
+
+    /**
+     * Get Google Maps URL for pickup location
+     * Opens navigation to the pickup pharmacy
+     */
+    getPickupNavigationUrl(delivery: Delivery): string | null {
+        if (!delivery.fromCoordinates) {
+            console.warn('No GPS coordinates available for pickup location');
+            return null;
+        }
+        return this.geolocationService.getGoogleMapsUrl({
+            latitude: delivery.fromCoordinates.latitude,
+            longitude: delivery.fromCoordinates.longitude,
+        });
+    }
+
+    /**
+     * Get Google Maps URL for delivery location
+     * Opens navigation to the delivery pharmacy
+     */
+    getDeliveryNavigationUrl(delivery: Delivery): string | null {
+        if (!delivery.toCoordinates) {
+            console.warn('No GPS coordinates available for delivery location');
+            return null;
+        }
+        return this.geolocationService.getGoogleMapsUrl({
+            latitude: delivery.toCoordinates.latitude,
+            longitude: delivery.toCoordinates.longitude,
+        });
+    }
+
+    /**
+     * Get directions URL from pickup to delivery location
+     */
+    getFullRouteUrl(delivery: Delivery): string | null {
+        if (!delivery.fromCoordinates || !delivery.toCoordinates) {
+            console.warn('GPS coordinates missing for route calculation');
+            return null;
+        }
+        return this.geolocationService.getDirectionsUrl(
+            {
+                latitude: delivery.fromCoordinates.latitude,
+                longitude: delivery.fromCoordinates.longitude,
+            },
+            {
+                latitude: delivery.toCoordinates.latitude,
+                longitude: delivery.toCoordinates.longitude,
+            }
+        );
+    }
+
+    /**
+     * Get directions from courier's current location to pickup
+     */
+    async getDirectionsToPickup(delivery: Delivery): Promise<string | null> {
+        if (!delivery.fromCoordinates) {
+            console.warn('No GPS coordinates available for pickup location');
+            return null;
+        }
+
+        const currentLocation = await this.geolocationService.getQuickLocation();
+        if (!currentLocation) {
+            // Fall back to just the pickup location
+            return this.getPickupNavigationUrl(delivery);
+        }
+
+        return this.geolocationService.getDirectionsUrl(currentLocation, {
+            latitude: delivery.fromCoordinates.latitude,
+            longitude: delivery.fromCoordinates.longitude,
+        });
+    }
+
+    /**
+     * Get directions from courier's current location to delivery
+     */
+    async getDirectionsToDelivery(delivery: Delivery): Promise<string | null> {
+        if (!delivery.toCoordinates) {
+            console.warn('No GPS coordinates available for delivery location');
+            return null;
+        }
+
+        const currentLocation = await this.geolocationService.getQuickLocation();
+        if (!currentLocation) {
+            // Fall back to just the delivery location
+            return this.getDeliveryNavigationUrl(delivery);
+        }
+
+        return this.geolocationService.getDirectionsUrl(currentLocation, {
+            latitude: delivery.toCoordinates.latitude,
+            longitude: delivery.toCoordinates.longitude,
+        });
+    }
+
+    /**
+     * Calculate distance between pickup and delivery locations
+     * Returns distance in kilometers
+     */
+    getDeliveryDistance(delivery: Delivery): number | null {
+        if (!delivery.fromCoordinates || !delivery.toCoordinates) {
+            return null;
+        }
+        return this.geolocationService.calculateDistance(
+            {
+                latitude: delivery.fromCoordinates.latitude,
+                longitude: delivery.fromCoordinates.longitude,
+            },
+            {
+                latitude: delivery.toCoordinates.latitude,
+                longitude: delivery.toCoordinates.longitude,
+            }
+        );
+    }
+
+    /**
+     * Check if delivery has GPS coordinates for navigation
+     */
+    hasNavigationCoordinates(delivery: Delivery): { pickup: boolean; delivery: boolean } {
+        return {
+            pickup: !!delivery.fromCoordinates?.latitude && !!delivery.fromCoordinates?.longitude,
+            delivery: !!delivery.toCoordinates?.latitude && !!delivery.toCoordinates?.longitude,
         };
     }
 }

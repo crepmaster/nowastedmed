@@ -59,10 +59,26 @@
                               hint="Enter license number"
                               class="mb-4 p-3 border rounded" />
 
-                    <Label text="Pharmacy Address" class="text-gray-600" />
+                    <Label text="Address / Landmark" class="text-gray-600" />
                     <TextField text="{{ address }}"
-                              hint="Enter street address"
+                              hint="Enter address or nearby landmark"
                               class="mb-4 p-3 border rounded" />
+
+                    <!-- GPS Location Capture (Required for pharmacies) -->
+                    <Label text="GPS Location (Required)" class="text-gray-600 font-bold" />
+                    <Label text="Tap below to capture your exact location. This helps couriers find your pharmacy."
+                           class="text-gray-500 text-sm mb-2" textWrap="true" />
+
+                    <Button text="{{ captureButtonText }}"
+                            tap="{{ onCaptureLocation }}"
+                            isEnabled="{{ !isCapturingLocation }}"
+                            class="bg-blue-500 text-white p-3 rounded-lg mb-2" />
+
+                    <!-- Show captured coordinates -->
+                    <StackLayout visibility="{{ locationCaptured ? 'visible' : 'collapsed' }}" class="bg-green-100 p-3 rounded-lg mb-4">
+                        <Label text="Location captured successfully!" class="text-green-700 font-bold" />
+                        <Label text="{{ coordinatesDisplay }}" class="text-green-600 text-sm" />
+                    </StackLayout>
                 </StackLayout>
 
                 <StackLayout visibility="{{ !isPharmacy ? 'visible' : 'collapsed' }}">

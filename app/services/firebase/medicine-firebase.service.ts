@@ -143,17 +143,38 @@ export class MedicineFirebaseService extends Observable {
     private transformFromFirestore(doc: any): Medicine {
         return {
             id: doc.id,
+            // Database reference
+            databaseId: doc.databaseId,
+            // Medicine identification
+            inn: doc.inn || doc.name || 'Unknown',
             name: doc.name,
+            brandName: doc.brandName,
+            // Medicine details
+            form: doc.form || 'tablet',
+            dosage: doc.dosage || '',
+            category: doc.category || 'other',
+            // Pharmacy listing details
             batchNumber: doc.batchNumber,
             quantity: doc.quantity,
             expiryDate: doc.expiryDate?.toDate?.() || new Date(doc.expiryDate),
             pharmacyId: doc.pharmacyId,
             pharmacyName: doc.pharmacyName,
-            category: doc.category,
-            price: doc.price,
-            availableForExchange: doc.availableForExchange,
             exchangeQuantity: doc.exchangeQuantity,
-            status: doc.status
+            price: doc.price,
+            currency: doc.currency,
+            // Listing status
+            status: doc.status,
+            availableForExchange: doc.availableForExchange,
+            availableForSale: doc.availableForSale,
+            // Storage and handling
+            storageConditions: doc.storageConditions,
+            prescriptionRequired: doc.prescriptionRequired,
+            // Custom entry
+            isCustomEntry: doc.isCustomEntry,
+            pendingDatabaseReview: doc.pendingDatabaseReview,
+            // Timestamps
+            createdAt: doc.createdAt?.toDate?.() || doc.createdAt,
+            updatedAt: doc.updatedAt?.toDate?.() || doc.updatedAt
         };
     }
 }

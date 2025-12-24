@@ -1,0 +1,113 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+    <ActionBar title="{{ pageTitle }}" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Language Section -->
+            <StackLayout class="bg-white rounded-lg shadow mb-4">
+                <Label text="{{ languageSectionTitle }}" class="text-lg font-bold p-4 border-b border-gray-200" />
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100" tap="{{ onLanguageSelect }}">
+                    <StackLayout col="0">
+                        <Label text="{{ languageLabel }}" class="text-base" />
+                        <Label text="{{ currentLanguageName }}" class="text-sm text-blue-500" />
+                    </StackLayout>
+                    <Label col="1" text=">" class="text-gray-400 text-xl" />
+                </GridLayout>
+
+                <!-- Language Options (expandable) -->
+                <StackLayout visibility="{{ showLanguageOptions ? 'visible' : 'collapsed' }}">
+                    <GridLayout columns="*, auto" class="p-4 border-b border-gray-100"
+                                tap="{{ () => selectLanguage('fr') }}">
+                        <Label col="0" text="Français" class="text-base" />
+                        <Label col="1" text="✓" class="text-green-500 text-xl"
+                               visibility="{{ currentLanguage === 'fr' ? 'visible' : 'hidden' }}" />
+                    </GridLayout>
+                    <GridLayout columns="*, auto" class="p-4 border-b border-gray-100"
+                                tap="{{ () => selectLanguage('en') }}">
+                        <Label col="0" text="English" class="text-base" />
+                        <Label col="1" text="✓" class="text-green-500 text-xl"
+                               visibility="{{ currentLanguage === 'en' ? 'visible' : 'hidden' }}" />
+                    </GridLayout>
+                    <GridLayout columns="*, auto" class="p-4 border-b border-gray-100 opacity-50">
+                        <StackLayout col="0">
+                            <Label text="Português" class="text-base" />
+                            <Label text="(Coming soon)" class="text-xs text-gray-400" />
+                        </StackLayout>
+                    </GridLayout>
+                    <GridLayout columns="*, auto" class="p-4 border-b border-gray-100 opacity-50">
+                        <StackLayout col="0">
+                            <Label text="Español" class="text-base" />
+                            <Label text="(Coming soon)" class="text-xs text-gray-400" />
+                        </StackLayout>
+                    </GridLayout>
+                </StackLayout>
+            </StackLayout>
+
+            <!-- Notifications Section -->
+            <StackLayout class="bg-white rounded-lg shadow mb-4">
+                <Label text="{{ notificationsSectionTitle }}" class="text-lg font-bold p-4 border-b border-gray-200" />
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100">
+                    <Label col="0" text="{{ pushNotificationsLabel }}" class="text-base" />
+                    <Switch col="1" checked="{{ pushNotificationsEnabled }}" class="text-blue-500" />
+                </GridLayout>
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100">
+                    <Label col="0" text="{{ exchangeNotificationsLabel }}" class="text-base" />
+                    <Switch col="1" checked="{{ exchangeNotificationsEnabled }}" class="text-blue-500" />
+                </GridLayout>
+
+                <GridLayout columns="*, auto" class="p-4">
+                    <Label col="0" text="{{ deliveryNotificationsLabel }}" class="text-base" />
+                    <Switch col="1" checked="{{ deliveryNotificationsEnabled }}" class="text-blue-500" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Account Section -->
+            <StackLayout class="bg-white rounded-lg shadow mb-4">
+                <Label text="{{ accountSectionTitle }}" class="text-lg font-bold p-4 border-b border-gray-200" />
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100" tap="{{ onChangePassword }}">
+                    <Label col="0" text="{{ changePasswordLabel }}" class="text-base" />
+                    <Label col="1" text=">" class="text-gray-400 text-xl" />
+                </GridLayout>
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100" tap="{{ onEditProfile }}">
+                    <Label col="0" text="{{ editProfileLabel }}" class="text-base" />
+                    <Label col="1" text=">" class="text-gray-400 text-xl" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- About Section -->
+            <StackLayout class="bg-white rounded-lg shadow mb-4">
+                <Label text="{{ aboutSectionTitle }}" class="text-lg font-bold p-4 border-b border-gray-200" />
+
+                <GridLayout columns="*, auto" class="p-4 border-b border-gray-100">
+                    <Label col="0" text="{{ versionLabel }}" class="text-base" />
+                    <Label col="1" text="1.0.0" class="text-gray-500" />
+                </GridLayout>
+
+                <GridLayout columns="*, auto" class="p-4" tap="{{ onOpenHelp }}">
+                    <Label col="0" text="{{ helpLabel }}" class="text-base" />
+                    <Label col="1" text=">" class="text-gray-400 text-xl" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Danger Zone -->
+            <StackLayout class="bg-white rounded-lg shadow mb-4">
+                <Button text="{{ logoutLabel }}" tap="{{ onLogout }}"
+                        class="bg-red-500 text-white m-4 rounded-lg p-4" />
+            </StackLayout>
+
+            <!-- Demo Mode Indicator (if active) -->
+            <StackLayout visibility="{{ isDemoMode ? 'visible' : 'collapsed' }}"
+                         class="bg-yellow-100 rounded-lg p-4 mb-4">
+                <Label text="{{ demoModeLabel }}" class="text-yellow-800 text-center font-bold" />
+                <Label text="{{ demoModeDescription }}" class="text-yellow-700 text-center text-sm" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

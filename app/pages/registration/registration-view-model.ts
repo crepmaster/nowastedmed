@@ -3,6 +3,7 @@ import { NavigationService } from '../../services/navigation.service';
 import { AuthService } from '../../services/auth.service';
 import { ValidationUtil } from '../../utils/validation.util';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
+import { GeolocationService, GeoCoordinates } from '../../services/geolocation.service';
 import {
     Country,
     City,
@@ -17,6 +18,7 @@ export class RegistrationViewModel extends Observable {
     private authService: AuthService;
     private validationUtil: ValidationUtil;
     private sanitizer: InputSanitizerService;
+    private geolocationService: GeolocationService;
 
     // Form fields
     public userTypeIndex: number = 0;
@@ -25,10 +27,16 @@ export class RegistrationViewModel extends Observable {
     public phoneNumber: string = '';
     public pharmacyName: string = '';
     public licenseNumber: string = '';
-    public address: string = '';  // Street address
+    public address: string = '';  // Street address / landmark description
     public vehicleTypes: string[] = ['Motorcycle', 'Car', 'Van'];
     public selectedVehicleIndex: number = 0;
     public errorMessage: string = '';
+
+    // GPS coordinates for pharmacies
+    private _coordinates: GeoCoordinates | null = null;
+    private _isCapturingLocation: boolean = false;
+    private _locationCaptured: boolean = false;
+    private _coordinatesDisplay: string = '';
 
     // Location fields
     private _countries: Country[] = [];
@@ -42,6 +50,7 @@ export class RegistrationViewModel extends Observable {
         this.authService = AuthService.getInstance();
         this.validationUtil = ValidationUtil.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
+        this.geolocationService = GeolocationService.getInstance();
 
         // Initialize countries list
         this._countries = getActiveCountries();
@@ -50,6 +59,89 @@ export class RegistrationViewModel extends Observable {
         // Initialize cities for the first country
         if (this._countries.length > 0) {
             this.updateCitiesForCountry(this._countries[0].code);
+        }
+    }
+
+    // GPS coordinate getters for UI binding
+    get isCapturingLocation(): boolean {
+        return this._isCapturingLocation;
+    }
+
+    get locationCaptured(): boolean {
+        return this._locationCaptured;
+    }
+
+    get coordinatesDisplay(): string {
+        return this._coordinatesDisplay;
+    }
+
+    get captureButtonText(): string {
+        if (this._isCapturingLocation) {
+            return 'Capturing GPS...';
+        }
+        if (this._locationCaptured) {
+            return 'Recapture GPS Location';
+        }
+        return 'Capture GPS Location';
+    }
+
+    /**
+     * Capture current GPS coordinates for pharmacy location
+     * In demo mode, uses mock coordinates based on selected city
+     */
+    async onCaptureLocation() {
+        if (this._isCapturingLocation) return;
+
+        this._isCapturingLocation = true;
+        this.notifyPropertyChange('isCapturingLocation', true);
+        this.notifyPropertyChange('captureButtonText', this.captureButtonText);
+        this.set('errorMessage', '');
+
+        try {
+            let coords: GeoCoordinates | null = null;
+
+            // In demo mode, use unique mock coordinates for each pharmacy
+            if (this.geolocationService.isDemoMode()) {
+                coords = this.geolocationService.getNextDemoPharmacyLocation();
+                console.log(`Demo mode: Assigned unique pharmacy location`);
+            } else {
+                // Production: Get real GPS coordinates
+                coords = await this.geolocationService.getHighAccuracyLocation();
+            }
+
+            if (coords) {
+                // Validate coordinates
+                if (!this.geolocationService.validateCoordinates(coords)) {
+                    this.set('errorMessage', 'Invalid GPS coordinates received. Please try again.');
+                    return;
+                }
+
+                // Optionally warn if not in Africa (but don't block)
+                if (!this.geolocationService.isWithinAfrica(coords)) {
+                    console.warn('Coordinates are outside Africa bounds - allowing anyway');
+                }
+
+                this._coordinates = coords;
+                this._locationCaptured = true;
+                this._coordinatesDisplay = this.geolocationService.formatCoordinates(coords);
+
+                // In demo mode, add indicator
+                if (this.geolocationService.isDemoMode()) {
+                    this._coordinatesDisplay += ' (Demo)';
+                }
+
+                this.notifyPropertyChange('locationCaptured', true);
+                this.notifyPropertyChange('coordinatesDisplay', this._coordinatesDisplay);
+            } else {
+                this.set('errorMessage', 'Could not capture GPS location. Please ensure location services are enabled.');
+            }
+        } catch (error) {
+            console.error('Error capturing location:', error);
+            this.set('errorMessage', 'Failed to capture GPS location. Please try again.');
+        } finally {
+            this._isCapturingLocation = false;
+            this.notifyPropertyChange('isCapturingLocation', false);
+            this.notifyPropertyChange('captureButtonText', this.captureButtonText);
         }
     }
 
@@ -109,6 +201,7 @@ export class RegistrationViewModel extends Observable {
 
     /**
      * Build UserLocation from selected values
+     * For pharmacies, includes GPS coordinates (required for new registrations)
      */
     private buildUserLocation(): UserLocation | undefined {
         const country = this.selectedCountry;
@@ -118,7 +211,7 @@ export class RegistrationViewModel extends Observable {
             return undefined;
         }
 
-        return {
+        const baseLocation: UserLocation = {
             countryCode: country.code,
             countryName: country.name,
             cityId: city.id,
@@ -127,6 +220,21 @@ export class RegistrationViewModel extends Observable {
             currency: country.currency,
             address: this.sanitizer.sanitizeAddress(this.address)
         };
+
+        // For pharmacies, add GPS coordinates (required for new registrations)
+        if (this.isPharmacy && this._coordinates) {
+            return {
+                ...baseLocation,
+                coordinates: {
+                    latitude: this._coordinates.latitude,
+                    longitude: this._coordinates.longitude,
+                    accuracy: this._coordinates.accuracy,
+                    capturedAt: this._coordinates.timestamp
+                }
+            };
+        }
+
+        return baseLocation;
     }
 
     get isPharmacy(): boolean {
@@ -207,7 +315,14 @@ export class RegistrationViewModel extends Observable {
             }
 
             if (!this.address || this.address.trim().length < 5) {
-                this.set('errorMessage', 'Please enter your pharmacy address');
+                this.set('errorMessage', 'Please enter your pharmacy address or landmark description');
+                return false;
+            }
+
+            // GPS coordinates are required for pharmacies
+            // Essential for African markets where street addresses are often unreliable
+            if (!this._coordinates || !this._locationCaptured) {
+                this.set('errorMessage', 'Please capture your pharmacy GPS location. This helps couriers find you accurately.');
                 return false;
             }
         }

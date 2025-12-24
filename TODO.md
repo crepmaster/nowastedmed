@@ -1,5 +1,247 @@
 # NoWastedMed - TODO List
 
+## Completed (2024-12-24) - Session 9
+
+### Internationalization (i18n) System
+- [x] **i18n Service** - Multi-language support framework
+  - Default language: French (primary market is French-speaking Africa)
+  - Supported languages: French, English (Portuguese, Spanish coming soon)
+  - Language preference saved to ApplicationSettings
+  - Observable for language change events
+  - File: `app/i18n/i18n.service.ts`
+
+- [x] **French Translations** - Complete translation file
+  - 500+ translation keys covering all app sections
+  - Sections: common, auth, registration, nav, dashboard, medicine, inventory, exchange, delivery, wallet, earnings, subscription, settings, profile, payment, errors, validation, time, confirm, demo
+  - File: `app/i18n/translations/fr.ts`
+
+- [x] **English Translations** - Complete translation file
+  - Mirror of French translations for English-speaking regions
+  - File: `app/i18n/translations/en.ts`
+
+- [x] **Settings Page** - User preferences management
+  - Language selector with FR/EN options
+  - Notification settings (push, exchange, delivery)
+  - Account settings (change password, edit profile)
+  - Demo mode indicator
+  - Logout functionality
+  - Files: `app/pages/shared/settings/settings-page.xml`, `settings-page.ts`, `settings-view-model.ts`
+
+- [x] **Login Page i18n Integration** - Fully localized login experience
+  - All labels and buttons translated
+  - Language toggle in action bar
+  - Language selector buttons at bottom
+  - Demo mode login options
+  - Error messages translated
+  - File: `app/pages/login/login-page.xml`, `login-view-model.ts`
+
+### New Files Created (Session 9)
+- `app/i18n/index.ts` - i18n module exports
+- `app/i18n/i18n.service.ts` - Internationalization service
+- `app/i18n/translations/fr.ts` - French translations
+- `app/i18n/translations/en.ts` - English translations
+- `app/pages/shared/settings/settings-page.xml` - Settings UI
+- `app/pages/shared/settings/settings-page.ts` - Settings page controller
+- `app/pages/shared/settings/settings-view-model.ts` - Settings view model
+
+### Modified Files (Session 9)
+- `app/pages/login/login-page.xml` - Added i18n bindings, language selector
+- `app/pages/login/login-view-model.ts` - Integrated i18n service
+
+### i18n Usage Example
+```typescript
+import { t, setLanguage, getCurrentLanguage } from '~/i18n';
+
+// Get translation
+const text = t('common.save');  // "Enregistrer" (FR) or "Save" (EN)
+
+// With parameters
+const error = t('validation.minLength', { min: 8 });
+
+// Change language
+setLanguage('en');
+```
+
+## Completed (2024-12-24) - Session 8
+
+### Medicine Database System
+- [x] **Medicine Database Model** - Comprehensive medicine reference model
+  - Multi-language support (French, English, Portuguese, Spanish)
+  - Geographic region support for African markets
+  - Brand names by region (global and regional)
+  - Storage conditions, prescription requirements
+  - WHO Essential Medicine indicator
+  - ATC code support
+  - File: `app/data/medicine-database.model.ts`
+
+- [x] **Region Configuration** - African region definitions
+  - 7 regions: West Africa (Francophone/Anglophone/Lusophone), Central, East, Southern, North
+  - 26 country codes with primary language mapping
+  - Helper function to get region by country
+  - File: `app/data/medicine-database.model.ts`
+
+- [x] **Medicine Seed Data** - Pre-populated medicine database
+  - **Antibiotics** (35 entries): Penicillins, Cephalosporins, Macrolides, Fluoroquinolones, etc.
+  - **Antimalarials** (22 entries): ACTs (Coartem, ASAQ), Injectable artesunate, Quinine, Prophylaxis
+  - **Analgesics & Antipyretics** (28 entries): Paracetamol, Ibuprofen, Diclofenac, Tramadol, Morphine
+  - Total: ~85 medicines (target: 3000+, remaining to be added progressively)
+  - Files: `app/data/medicines/antibiotics.data.ts`, `antimalarials.data.ts`, `analgesics-antipyretics.data.ts`
+
+- [x] **Medicine Database Service** - Search and filtering functionality
+  - Multi-language search (INN, brand names, keywords)
+  - Region-based filtering
+  - Category and form filtering
+  - Autocomplete suggestions
+  - Relevance-based sorting
+  - File: `app/services/medicine-database.service.ts`
+
+- [x] **Updated Medicine Model** - Enhanced pharmacy listing model
+  - Reference to database entry via `databaseId`
+  - INN (International Nonproprietary Name) field
+  - Pharmaceutical form and dosage
+  - Custom entry support for medicines not in database
+  - Private pricing (not visible in public listings)
+  - Addition request flow for new medicines
+  - File: `app/models/medicine.model.ts`
+
+### Demo Mode Enhancements
+- [x] **Demo Pharmacy Locations** - 10 unique GPS coordinates for demo pharmacies
+  - All locations in Cotonou, Benin (Dantokpa, Akpakpa, Ganhi, etc.)
+  - Cycling through locations for unique assignment
+  - Reset counter for demo data reinitialization
+  - File: `app/services/geolocation.service.ts`
+
+### Medicine Listing Process (Clarified)
+1. Pharmacy searches/selects medicine from database (autocomplete)
+2. If not found, pharmacy can enter custom medicine (flagged for review)
+3. Pharmacy fills: quantity, expiry date, batch number, exchange/sale availability
+4. **Price is PRIVATE** - only shared during negotiation after request
+5. Other pharmacies see listing (without price) on their dashboard
+6. Request initiates private communication including price
+
+### New Files Created (Session 8)
+- `app/data/medicine-database.model.ts` - Medicine database types and helpers
+- `app/data/medicines/index.ts` - Medicine data index and stats
+- `app/data/medicines/antibiotics.data.ts` - Antibiotics database (35 entries)
+- `app/data/medicines/antimalarials.data.ts` - Antimalarials database (22 entries)
+- `app/data/medicines/analgesics-antipyretics.data.ts` - Pain/fever medicines (28 entries)
+- `app/services/medicine-database.service.ts` - Search and filtering service
+
+### Modified Files (Session 8)
+- `app/models/medicine.model.ts` - Enhanced with INN, form, dosage, custom entry support
+- `app/services/medicine.service.ts` - Updated for new medicine model
+- `app/services/firebase/medicine-firebase.service.ts` - Updated transform for new model
+- `app/services/geolocation.service.ts` - Added 10 demo pharmacy locations
+
+### Remaining Medicine Database Work
+- [ ] Add more medicine categories to reach 3000+ entries:
+  - [ ] Antihypertensives (50+ entries)
+  - [ ] Antidiabetics (30+ entries)
+  - [ ] Antiretrovirals (40+ entries)
+  - [ ] Vitamins & Supplements (50+ entries)
+  - [ ] Gastrointestinal (40+ entries)
+  - [ ] Respiratory (30+ entries)
+  - [ ] Dermatological (30+ entries)
+  - [ ] Etc.
+
+### Remaining Localization Work
+- [x] Setup i18n framework for application (completed in Session 9)
+- [x] Create translation files for UI strings (French, English - Session 9)
+- [x] Add language selector to settings (completed in Session 9)
+- [ ] Add Portuguese translations (future)
+- [ ] Add Spanish translations (future)
+- [ ] Integrate i18n with remaining pages (progressive)
+
+## Completed (2024-12-24) - Session 7
+
+### Critical Security Fixes (from Code Review)
+- [x] **Payout Race Condition** - Fixed concurrent payout requests
+  - Solution: Used Firestore transaction with balance check inside transaction
+  - File: `courier-earnings-firebase.service.ts:requestPayout()`
+
+- [x] **Auth Checks in Delivery Methods** - Added courier validation
+  - `acceptDelivery()` - Now validates `currentUser.id === courierId`
+  - `confirmPickup()` - Now validates courier is assigned to delivery
+  - `confirmDelivery()` - Now validates courier is assigned to delivery
+  - File: `delivery-firebase.service.ts`
+
+- [x] **Firestore Rules for Wallet/Earnings Creation**
+  - Couriers can create their own wallet with zero balances
+  - Couriers can read their own earnings
+  - Audit logs are immutable (no update/delete)
+  - File: `firestore.rules`
+
+- [x] **Race Condition in processPendingEarnings()** - Fixed
+  - Solution: Individual Firestore transactions per earning
+  - File: `courier-earnings-firebase.service.ts`
+
+- [x] **Auth Verification in Earnings Creation** - Added
+  - Verifies courierId matches delivery.courierId
+  - File: `courier-earnings-firebase.service.ts`
+
+- [x] **Input Validation for Payout Amounts** - Added
+  - Min payout: 1000 currency units
+  - Max payout: 500000 currency units
+  - File: `courier-earnings-firebase.service.ts`
+
+- [x] **Audit Logging Service** - Created
+  - Logs all financial transactions (payouts, earnings, payments)
+  - Logs security events (unauthorized access attempts)
+  - Immutable logs (no update/delete allowed)
+  - File: `app/services/firebase/audit-firebase.service.ts`
+
+### GPS Coordinates for Pharmacies
+- [x] **Geolocation Service** - Created GPS capture service
+  - High accuracy location for pharmacy registration
+  - Quick location for courier tracking
+  - Distance calculation between coordinates
+  - Google Maps URL generation for navigation
+  - Africa bounds validation
+  - File: `app/services/geolocation.service.ts`
+
+- [x] **Pharmacy Registration GPS Requirement**
+  - GPS coordinates now required for new pharmacy registrations
+  - "Capture GPS Location" button in registration form
+  - Shows captured coordinates with success feedback
+  - Essential for African markets where street addresses are unreliable
+  - Files: `registration-view-model.ts`, `registration-page.xml`
+
+- [x] **Delivery Navigation Support**
+  - Delivery model updated with `fromCoordinates` and `toCoordinates`
+  - Navigation helpers in delivery service:
+    - `getPickupNavigationUrl()` - Open pickup location in maps
+    - `getDeliveryNavigationUrl()` - Open delivery location in maps
+    - `getFullRouteUrl()` - Get directions from pickup to delivery
+    - `getDirectionsToPickup()` - Directions from courier's location to pickup
+    - `getDirectionsToDelivery()` - Directions from courier's location to delivery
+    - `getDeliveryDistance()` - Calculate distance between pharmacies
+    - `hasNavigationCoordinates()` - Check if GPS is available
+  - File: `delivery-firebase.service.ts`
+
+- [x] **User Model Updates**
+  - Added `GeoCoordinates` interface with latitude, longitude, accuracy, capturedAt
+  - Added `PharmacyLocation` interface extending `UserLocation` with required coordinates
+  - Backward compatible with legacy records (coordinates optional in interface)
+  - File: `app/models/user.model.ts`
+
+### New Files Created (Session 7)
+- `app/services/firebase/audit-firebase.service.ts` - Audit logging for financial/security events
+- `app/services/geolocation.service.ts` - GPS coordinate capture service
+
+### Modified Files (Session 7)
+- `app/services/firebase/courier-earnings-firebase.service.ts` - Security fixes, audit integration
+- `app/services/firebase/delivery-firebase.service.ts` - Auth checks, navigation helpers
+- `app/models/delivery.model.ts` - Added DeliveryCoordinates, fromCoordinates, toCoordinates
+- `app/models/user.model.ts` - Added GeoCoordinates, PharmacyLocation interfaces
+- `app/pages/registration/registration-view-model.ts` - GPS capture for pharmacies
+- `app/pages/registration/registration-page.xml` - GPS capture UI
+- `firestore.rules` - Updated wallet/earnings/audit rules
+- `firestore.indexes.json` - Added audit_logs indexes
+
+## Remaining Security Tasks
+- [ ] **Rate Limiting for Payout Requests** - Requires Cloud Functions
+- [ ] **Proper Error Recovery for Failed Payouts** - Admin panel feature
+
 ## Completed (2024-12-24) - Session 6
 
 ### Courier Payment & Earnings System
@@ -63,41 +305,20 @@
   - `delivery_fee_configs`: cityId + isActive, countryCode + cityName
   - `deliveries`: status + paymentStatus + createdAt (for paid deliveries query)
 
-## Critical Security Fixes Needed (Next Session)
+## Critical Security Fixes (Completed in Session 7)
 
-### From Code Review - Priority 1 (Critical)
-- [ ] **Payout Race Condition** - Concurrent payout requests could overdraft wallet
-  - Solution: Use Firestore transactions with balance check inside transaction
-  - File: `courier-earnings-firebase.service.ts:requestPayout()`
+### From Code Review - Priority 1 (Critical) - ALL FIXED
+- [x] **Payout Race Condition** - Fixed with Firestore transactions
+- [x] **Auth Checks in Delivery Methods** - Added courier validation
+- [x] **Firestore Rules for Wallet Creation** - Updated to allow courier self-creation
+- [x] **Race Condition in processPendingEarnings()** - Fixed with individual transactions
+- [x] **Auth Verification in Earnings Creation** - Added validation
 
-- [ ] **Missing Auth Checks in Delivery Methods**
-  - `acceptDelivery()` - Anyone can accept any delivery
-  - `confirmPickup()` - Anyone can confirm pickup
-  - `confirmDelivery()` - Anyone can confirm delivery
-  - Solution: Add `courierId === currentUser.uid` validation
-  - File: `delivery-firebase.service.ts`
-
-- [ ] **Firestore Rules Block Wallet Creation**
-  - Current rule: `allow create: if false;` for courier_wallets
-  - Wallets are created by service, not directly by users
-  - Solution: Create wallets via Cloud Functions or allow service creation
-  - File: `firestore.rules`
-
-- [ ] **Race Condition in processPendingEarnings()**
-  - Multiple calls could process same earnings twice
-  - Solution: Use batch with transaction or add processing lock
-  - File: `courier-earnings-firebase.service.ts`
-
-- [ ] **Missing Auth Verification in Earnings Creation**
-  - `createEarning()` trusts courierId parameter
-  - Solution: Verify courierId matches delivery.courierId
-  - File: `courier-earnings-firebase.service.ts`
-
-### From Code Review - Priority 2 (High)
-- [ ] Add input validation for payout amounts (min/max limits)
-- [ ] Add rate limiting for payout requests
-- [ ] Implement proper error recovery for failed payouts
-- [ ] Add audit logging for financial transactions
+### From Code Review - Priority 2 (High) - MOSTLY FIXED
+- [x] Add input validation for payout amounts (min/max limits)
+- [ ] Add rate limiting for payout requests (requires Cloud Functions)
+- [ ] Implement proper error recovery for failed payouts (admin panel)
+- [x] Add audit logging for financial transactions
 
 ## Future Features - Dispute Resolution System
 

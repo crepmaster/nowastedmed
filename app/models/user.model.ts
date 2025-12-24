@@ -3,6 +3,17 @@ import { SupportedRegion } from './wallet.model';
 export type UserRole = 'pharmacist' | 'courier' | 'admin';
 
 /**
+ * GPS coordinates for location tracking
+ * Essential for African markets where street addresses are often unreliable
+ */
+export interface GeoCoordinates {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;        // Accuracy in meters when captured
+  capturedAt?: Date;        // When coordinates were captured
+}
+
+/**
  * Location information for users (especially pharmacies)
  */
 export interface UserLocation {
@@ -12,11 +23,8 @@ export interface UserLocation {
   cityName: string;         // Full city name
   region: SupportedRegion;  // Region for mobile money providers
   currency: string;         // Local currency code (e.g., 'XOF', 'NGN')
-  address: string;          // Street address within the city
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
+  address: string;          // Street address within the city (descriptive/landmark-based)
+  coordinates?: GeoCoordinates; // GPS coordinates - required for pharmacies
 }
 
 export interface User {
@@ -37,11 +45,25 @@ export interface User {
   createdAt?: Date | any;
 }
 
+/**
+ * Pharmacy location with required coordinates
+ * NOTE: For new registrations, coordinates are required (enforced in registration validation)
+ * Legacy records may not have coordinates
+ */
+export interface PharmacyLocation extends UserLocation {
+  coordinates: GeoCoordinates;  // Required for new pharmacies (GPS is essential in Africa)
+}
+
 export interface Pharmacist extends User {
   pharmacyName: string;
-  location?: UserLocation;    // Required for new pharmacists (optional for legacy)
+  /**
+   * Location with GPS coordinates
+   * For new registrations: coordinates are REQUIRED (enforced in registration validation)
+   * For legacy records: coordinates may be undefined
+   */
+  location?: UserLocation;      // UserLocation for backward compatibility, coordinates enforced at app level
   license: string;
-  address: string;            // Keep for backwards compatibility
+  address: string;              // Keep for backwards compatibility (legacy field)
 }
 
 export interface Courier extends User {

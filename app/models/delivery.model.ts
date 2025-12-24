@@ -9,6 +9,14 @@
 export type DeliveryStatus = 'pending' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'failed' | 'cancelled';
 
 /**
+ * GPS Coordinates for delivery navigation
+ */
+export interface DeliveryCoordinates {
+    latitude: number;
+    longitude: number;
+}
+
+/**
  * Location for delivery (city-level)
  */
 export interface DeliveryLocation {
@@ -35,12 +43,14 @@ export interface Delivery {
     fromPharmacyName: string;
     fromAddress: string;
     fromPhone: string;
+    fromCoordinates?: DeliveryCoordinates;  // GPS coordinates for pickup location
 
     // Destination (To pharmacy)
     toPharmacyId: string;
     toPharmacyName: string;
     toAddress: string;
     toPhone: string;
+    toCoordinates?: DeliveryCoordinates;    // GPS coordinates for delivery location
 
     // Status tracking
     status: DeliveryStatus;

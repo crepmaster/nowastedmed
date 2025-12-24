@@ -54,14 +54,34 @@ export class MedicineService extends Observable {
     async addMedicine(medicineData: Partial<Medicine>): Promise<Medicine> {
         const medicine: Medicine = {
             id: `med_${Date.now()}`,
+            // Database reference
+            databaseId: medicineData.databaseId,
+            // Medicine identification
+            inn: medicineData.inn || medicineData.name || '',
             name: medicineData.name || '',
+            brandName: medicineData.brandName,
+            // Medicine details
+            form: medicineData.form || 'tablet',
+            dosage: medicineData.dosage || '',
+            category: medicineData.category || 'other',
+            // Pharmacy listing details
             batchNumber: medicineData.batchNumber || '',
             quantity: medicineData.quantity || 0,
             expiryDate: medicineData.expiryDate || new Date(),
             pharmacyId: medicineData.pharmacyId || '',
+            exchangeQuantity: medicineData.exchangeQuantity,
+            price: medicineData.price,
+            currency: medicineData.currency,
+            // Status
             availableForExchange: medicineData.availableForExchange || false,
-            category: medicineData.category || 'general',
-            price: medicineData.price || 0
+            availableForSale: medicineData.availableForSale,
+            status: medicineData.status || 'available',
+            // Custom entry
+            isCustomEntry: medicineData.isCustomEntry,
+            pendingDatabaseReview: medicineData.pendingDatabaseReview,
+            // Timestamps
+            createdAt: new Date(),
+            updatedAt: new Date()
         };
         this.medicines.push(medicine);
         this.notifyPropertyChange('medicines', this.medicines);

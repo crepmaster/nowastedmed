@@ -1,46 +1,80 @@
 <Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
-    <ActionBar title="Login" class="bg-blue-500 text-white" />
-    
-    <StackLayout class="p-4">
-        <StackLayout class="bg-white p-4 rounded-lg shadow">
-            <!-- Email Field -->
-            <Label text="Email" class="text-gray-600 font-medium" />
-            <TextField text="{{ email }}" 
-                      hint="Enter your email" 
-                      keyboardType="email" 
-                      autocorrect="false"
-                      autocapitalizationType="none"
-                      class="mb-4 p-3 border rounded" />
-            
-            <!-- Password Field -->
-            <Label text="Password" class="text-gray-600 font-medium" />
-            <TextField text="{{ password }}" 
-                      hint="Enter your password" 
-                      secure="true" 
-                      class="mb-4 p-3 border rounded" />
-            
-            <!-- Login Button -->
-            <Button text="Login" 
-                    tap="{{ onLogin }}" 
-                    class="bg-blue-500 text-white p-3 rounded-lg mb-4" />
+    <ActionBar title="{{ loginTitle }}" class="bg-blue-500 text-white">
+        <ActionItem tap="{{ onToggleLanguage }}" ios.position="right">
+            <ActionItem.actionView>
+                <Label text="{{ currentLanguageShort }}" class="text-white p-2" />
+            </ActionItem.actionView>
+        </ActionItem>
+    </ActionBar>
 
-            <!-- Register Button -->
-            <Button text="Create Account" 
-                    tap="{{ onRegister }}" 
-                    class="bg-green-500 text-white p-3 rounded-lg" />
-            
-            <!-- Error Message -->
-            <Label text="{{ errorMessage }}" 
-                   class="text-red-500 text-center mt-2" 
-                   textWrap="true" 
-                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- App Logo/Title -->
+            <StackLayout class="mb-6">
+                <Label text="NoWastedMed" class="text-3xl font-bold text-center text-blue-600" />
+                <Label text="{{ appTagline }}" class="text-center text-gray-500 mt-1" textWrap="true" />
+            </StackLayout>
 
-            <!-- Admin Credentials Helper -->
-            <StackLayout class="mt-8 p-4 bg-gray-100 rounded">
-                <Label text="Admin Login" class="text-center text-gray-600 font-medium mb-2" />
-                <Label text="Email: ebongueandre@promoshake.net" class="text-center text-sm text-gray-500" />
-                <Label text="Password: 184vi@Tespi!" class="text-center text-sm text-gray-500" />
+            <StackLayout class="bg-white p-4 rounded-lg shadow">
+                <!-- Email Field -->
+                <Label text="{{ emailLabel }}" class="text-gray-600 font-medium" />
+                <TextField text="{{ email }}"
+                          hint="{{ emailHint }}"
+                          keyboardType="email"
+                          autocorrect="false"
+                          autocapitalizationType="none"
+                          class="mb-4 p-3 border rounded" />
+
+                <!-- Password Field -->
+                <Label text="{{ passwordLabel }}" class="text-gray-600 font-medium" />
+                <TextField text="{{ password }}"
+                          hint="{{ passwordHint }}"
+                          secure="true"
+                          class="mb-4 p-3 border rounded" />
+
+                <!-- Login Button -->
+                <Button text="{{ loginButton }}"
+                        tap="{{ onLogin }}"
+                        class="bg-blue-500 text-white p-3 rounded-lg mb-4" />
+
+                <!-- Register Button -->
+                <Button text="{{ registerButton }}"
+                        tap="{{ onRegister }}"
+                        class="bg-green-500 text-white p-3 rounded-lg" />
+
+                <!-- Forgot Password Link -->
+                <Label text="{{ forgotPasswordLink }}"
+                       tap="{{ onForgotPassword }}"
+                       class="text-blue-500 text-center mt-4 underline" />
+
+                <!-- Error Message -->
+                <Label text="{{ errorMessage }}"
+                       class="text-red-500 text-center mt-2"
+                       textWrap="true"
+                       visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
+
+                <!-- Demo Mode Login Options -->
+                <StackLayout visibility="{{ isDemoMode ? 'visible' : 'collapsed' }}" class="mt-6 p-4 bg-yellow-50 rounded border border-yellow-200">
+                    <Label text="{{ demoModeTitle }}" class="text-center text-yellow-800 font-medium mb-3" />
+                    <Button text="{{ demoPharmacyLogin }}"
+                            tap="{{ onDemoPharmacyLogin }}"
+                            class="bg-yellow-500 text-white p-2 rounded mb-2" />
+                    <Button text="{{ demoCourierLogin }}"
+                            tap="{{ onDemoCourierLogin }}"
+                            class="bg-yellow-500 text-white p-2 rounded" />
+                </StackLayout>
+            </StackLayout>
+
+            <!-- Language Selector -->
+            <StackLayout class="mt-6 items-center">
+                <Label text="{{ selectLanguageLabel }}" class="text-gray-500 text-sm mb-2" />
+                <StackLayout orientation="horizontal" horizontalAlignment="center">
+                    <Button text="FR" tap="{{ () => setLanguage('fr') }}"
+                            class="{{ currentLanguage === 'fr' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-4 py-2 rounded-l" />
+                    <Button text="EN" tap="{{ () => setLanguage('en') }}"
+                            class="{{ currentLanguage === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-4 py-2 rounded-r" />
+                </StackLayout>
             </StackLayout>
         </StackLayout>
-    </StackLayout>
+    </ScrollView>
 </Page>
