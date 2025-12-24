@@ -28,6 +28,7 @@ export interface EnvironmentConfig {
     // Features
     features: {
         enableDemoMode: boolean;
+        useFirebaseAuth: boolean; // true = Firebase, false = local storage
         enableAnalytics: boolean;
         enableCrashReporting: boolean;
         enableDebugLogs: boolean;
@@ -72,10 +73,11 @@ const developmentConfig: EnvironmentConfig = {
 
     features: {
         enableDemoMode: true,
+        useFirebaseAuth: true, // Use Firebase for shared testing
         enableAnalytics: false,
         enableCrashReporting: false,
         enableDebugLogs: true,
-        enableMockData: true
+        enableMockData: false // Don't use mock data when using Firebase
     },
 
     api: {
@@ -114,6 +116,7 @@ const stagingConfig: EnvironmentConfig = {
 
     features: {
         enableDemoMode: false,
+        useFirebaseAuth: true,
         enableAnalytics: true,
         enableCrashReporting: true,
         enableDebugLogs: true,
@@ -156,6 +159,7 @@ const productionConfig: EnvironmentConfig = {
 
     features: {
         enableDemoMode: false,
+        useFirebaseAuth: true, // Always use Firebase in production
         enableAnalytics: true,
         enableCrashReporting: true,
         enableDebugLogs: false,

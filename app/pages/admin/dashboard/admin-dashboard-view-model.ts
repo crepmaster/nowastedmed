@@ -1,13 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { AdminService } from '../../../services/admin.service';
 import { NavigationService } from '../../../services/navigation.service';
-import { AuthService } from '../../../services/auth.service';
+import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
 import { AdminStats } from '../../../models/admin.model';
 
 export class AdminDashboardViewModel extends Observable {
     private adminService: AdminService;
     private navigationService: NavigationService;
-    private authService: AuthService;
+    private authService: IAuthService;
     private refreshInterval: ReturnType<typeof setInterval>;
 
     public stats: AdminStats;
@@ -17,7 +17,7 @@ export class AdminDashboardViewModel extends Observable {
         super();
         this.adminService = AdminService.getInstance();
         this.navigationService = NavigationService.getInstance();
-        this.authService = AuthService.getInstance();
+        this.authService = getAuthService();
         
         // Initialize stats
         this.stats = this.adminService.getStats();

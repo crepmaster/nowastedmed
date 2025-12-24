@@ -1,5 +1,5 @@
 import { Observable, Dialogs } from '@nativescript/core';
-import { AuthService } from '../../services/auth.service';
+import { getAuthService, IAuthService } from '../../services/auth-factory.service';
 import { NavigationService } from '../../services/navigation.service';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 import { t, setLanguage, getCurrentLanguage, getI18nService, LANGUAGE_DISPLAY_NAMES } from '../../i18n';
@@ -7,7 +7,7 @@ import { SupportedLanguage } from '../../data/medicine-database.model';
 import { getEnvironmentService } from '../../config/environment.config';
 
 export class LoginViewModel extends Observable {
-    private authService: AuthService;
+    private authService: IAuthService;
     private navigationService: NavigationService;
     private sanitizer: InputSanitizerService;
 
@@ -17,7 +17,7 @@ export class LoginViewModel extends Observable {
 
     constructor() {
         super();
-        this.authService = AuthService.getInstance();
+        this.authService = getAuthService();
         this.navigationService = NavigationService.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
 

@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../services/navigation.service';
-import { AuthService } from '../../services/auth.service';
+import { getAuthService, IAuthService } from '../../services/auth-factory.service';
 import { ValidationUtil } from '../../utils/validation.util';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 import { GeolocationService, GeoCoordinates } from '../../services/geolocation.service';
@@ -15,7 +15,7 @@ import { UserLocation } from '../../models/user.model';
 
 export class RegistrationViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: AuthService;
+    private authService: IAuthService;
     private validationUtil: ValidationUtil;
     private sanitizer: InputSanitizerService;
     private geolocationService: GeolocationService;
@@ -47,7 +47,7 @@ export class RegistrationViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = AuthService.getInstance();
+        this.authService = getAuthService();
         this.validationUtil = ValidationUtil.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
         this.geolocationService = GeolocationService.getInstance();

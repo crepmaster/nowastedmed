@@ -1,7 +1,6 @@
 import { Observable, Dialogs, Frame } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { AuthService } from '../../../services/auth.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
 import { DeliveryFirebaseService } from '../../../services/firebase/delivery-firebase.service';
 import { QRCodeUtil } from '../../../utils/qrcode.util';
 import { Delivery, DeliveryStatus, CourierStats } from '../../../models/delivery.model';
@@ -16,8 +15,7 @@ interface DeliveryDisplay extends Delivery {
 
 export class CourierDashboardViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: AuthService;
-    private authFirebaseService: AuthFirebaseService;
+    private authService: IAuthService;
     private deliveryService: DeliveryFirebaseService;
     private qrCodeUtil: QRCodeUtil;
 
@@ -46,8 +44,7 @@ export class CourierDashboardViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.authFirebaseService = AuthFirebaseService.getInstance();
+        this.authService = getAuthService();
         this.deliveryService = DeliveryFirebaseService.getInstance();
         this.qrCodeUtil = QRCodeUtil.getInstance();
 
@@ -119,7 +116,7 @@ export class CourierDashboardViewModel extends Observable {
         try {
             this.isLoading = true;
 
-            const currentUser = this.authFirebaseService.getCurrentUser();
+            const currentUser = this.authService.getCurrentUser();
             if (!currentUser) {
                 console.error('No user logged in');
                 return;
@@ -354,7 +351,7 @@ export class CourierDashboardViewModel extends Observable {
         });
 
         if (confirmed) {
-            const currentUser = this.authFirebaseService.getCurrentUser();
+            const currentUser = this.authService.getCurrentUser();
             if (!currentUser) return;
 
             await this.deliveryService.acceptDelivery(

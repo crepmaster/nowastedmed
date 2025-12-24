@@ -2,7 +2,7 @@ import { Observable, Frame, Dialogs, ApplicationSettings } from '@nativescript/c
 import { t, setLanguage, getCurrentLanguage, getI18nService, LANGUAGE_DISPLAY_NAMES } from '../../../i18n';
 import { SupportedLanguage } from '../../../data/medicine-database.model';
 import { getEnvironmentService } from '../../../config/environment.config';
-import { AuthService } from '../../../services/auth.service';
+import { getAuthService } from '../../../services/auth-factory.service';
 
 export class SettingsViewModel extends Observable {
     private _showLanguageOptions: boolean = false;
@@ -250,7 +250,7 @@ export class SettingsViewModel extends Observable {
 
         if (result) {
             try {
-                await AuthService.getInstance().logout();
+                await getAuthService().logout();
                 Frame.topmost().navigate({
                     moduleName: 'pages/login/login-page',
                     clearHistory: true

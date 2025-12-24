@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { AuthService } from '../../../services/auth.service';
+import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
 import { MedicineService } from '../../../services/medicine.service';
 import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 import { Medicine } from '../../../models/medicine.model';
@@ -8,7 +8,7 @@ import { prompt } from "@nativescript/core/ui/dialogs";
 
 export class PharmacyDashboardViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: AuthService;
+    private authService: IAuthService;
     private medicineService: MedicineService;
     private medicineFirebaseService: MedicineFirebaseService;
     private useFirebase: boolean = true; // Set to false for offline mode
@@ -26,7 +26,7 @@ export class PharmacyDashboardViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = AuthService.getInstance();
+        this.authService = getAuthService();
         this.medicineService = MedicineService.getInstance();
         this.medicineFirebaseService = MedicineFirebaseService.getInstance();
 
