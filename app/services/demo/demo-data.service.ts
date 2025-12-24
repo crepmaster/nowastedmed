@@ -4,12 +4,18 @@ import { AuthStorage } from '../../auth/storage/auth.storage';
 import { ExchangeStorage } from '../storage/exchange.storage';
 import { MedicineService } from '../medicine.service';
 import { environment } from '../../config/environment.config';
+import { GeolocationService } from '../geolocation.service';
 
 /**
  * Demo Data Service - For development and testing only
  *
  * WARNING: This service should ONLY be used in development/demo mode.
  * Disable or remove this service in production builds.
+ *
+ * Demo Accounts (for quick login buttons):
+ * - Pharmacy: demo-pharmacy@nowastedmed.com / demo123
+ * - Courier: demo-courier@nowastedmed.com / demo123
+ * - Admin: demo-admin@nowastedmed.com / demo123
  */
 export class DemoDataService {
     private static instance: DemoDataService;
@@ -79,31 +85,150 @@ export class DemoDataService {
 
     /**
      * Generate demo account data
-     * Credentials are generated dynamically and only used locally
+     * Fixed credentials for easy demo access via login buttons
      */
     private generateDemoAccounts(): any[] {
-        const timestamp = Date.now();
+        // Get demo locations for pharmacies
+        const locations = this.getDemoLocations();
+
         return [
+            // === Main Demo Accounts (for quick login buttons) ===
             {
-                email: `demo.pharmacy1.${timestamp}@test.local`,
-                password: this.securityService.generateSecureToken().substring(0, 12),
+                email: 'demo-pharmacy@nowastedmed.com',
+                password: 'demo123',
                 role: 'pharmacist',
-                pharmacyName: 'Central Pharmacy',
-                name: 'Central Pharmacy',
-                phoneNumber: '+1234567890',
-                license: 'PHR123456',
-                address: '123 Main St'
+                pharmacyName: 'Pharmacie Centrale Demo',
+                name: 'Pharmacie Centrale Demo',
+                phoneNumber: '+22997001234',
+                license: 'BJ-PHR-DEMO-001',
+                address: 'Boulevard Saint-Michel, Cotonou',
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF',
+                    coordinates: locations[0]
+                }
             },
             {
-                email: `demo.pharmacy2.${timestamp}@test.local`,
-                password: this.securityService.generateSecureToken().substring(0, 12),
+                email: 'demo-courier@nowastedmed.com',
+                password: 'demo123',
+                role: 'courier',
+                name: 'Kofi Demo Courier',
+                phoneNumber: '+22996005678',
+                vehicleType: 'motorcycle',
+                vehiclePlate: 'BJ-1234-MC',
+                operatingCities: ['cotonou'],
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF'
+                }
+            },
+            {
+                email: 'demo-admin@nowastedmed.com',
+                password: 'demo123',
+                role: 'admin',
+                name: 'Admin Demo',
+                phoneNumber: '+22990009999'
+            },
+
+            // === Additional Demo Pharmacies (for testing exchanges) ===
+            {
+                email: 'pharmacie-akpakpa@demo.local',
+                password: 'demo123',
                 role: 'pharmacist',
-                pharmacyName: 'City Pharmacy',
-                name: 'City Pharmacy',
-                phoneNumber: '+1987654321',
-                license: 'PHR789012',
-                address: '456 Oak St'
+                pharmacyName: 'Pharmacie Akpakpa',
+                name: 'Pharmacie Akpakpa',
+                phoneNumber: '+22997002345',
+                license: 'BJ-PHR-DEMO-002',
+                address: 'Quartier Akpakpa, Cotonou',
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF',
+                    coordinates: locations[1]
+                }
+            },
+            {
+                email: 'pharmacie-ganhi@demo.local',
+                password: 'demo123',
+                role: 'pharmacist',
+                pharmacyName: 'Pharmacie Ganhi',
+                name: 'Pharmacie Ganhi',
+                phoneNumber: '+22997003456',
+                license: 'BJ-PHR-DEMO-003',
+                address: 'Quartier Ganhi, Cotonou',
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF',
+                    coordinates: locations[2]
+                }
+            },
+            {
+                email: 'pharmacie-cadjehoun@demo.local',
+                password: 'demo123',
+                role: 'pharmacist',
+                pharmacyName: 'Pharmacie Cadjehoun',
+                name: 'Pharmacie Cadjehoun',
+                phoneNumber: '+22997004567',
+                license: 'BJ-PHR-DEMO-004',
+                address: 'Quartier Cadjehoun, Cotonou',
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF',
+                    coordinates: locations[3]
+                }
+            },
+            {
+                email: 'pharmacie-fidjrosse@demo.local',
+                password: 'demo123',
+                role: 'pharmacist',
+                pharmacyName: 'Pharmacie Fidjrossè',
+                name: 'Pharmacie Fidjrossè',
+                phoneNumber: '+22997005678',
+                license: 'BJ-PHR-DEMO-005',
+                address: 'Quartier Fidjrossè, Cotonou',
+                location: {
+                    countryCode: 'BJ',
+                    cityId: 'cotonou',
+                    cityName: 'Cotonou',
+                    region: 'west_africa_francophone',
+                    currency: 'XOF',
+                    coordinates: locations[4]
+                }
             }
         ];
+    }
+
+    /**
+     * Get demo GPS locations for pharmacies in Cotonou
+     */
+    private getDemoLocations() {
+        return [
+            { latitude: 6.3654, longitude: 2.4183, accuracy: 10 }, // Dantokpa Market
+            { latitude: 6.3589, longitude: 2.4312, accuracy: 10 }, // Akpakpa
+            { latitude: 6.3702, longitude: 2.4089, accuracy: 10 }, // Ganhi
+            { latitude: 6.3621, longitude: 2.3967, accuracy: 10 }, // Cadjehoun
+            { latitude: 6.3478, longitude: 2.3845, accuracy: 10 }, // Fidjrossè
+        ];
+    }
+
+    /**
+     * Reset demo location counter (for re-initialization)
+     */
+    resetDemoData(): void {
+        GeolocationService.getInstance().resetDemoLocationCounter();
     }
 }
