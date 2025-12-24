@@ -9,6 +9,7 @@ import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-firestore';
 import { FieldValue } from '@nativescript/firebase-firestore';
 import { AuthFirebaseService } from './auth-firebase.service';
+import { AuditFirebaseService } from './audit-firebase.service';
 import {
     CourierEarning,
     CourierPayout,
@@ -58,9 +59,12 @@ export class CourierEarningsFirebaseService {
     // Hours before earnings become available for payout
     private readonly EARNINGS_HOLD_HOURS = 24;
 
+    private auditService: AuditFirebaseService;
+
     private constructor() {
         this.firestore = firebase().firestore();
         this.authService = AuthFirebaseService.getInstance();
+        this.auditService = AuditFirebaseService.getInstance();
     }
 
     static getInstance(): CourierEarningsFirebaseService {
@@ -175,11 +179,38 @@ export class CourierEarningsFirebaseService {
     /**
      * Create earning record when delivery is completed
      * Called by delivery service after confirmDelivery
+     * SECURITY: Validates that the current user is the courier assigned to the delivery
      */
     async createEarning(delivery: Delivery): Promise<string> {
         try {
             if (!delivery.courierId) {
                 throw new Error('Delivery has no assigned courier');
+            }
+
+            // SECURITY: Verify current user is the courier for this delivery
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser) {
+                throw new Error('Unauthorized: User not authenticated');
+            }
+            if (currentUser.id !== delivery.courierId) {
+                throw new Error('Unauthorized: Can only create earnings for your own deliveries');
+            }
+
+            // Verify delivery is in delivered status
+            if (delivery.status !== 'delivered') {
+                throw new Error('Can only create earnings for completed deliveries');
+            }
+
+            // Check if earning already exists for this delivery (prevent duplicates)
+            const existingEarning = await this.firestore
+                .collection(this.EARNINGS_COLLECTION)
+                .where('deliveryId', '==', delivery.id)
+                .limit(1)
+                .get();
+
+            if (!existingEarning.empty) {
+                console.log('Earning already exists for delivery:', delivery.id);
+                return existingEarning.docs[0].id;
             }
 
             // Calculate fee if not already set
@@ -254,6 +285,16 @@ export class CourierEarningsFirebaseService {
 
             await batch.commit();
 
+            // Audit log the earning creation
+            await this.auditService.logEarningCreated(
+                earningRef.id,
+                delivery.courierId,
+                delivery.id,
+                feeCalc.deliveryFee,
+                feeCalc.courierEarning,
+                feeCalc.currency
+            );
+
             console.log('Created earning record:', earningRef.id);
             return earningRef.id;
         } catch (error) {
@@ -265,6 +306,10 @@ export class CourierEarningsFirebaseService {
     /**
      * Process pending earnings - move to available after hold period
      * Should be called periodically (e.g., by a cloud function)
+     * Uses transaction to prevent race conditions (double processing)
+     *
+     * NOTE: This is intended for backend/cloud function use. For production,
+     * this should run as a Cloud Function with admin SDK.
      */
     async processPendingEarnings(): Promise<number> {
         try {
@@ -275,7 +320,7 @@ export class CourierEarningsFirebaseService {
                 .collection(this.EARNINGS_COLLECTION)
                 .where('status', '==', 'pending')
                 .where('availableAt', '<=', now)
-                .limit(100)
+                .limit(50) // Smaller batch to reduce transaction size
                 .get();
 
             if (snapshot.empty) {
@@ -283,41 +328,55 @@ export class CourierEarningsFirebaseService {
             }
 
             let processedCount = 0;
-            const courierUpdates = new Map<string, number>();
 
-            // Group by courier
+            // Process each earning in a transaction to prevent race conditions
             for (const doc of snapshot.docs) {
-                const earning = doc.data();
-                const current = courierUpdates.get(earning.courierId) || 0;
-                courierUpdates.set(earning.courierId, current + earning.netAmount);
-            }
+                try {
+                    await this.firestore.runTransaction(async (transaction: any) => {
+                        // Re-read the document inside transaction
+                        const earningDoc = await transaction.get(doc.ref);
 
-            // Process in batches
-            for (const [courierId, amount] of courierUpdates) {
-                const batch = this.firestore.batch();
+                        if (!earningDoc.exists) {
+                            return; // Already deleted
+                        }
 
-                // Update all earnings for this courier
-                const courierEarnings = snapshot.docs.filter(
-                    (d: any) => d.data().courierId === courierId
-                );
+                        const earning = earningDoc.data();
 
-                for (const doc of courierEarnings) {
-                    batch.update(doc.ref, {
-                        status: 'available',
-                        updatedAt: new Date(),
+                        // Check if still pending (prevents double processing)
+                        if (earning.status !== 'pending') {
+                            return; // Already processed by another call
+                        }
+
+                        // Check if hold period has passed
+                        const availableAt = earning.availableAt?.toDate?.() || earning.availableAt;
+                        if (availableAt > now) {
+                            return; // Not ready yet
+                        }
+
+                        // Update earning status
+                        transaction.update(doc.ref, {
+                            status: 'available',
+                            updatedAt: new Date(),
+                        });
+
+                        // Update wallet - move from pending to available
+                        const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(earning.courierId);
+                        const walletDoc = await transaction.get(walletRef);
+
+                        if (walletDoc.exists) {
+                            transaction.update(walletRef, {
+                                pendingBalance: FieldValue.increment(-earning.netAmount),
+                                availableBalance: FieldValue.increment(earning.netAmount),
+                                updatedAt: new Date(),
+                            });
+                        }
                     });
+
                     processedCount++;
+                } catch (txError) {
+                    // Log individual transaction failures but continue with others
+                    console.error('Error processing earning:', doc.id, txError);
                 }
-
-                // Update wallet - move from pending to available
-                const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(courierId);
-                batch.update(walletRef, {
-                    pendingBalance: FieldValue.increment(-amount),
-                    availableBalance: FieldValue.increment(amount),
-                    updatedAt: new Date(),
-                });
-
-                await batch.commit();
             }
 
             console.log(`Processed ${processedCount} pending earnings`);
@@ -500,78 +559,142 @@ export class CourierEarningsFirebaseService {
 
     /**
      * Request a payout
+     * Uses Firestore transaction to prevent race conditions and overdraft
      */
     async requestPayout(courierId: string, request: PayoutRequest): Promise<string> {
         try {
-            const wallet = await this.getCourierWallet(courierId);
+            // Validate current user is the courier requesting payout
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser || currentUser.id !== courierId) {
+                throw new Error('Unauthorized: Can only request payout for yourself');
+            }
 
-            // Validate amount
+            // Input validation
             if (request.amount <= 0) {
                 throw new Error('Payout amount must be positive');
             }
-            if (request.amount > wallet.availableBalance) {
-                throw new Error('Insufficient available balance');
+
+            // Minimum payout validation (e.g., 1000 XAF)
+            const MIN_PAYOUT = 1000;
+            if (request.amount < MIN_PAYOUT) {
+                throw new Error(`Minimum payout amount is ${MIN_PAYOUT}`);
             }
 
-            // Get available earnings to include in payout
-            const availableEarnings = await this.getCourierEarnings(courierId, 'available', 100);
-            let remainingAmount = request.amount;
-            const earningIds: string[] = [];
-
-            for (const earning of availableEarnings) {
-                if (remainingAmount <= 0) break;
-                earningIds.push(earning.id);
-                remainingAmount -= earning.netAmount;
+            // Maximum payout validation (e.g., 500000 XAF per request)
+            const MAX_PAYOUT = 500000;
+            if (request.amount > MAX_PAYOUT) {
+                throw new Error(`Maximum payout amount is ${MAX_PAYOUT} per request`);
             }
 
-            const payoutData: Omit<CourierPayout, 'id'> = {
-                courierId,
-                amount: request.amount,
-                currency: wallet.currency,
-                paymentMethod: request.paymentMethod,
-                paymentProvider: request.paymentProvider,
-                paymentAccount: request.paymentAccount,
-                accountHolderName: request.accountHolderName,
-                status: 'pending',
-                statusHistory: [{
-                    status: 'pending',
-                    timestamp: new Date(),
-                    note: 'Payout requested',
-                }],
-                earningIds,
-                createdAt: new Date(),
-            };
+            // Validate payment account format
+            if (!request.paymentAccount || request.paymentAccount.length < 8) {
+                throw new Error('Invalid payment account');
+            }
 
-            // Use batch for atomic update
-            const batch = this.firestore.batch();
+            if (!request.accountHolderName || request.accountHolderName.length < 2) {
+                throw new Error('Account holder name is required');
+            }
 
-            // Create payout record
-            const payoutRef = this.firestore.collection(this.PAYOUTS_COLLECTION).doc();
-            batch.set(payoutRef, payoutData);
-
-            // Update wallet - deduct from available
             const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(courierId);
-            batch.update(walletRef, {
-                availableBalance: FieldValue.increment(-request.amount),
-                updatedAt: new Date(),
-            });
+            const payoutRef = this.firestore.collection(this.PAYOUTS_COLLECTION).doc();
 
-            // Update earnings status to processing
-            for (const earningId of earningIds) {
-                const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc(earningId);
-                batch.update(earningRef, {
-                    status: 'processing',
-                    payoutId: payoutRef.id,
+            // Use transaction to prevent race conditions
+            const payoutId = await this.firestore.runTransaction(async (transaction: any) => {
+                // Read wallet inside transaction to get current balance
+                const walletDoc = await transaction.get(walletRef);
+
+                if (!walletDoc.exists) {
+                    throw new Error('Wallet not found');
+                }
+
+                const walletData = walletDoc.data();
+                const availableBalance = walletData.availableBalance || 0;
+
+                // Check balance inside transaction (prevents race condition)
+                if (request.amount > availableBalance) {
+                    throw new Error(`Insufficient balance. Available: ${availableBalance}, Requested: ${request.amount}`);
+                }
+
+                // Get available earnings to include in payout
+                const earningsSnapshot = await this.firestore
+                    .collection(this.EARNINGS_COLLECTION)
+                    .where('courierId', '==', courierId)
+                    .where('status', '==', 'available')
+                    .orderBy('createdAt', 'asc')
+                    .limit(100)
+                    .get();
+
+                let remainingAmount = request.amount;
+                const earningIds: string[] = [];
+
+                for (const doc of earningsSnapshot.docs) {
+                    if (remainingAmount <= 0) break;
+                    earningIds.push(doc.id);
+                    remainingAmount -= doc.data().netAmount;
+                }
+
+                const payoutData: Omit<CourierPayout, 'id'> = {
+                    courierId,
+                    amount: request.amount,
+                    currency: walletData.currency || 'XAF',
+                    paymentMethod: request.paymentMethod,
+                    paymentProvider: request.paymentProvider,
+                    paymentAccount: request.paymentAccount,
+                    accountHolderName: request.accountHolderName,
+                    status: 'pending',
+                    statusHistory: [{
+                        status: 'pending',
+                        timestamp: new Date(),
+                        note: 'Payout requested',
+                    }],
+                    earningIds,
+                    createdAt: new Date(),
+                };
+
+                // Create payout record
+                transaction.set(payoutRef, payoutData);
+
+                // Update wallet - deduct from available
+                transaction.update(walletRef, {
+                    availableBalance: FieldValue.increment(-request.amount),
                     updatedAt: new Date(),
                 });
-            }
 
-            await batch.commit();
+                // Update earnings status to processing
+                for (const earningId of earningIds) {
+                    const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc(earningId);
+                    transaction.update(earningRef, {
+                        status: 'processing',
+                        payoutId: payoutRef.id,
+                        updatedAt: new Date(),
+                    });
+                }
 
-            console.log('Created payout request:', payoutRef.id);
-            return payoutRef.id;
+                return payoutRef.id;
+            });
+
+            // Audit log the payout request
+            await this.auditService.logPayoutRequested(
+                payoutId,
+                courierId,
+                request.amount,
+                'XAF', // Default currency, should come from wallet
+                request.paymentMethod,
+                request.paymentAccount
+            );
+
+            console.log('Created payout request:', payoutId);
+            return payoutId;
         } catch (error) {
             console.error('Error requesting payout:', error);
+            // Log failed payout attempt
+            await this.auditService.logSecurityEvent(
+                'payout_requested',
+                `Failed payout request: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                { courierId, amount: request.amount },
+                courierId,
+                'courier'
+            );
             throw error;
         }
     }
@@ -668,6 +791,16 @@ export class CourierEarningsFirebaseService {
 
             await batch.commit();
 
+            // Audit log the payout completion
+            await this.auditService.logPayoutCompleted(
+                payoutId,
+                payout.courierId,
+                payout.amount,
+                payout.currency || 'XAF',
+                transactionId,
+                adminId
+            );
+
             console.log('Completed payout:', payoutId);
         } catch (error) {
             console.error('Error completing payout:', error);
@@ -727,6 +860,16 @@ export class CourierEarningsFirebaseService {
             }
 
             await batch.commit();
+
+            // Audit log the payout failure
+            await this.auditService.logPayoutFailed(
+                payoutId,
+                payout.courierId,
+                payout.amount,
+                payout.currency || 'XAF',
+                reason,
+                adminId
+            );
 
             console.log('Failed payout:', payoutId, reason);
         } catch (error) {

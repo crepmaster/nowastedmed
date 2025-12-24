@@ -21,10 +21,12 @@ import {
 } from '../../models/delivery.model';
 import { CourierEarningsFirebaseService } from './courier-earnings-firebase.service';
 import { DeliveryPaymentFirebaseService } from './delivery-payment-firebase.service';
+import { AuthFirebaseService } from './auth-firebase.service';
 
 export class DeliveryFirebaseService {
     private static instance: DeliveryFirebaseService;
     private firestore: any;
+    private authService: AuthFirebaseService;
     private earningsService: CourierEarningsFirebaseService;
     private paymentService: DeliveryPaymentFirebaseService;
     private readonly DELIVERIES_COLLECTION = 'deliveries';
@@ -32,6 +34,7 @@ export class DeliveryFirebaseService {
 
     private constructor() {
         this.firestore = firebase().firestore();
+        this.authService = AuthFirebaseService.getInstance();
         this.earningsService = CourierEarningsFirebaseService.getInstance();
         this.paymentService = DeliveryPaymentFirebaseService.getInstance();
     }
@@ -323,12 +326,37 @@ export class DeliveryFirebaseService {
 
     /**
      * Accept/assign delivery to courier
+     * SECURITY: Validates that the current user is the courier accepting the delivery
      */
     async acceptDelivery(deliveryId: string, courierId: string, courierName: string, courierPhone: string): Promise<void> {
         try {
+            // SECURITY: Verify current user is the courier
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser) {
+                throw new Error('Unauthorized: User not authenticated');
+            }
+            if (currentUser.id !== courierId) {
+                throw new Error('Unauthorized: Can only accept delivery for yourself');
+            }
+
             const delivery = await this.getDelivery(deliveryId);
             if (!delivery) {
                 throw new Error('Delivery not found');
+            }
+
+            // Verify delivery is in pending status
+            if (delivery.status !== 'pending') {
+                throw new Error('Delivery is not available for acceptance');
+            }
+
+            // Verify payment is complete
+            if (delivery.paymentStatus !== 'payment_complete') {
+                throw new Error('Delivery payment is not complete');
+            }
+
+            // Verify delivery is not already assigned
+            if (delivery.courierId) {
+                throw new Error('Delivery is already assigned to another courier');
             }
 
             const statusChange: DeliveryStatusChange = {
@@ -361,6 +389,7 @@ export class DeliveryFirebaseService {
 
     /**
      * Confirm pickup with verification
+     * SECURITY: Validates that the current user is the assigned courier
      */
     async confirmPickup(
         deliveryId: string,
@@ -368,9 +397,28 @@ export class DeliveryFirebaseService {
         verificationData: { signature?: string; photo?: string; notes?: string }
     ): Promise<void> {
         try {
+            // SECURITY: Verify current user is the courier
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser) {
+                throw new Error('Unauthorized: User not authenticated');
+            }
+            if (currentUser.id !== courierId) {
+                throw new Error('Unauthorized: Can only confirm pickup for yourself');
+            }
+
             const delivery = await this.getDelivery(deliveryId);
             if (!delivery) {
                 throw new Error('Delivery not found');
+            }
+
+            // SECURITY: Verify courier is assigned to this delivery
+            if (delivery.courierId !== courierId) {
+                throw new Error('Unauthorized: You are not assigned to this delivery');
+            }
+
+            // Verify delivery is in assigned status
+            if (delivery.status !== 'assigned') {
+                throw new Error('Delivery must be in assigned status to confirm pickup');
             }
 
             const statusChange: DeliveryStatusChange = {
@@ -405,6 +453,7 @@ export class DeliveryFirebaseService {
     /**
      * Confirm delivery with verification
      * Creates earning record for the courier
+     * SECURITY: Validates that the current user is the assigned courier
      */
     async confirmDelivery(
         deliveryId: string,
@@ -412,9 +461,28 @@ export class DeliveryFirebaseService {
         verificationData: { signature?: string; photo?: string; notes?: string }
     ): Promise<void> {
         try {
+            // SECURITY: Verify current user is the courier
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser) {
+                throw new Error('Unauthorized: User not authenticated');
+            }
+            if (currentUser.id !== courierId) {
+                throw new Error('Unauthorized: Can only confirm delivery for yourself');
+            }
+
             const delivery = await this.getDelivery(deliveryId);
             if (!delivery) {
                 throw new Error('Delivery not found');
+            }
+
+            // SECURITY: Verify courier is assigned to this delivery
+            if (delivery.courierId !== courierId) {
+                throw new Error('Unauthorized: You are not assigned to this delivery');
+            }
+
+            // Verify delivery is in picked_up or in_transit status
+            if (delivery.status !== 'picked_up' && delivery.status !== 'in_transit') {
+                throw new Error('Delivery must be picked up before confirming delivery');
             }
 
             const statusChange: DeliveryStatusChange = {
