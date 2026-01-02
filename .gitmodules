@@ -1,0 +1,3 @@
+[submodule "tools/nativescript-reviewer"]
+	path = tools/nativescript-reviewer
+	url = https://github.com/crepmaster/nativescript-code-reviewer.git
