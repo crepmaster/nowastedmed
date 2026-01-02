@@ -8,6 +8,7 @@ dist/
 *.js.map
 *.js
 !webpack.config.js
+!tools/run-phase1.js
 
 # Logs
 logs
