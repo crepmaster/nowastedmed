@@ -17,7 +17,7 @@
  * See: https://firebase.google.com/docs/app-check/android/debug-provider
  */
 
-import { environment } from '../../config/environment.config';
+import { getEnvironment } from '../../config/environment.config';
 
 // App Check types (will be available after installing @nativescript/firebase-app-check)
 interface AppCheckToken {
@@ -49,7 +49,7 @@ export class AppCheckService {
      */
     async initialize(): Promise<boolean> {
         // Check if App Check is enabled in environment config
-        if (!environment.getSecurityConfig().enableAppCheck) {
+        if (!getEnvironment().getSecurityConfig().enableAppCheck) {
             console.log('⚠️ App Check is disabled in environment config');
             return false;
         }
@@ -70,7 +70,7 @@ export class AppCheckService {
             }
 
             // Configure App Check based on environment
-            if (environment.isDevelopment()) {
+            if (getEnvironment().isDevelopment()) {
                 // Use debug provider for development
                 await this.initializeDebugProvider(appCheckModule);
             } else {
@@ -90,18 +90,21 @@ export class AppCheckService {
 
     /**
      * Try to load App Check module
-     * Uses dynamic require to avoid TypeScript errors when module is not installed
+     * DISABLED: @nativescript/firebase-app-check is not installed.
+     * When you need App Check, install the package first:
+     *   npm install @nativescript/firebase-app-check
+     * Then uncomment the require below.
      */
     private async loadAppCheckModule(): Promise<any> {
-        try {
-            // Use require to dynamically load the module
-            // This will fail gracefully if the package is not installed
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const module = require('@nativescript/firebase-app-check');
-            return module;
-        } catch (error) {
-            return null;
-        }
+        // App Check module not installed - return null to skip initialization
+        // To enable, install the package and uncomment:
+        // try {
+        //     const module = require('@nativescript/firebase-app-check');
+        //     return module;
+        // } catch (error) {
+        //     return null;
+        // }
+        return null;
     }
 
     /**

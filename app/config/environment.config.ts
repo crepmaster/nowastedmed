@@ -307,5 +307,13 @@ class EnvironmentService {
 // Export singleton instance getter
 export const getEnvironmentService = (): EnvironmentService => EnvironmentService.getInstance();
 
-// Export for convenience
-export const environment = getEnvironmentService();
+// Lazy getter - DO NOT instantiate at top-level (causes crash in NativeScript ESM)
+// Use getEnvironment() instead of direct 'environment' export
+let _environmentInstance: EnvironmentService | null = null;
+
+export function getEnvironment(): EnvironmentService {
+    if (!_environmentInstance) {
+        _environmentInstance = getEnvironmentService();
+    }
+    return _environmentInstance;
+}

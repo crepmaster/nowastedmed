@@ -8,7 +8,7 @@
  */
 
 import { firebase } from '@nativescript/firebase-core';
-import '@nativescript/firebase-firestore';
+import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
 import { FieldValue } from '@nativescript/firebase-firestore';
 import { SupportedRegion } from '../../models/wallet.model';
 import { AuthFirebaseService } from './auth-firebase.service';

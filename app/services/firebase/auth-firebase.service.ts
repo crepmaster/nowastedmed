@@ -1,6 +1,7 @@
 import { firebase } from '@nativescript/firebase-core';
+import '@nativescript/firebase-auth'; // Augments firebase() with auth()
 import { Auth } from '@nativescript/firebase-auth';
-import { Firestore } from '@nativescript/firebase-firestore';
+import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
 import { Observable } from '@nativescript/core';
 import { FirestoreService } from './firestore.service';
 import { User, UserRole } from '../../models/user.model';

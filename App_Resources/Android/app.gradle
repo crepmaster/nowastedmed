@@ -1,25 +1,50 @@
 // You can add your native dependencies here
+// 16KB Page Size Compliance: Override outdated plugin dependencies
+
 dependencies {
-//  implementation 'androidx.multidex:multidex:2.0.1'
+    // Override @nativescript/geolocation's outdated play-services-location (11.4.0 -> 21.3.0)
+    // Required for 16KB page size compliance on Android 14+ devices
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+}
+
+// Force consistent Google Play Services versions across all dependencies
+configurations.all {
+    resolutionStrategy {
+        // Force modern play-services-location for 16KB compliance
+        force 'com.google.android.gms:play-services-location:21.3.0'
+
+        // Align Firebase BOM version across all modules
+        force 'com.google.firebase:firebase-bom:33.13.0'
+    }
 }
 
 android {
-  compileSdkVersion 35
-  buildToolsVersion "35"
-  // ndkVersion ""
+    compileSdkVersion 35
+    buildToolsVersion "35.0.0"
 
-  defaultConfig {
-    minSdkVersion 24
-    targetSdkVersion 35
+    // Specify NDK version for 16KB page alignment compliance
+    ndkVersion "27.1.12297006"
 
-    // Version Information
-    versionCode 1
-    versionName "1.0.0"
-    
-    generatedDensities = []
-  }
+    defaultConfig {
+        minSdkVersion 24
+        targetSdkVersion 35
 
-  aaptOptions {
-    additionalParameters "--no-version-vectors"
-  }
+        // Version Information
+        versionCode 1
+        versionName "1.0.0"
+
+        generatedDensities = []
+    }
+
+    aaptOptions {
+        additionalParameters "--no-version-vectors"
+    }
+
+    // Ensure 16KB-aligned native libraries in final APK/AAB
+    packaging {
+        jniLibs {
+            // Enable page alignment for native libraries (Android Gradle Plugin 8.3+)
+            useLegacyPackaging = false
+        }
+    }
 }

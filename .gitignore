@@ -39,6 +39,12 @@ GoogleService-Info.plist
 firebase.config.ts
 
 # Documents folder - contains sensitive Firebase console exports
-documents/ns-review-report.json
+documents/
 ns-review-report.json
 .claude/
+
+# Backup files
+*.backup
+
+# Test files
+test-scenarios.csv

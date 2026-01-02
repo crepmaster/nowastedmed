@@ -2,7 +2,7 @@ import { firebase, FirebaseApp } from '@nativescript/firebase-core';
 import '@nativescript/firebase-auth';
 import '@nativescript/firebase-firestore';
 import { AppCheckService } from './app-check.service';
-import { environment } from '../../config/environment.config';
+import { getEnvironment } from '../../config/environment.config';
 
 /**
  * Firebase Service - Core Firebase Initialization
@@ -34,7 +34,7 @@ export class FirebaseService {
       console.log('✅ Firebase initialized successfully');
 
       // Initialize App Check if enabled in environment config
-      if (environment.getSecurityConfig().enableAppCheck) {
+      if (getEnvironment().getSecurityConfig().enableAppCheck) {
         try {
           const appCheckService = AppCheckService.getInstance();
           await appCheckService.initialize();

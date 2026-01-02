@@ -3,6 +3,9 @@
   "main": "app/app.ts",
   "version": "1.0.0",
   "private": true,
+  "nativescript": {
+    "id": "com.promoshake.nowastemed"
+  },
   "scripts": {
     "ns-review": "node ../tools/nativescript-reviewer/index.js ."
   },

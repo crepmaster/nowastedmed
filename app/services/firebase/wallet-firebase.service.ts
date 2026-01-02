@@ -7,7 +7,7 @@
  */
 
 import { firebase } from '@nativescript/firebase-core';
-import '@nativescript/firebase-firestore';
+import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
 import { Wallet, WalletTransaction, WalletSummary, TopUpRequest } from '../../models/wallet.model';
 
 export class WalletFirebaseService {

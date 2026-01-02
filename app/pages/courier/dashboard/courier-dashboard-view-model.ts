@@ -165,8 +165,8 @@ export class CourierDashboardViewModel extends Observable {
             // Subscribe to real-time updates
             this.unsubscribeActive = this.deliveryService.subscribeToCourierDeliveries(
                 this.currentUserId,
-                (deliveries) => {
-                    this.activeDeliveries = deliveries
+                (updatedDeliveries) => {
+                    this.activeDeliveries = updatedDeliveries
                         .filter(d => ['assigned', 'picked_up', 'in_transit'].includes(d.status))
                         .map(d => this.formatDeliveryForDisplay(d));
                 },

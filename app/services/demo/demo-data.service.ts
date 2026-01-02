@@ -3,7 +3,7 @@ import { SecurityService } from '../security.service';
 import { AuthStorage } from '../../auth/storage/auth.storage';
 import { ExchangeStorage } from '../storage/exchange.storage';
 import { MedicineService } from '../medicine.service';
-import { environment } from '../../config/environment.config';
+import { getEnvironment } from '../../config/environment.config';
 import { GeolocationService } from '../geolocation.service';
 
 /**
@@ -45,7 +45,7 @@ export class DemoDataService {
      * Uses environment configuration
      */
     static isDemoModeEnabled(): boolean {
-        return environment.isFeatureEnabled('enableDemoMode');
+        return getEnvironment().isFeatureEnabled('enableDemoMode');
     }
 
     /**

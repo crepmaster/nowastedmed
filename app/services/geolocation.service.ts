@@ -8,7 +8,7 @@
 import { Observable, CoreTypes } from '@nativescript/core';
 import * as Geolocation from '@nativescript/geolocation';
 import { PermissionsService } from './permissions.service';
-import { environment } from '../config/environment.config';
+import { getEnvironment } from '../config/environment.config';
 
 // Use CoreTypes.Accuracy for NativeScript geolocation
 const Accuracy = CoreTypes.Accuracy;
@@ -100,7 +100,7 @@ export class GeolocationService extends Observable {
      * Check if demo mode is enabled
      */
     isDemoMode(): boolean {
-        return environment.isFeatureEnabled('enableDemoMode');
+        return getEnvironment().isFeatureEnabled('enableDemoMode');
     }
 
     /**

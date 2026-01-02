@@ -1,5 +1,5 @@
 import { firebase } from '@nativescript/firebase-core';
-import '@nativescript/firebase-firestore';
+import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
 import { Observable } from '@nativescript/core';
 
 /**
