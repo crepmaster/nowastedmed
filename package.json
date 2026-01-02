@@ -7,7 +7,8 @@
     "id": "com.promoshake.nowastemed"
   },
   "scripts": {
-    "ns-review": "node ../tools/nativescript-reviewer/index.js ."
+    "ns-review": "node ../tools/nativescript-reviewer/index.js .",
+    "reviewer:phase1": "node tools/run-phase1.js"
   },
   "dependencies": {
     "@nativescript/core": "~8.3.0",
