@@ -16,7 +16,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Reviewer location (sibling directory)
-const REVIEWER_ROOT = path.resolve(__dirname, '../../tools/nativescript-reviewer');
+const REVIEWER_ROOT = path.resolve(process.cwd(), 'tools', 'nativescript-reviewer');
 
 // Phase 1 rules (frozen registry)
 let nsEntrypointRule, webpackEntryRule, nsBootstrapRule, noTopLevelFirebaseRule, noTopLevelRuntimeRule, glob;
