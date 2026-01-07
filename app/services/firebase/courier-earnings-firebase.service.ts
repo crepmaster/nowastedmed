@@ -3,13 +3,23 @@
  *
  * Handles all courier earnings, payouts, and wallet operations.
  * Tracks delivery fees, platform commissions, and payout processing.
+ *
+ * SECURITY UPDATE: Financial mutations are now handled by Cloud Functions.
+ * - createEarning: Handled by onDeliveryCompleted trigger
+ * - processPendingEarnings: Handled by releaseCourierEarnings scheduled function
+ * - requestPayout: Now calls Cloud Function
+ * - completePayout/failPayout: Admin-only via Cloud Functions
+ *
+ * This service now primarily handles:
+ * - Read operations (getCourierEarnings, getCourierWallet, getEarningsSummary)
+ * - Calling Cloud Functions for mutations
+ * - Payment preference updates (allowed by rules)
  */
 
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
-import { FieldValue } from '@nativescript/firebase-firestore';
+import '@nativescript/firebase-functions';
 import { AuthFirebaseService } from './auth-firebase.service';
-import { AuditFirebaseService } from './audit-firebase.service';
 import {
     CourierEarning,
     CourierPayout,
@@ -45,6 +55,7 @@ export interface FeeCalculation {
 export class CourierEarningsFirebaseService {
     private static instance: CourierEarningsFirebaseService;
     private firestore: any;
+    private functions: any;
     private authService: AuthFirebaseService;
 
     private readonly EARNINGS_COLLECTION = 'courier_earnings';
@@ -56,15 +67,11 @@ export class CourierEarningsFirebaseService {
     private readonly DEFAULT_PLATFORM_COMMISSION = 15;
     // Default base fee in local currency unit
     private readonly DEFAULT_BASE_FEE = 500;
-    // Hours before earnings become available for payout
-    private readonly EARNINGS_HOLD_HOURS = 24;
-
-    private auditService: AuditFirebaseService;
 
     private constructor() {
         this.firestore = firebase().firestore();
+        this.functions = firebase().functions('europe-west1');
         this.authService = AuthFirebaseService.getInstance();
-        this.auditService = AuditFirebaseService.getInstance();
     }
 
     static getInstance(): CourierEarningsFirebaseService {
@@ -178,213 +185,51 @@ export class CourierEarningsFirebaseService {
 
     /**
      * Create earning record when delivery is completed
-     * Called by delivery service after confirmDelivery
-     * SECURITY: Validates that the current user is the courier assigned to the delivery
+     *
+     * SECURITY UPDATE: This method is now DEPRECATED.
+     * Earnings are created automatically by the onDeliveryCompleted Cloud Function
+     * when delivery status changes to 'delivered'.
+     *
+     * This method is kept for backward compatibility but will throw an error.
+     * The Cloud Function handles:
+     * - Earning creation
+     * - Wallet balance updates
+     * - Audit logging
+     *
+     * @deprecated Use Cloud Function trigger instead
      */
     async createEarning(delivery: Delivery): Promise<string> {
-        try {
-            if (!delivery.courierId) {
-                throw new Error('Delivery has no assigned courier');
-            }
+        // Check if earning already exists (created by Cloud Function)
+        const existingEarning = await this.firestore
+            .collection(this.EARNINGS_COLLECTION)
+            .where('deliveryId', '==', delivery.id)
+            .limit(1)
+            .get();
 
-            // SECURITY: Verify current user is the courier for this delivery
-            const currentUser = this.authService.getCurrentUser();
-            if (!currentUser) {
-                throw new Error('Unauthorized: User not authenticated');
-            }
-            if (currentUser.id !== delivery.courierId) {
-                throw new Error('Unauthorized: Can only create earnings for your own deliveries');
-            }
-
-            // Verify delivery is in delivered status
-            if (delivery.status !== 'delivered') {
-                throw new Error('Can only create earnings for completed deliveries');
-            }
-
-            // Check if earning already exists for this delivery (prevent duplicates)
-            const existingEarning = await this.firestore
-                .collection(this.EARNINGS_COLLECTION)
-                .where('deliveryId', '==', delivery.id)
-                .limit(1)
-                .get();
-
-            if (!existingEarning.empty) {
-                console.log('Earning already exists for delivery:', delivery.id);
-                return existingEarning.docs[0].id;
-            }
-
-            // Calculate fee if not already set
-            let feeCalc: FeeCalculation;
-            if (delivery.deliveryFee && delivery.currency) {
-                const platformCommission = this.DEFAULT_PLATFORM_COMMISSION;
-                const platformFee = Math.round((delivery.deliveryFee * platformCommission) / 100);
-                feeCalc = {
-                    deliveryFee: delivery.deliveryFee,
-                    platformFee,
-                    courierEarning: delivery.deliveryFee - platformFee,
-                    currency: delivery.currency,
-                };
-            } else {
-                feeCalc = await this.calculateDeliveryFee(
-                    delivery.location?.cityId || '',
-                    delivery.location?.countryCode || ''
-                );
-            }
-
-            // Calculate when earnings become available
-            const availableAt = new Date();
-            availableAt.setHours(availableAt.getHours() + this.EARNINGS_HOLD_HOURS);
-
-            const earningData: Omit<CourierEarning, 'id'> = {
-                courierId: delivery.courierId,
-                deliveryId: delivery.id,
-                exchangeId: delivery.exchangeId,
-                amount: feeCalc.deliveryFee,
-                currency: feeCalc.currency,
-                platformFee: feeCalc.platformFee,
-                netAmount: feeCalc.courierEarning,
-                status: 'pending',
-                fromPharmacyName: delivery.fromPharmacyName,
-                toPharmacyName: delivery.toPharmacyName,
-                cityName: delivery.location?.cityName || '',
-                deliveryCompletedAt: new Date(),
-                availableAt,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
-
-            // Use batch to update earning and wallet atomically
-            const batch = this.firestore.batch();
-
-            // Create earning record
-            const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc();
-            batch.set(earningRef, earningData);
-
-            // Update courier wallet
-            const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(delivery.courierId);
-            const walletDoc = await walletRef.get();
-
-            if (walletDoc.exists) {
-                batch.update(walletRef, {
-                    pendingBalance: FieldValue.increment(feeCalc.courierEarning),
-                    totalEarned: FieldValue.increment(feeCalc.courierEarning),
-                    updatedAt: new Date(),
-                });
-            } else {
-                // Initialize wallet if doesn't exist
-                batch.set(walletRef, {
-                    courierId: delivery.courierId,
-                    availableBalance: 0,
-                    pendingBalance: feeCalc.courierEarning,
-                    totalEarned: feeCalc.courierEarning,
-                    totalWithdrawn: 0,
-                    currency: feeCalc.currency,
-                    updatedAt: new Date(),
-                });
-            }
-
-            await batch.commit();
-
-            // Audit log the earning creation
-            await this.auditService.logEarningCreated(
-                earningRef.id,
-                delivery.courierId,
-                delivery.id,
-                feeCalc.deliveryFee,
-                feeCalc.courierEarning,
-                feeCalc.currency
-            );
-
-            console.log('Created earning record:', earningRef.id);
-            return earningRef.id;
-        } catch (error) {
-            console.error('Error creating earning:', error);
-            throw error;
+        if (!existingEarning.empty) {
+            console.log('Earning already exists (created by Cloud Function):', delivery.id);
+            return existingEarning.docs[0].id;
         }
+
+        // If no earning exists yet, the Cloud Function hasn't triggered yet
+        // This can happen if there's a timing issue
+        console.log('Waiting for Cloud Function to create earning for delivery:', delivery.id);
+        throw new Error('Earning creation is now handled by Cloud Function. Please wait a moment and refresh.');
     }
 
     /**
      * Process pending earnings - move to available after hold period
-     * Should be called periodically (e.g., by a cloud function)
-     * Uses transaction to prevent race conditions (double processing)
      *
-     * NOTE: This is intended for backend/cloud function use. For production,
-     * this should run as a Cloud Function with admin SDK.
+     * SECURITY UPDATE: This method is now DEPRECATED.
+     * Earnings processing is handled by the releaseCourierEarnings Cloud Function
+     * which runs on a schedule (every hour).
+     *
+     * @deprecated Use Cloud Function scheduler instead
      */
     async processPendingEarnings(): Promise<number> {
-        try {
-            const now = new Date();
-
-            // Get pending earnings that have passed the hold period
-            const snapshot = await this.firestore
-                .collection(this.EARNINGS_COLLECTION)
-                .where('status', '==', 'pending')
-                .where('availableAt', '<=', now)
-                .limit(50) // Smaller batch to reduce transaction size
-                .get();
-
-            if (snapshot.empty) {
-                return 0;
-            }
-
-            let processedCount = 0;
-
-            // Process each earning in a transaction to prevent race conditions
-            for (const doc of snapshot.docs) {
-                try {
-                    await this.firestore.runTransaction(async (transaction: any) => {
-                        // Re-read the document inside transaction
-                        const earningDoc = await transaction.get(doc.ref);
-
-                        if (!earningDoc.exists) {
-                            return; // Already deleted
-                        }
-
-                        const earning = earningDoc.data();
-
-                        // Check if still pending (prevents double processing)
-                        if (earning.status !== 'pending') {
-                            return; // Already processed by another call
-                        }
-
-                        // Check if hold period has passed
-                        const availableAt = earning.availableAt?.toDate?.() || earning.availableAt;
-                        if (availableAt > now) {
-                            return; // Not ready yet
-                        }
-
-                        // Update earning status
-                        transaction.update(doc.ref, {
-                            status: 'available',
-                            updatedAt: new Date(),
-                        });
-
-                        // Update wallet - move from pending to available
-                        const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(earning.courierId);
-                        const walletDoc = await transaction.get(walletRef);
-
-                        if (walletDoc.exists) {
-                            transaction.update(walletRef, {
-                                pendingBalance: FieldValue.increment(-earning.netAmount),
-                                availableBalance: FieldValue.increment(earning.netAmount),
-                                updatedAt: new Date(),
-                            });
-                        }
-                    });
-
-                    processedCount++;
-                } catch (txError) {
-                    // Log individual transaction failures but continue with others
-                    console.error('Error processing earning:', doc.id, txError);
-                }
-            }
-
-            console.log(`Processed ${processedCount} pending earnings`);
-            return processedCount;
-        } catch (error) {
-            console.error('Error processing pending earnings:', error);
-            throw error;
-        }
+        console.warn('processPendingEarnings is deprecated. Use Cloud Function scheduler instead.');
+        // Return 0 as this is now handled by Cloud Functions
+        return 0;
     }
 
     /**
@@ -559,7 +404,7 @@ export class CourierEarningsFirebaseService {
 
     /**
      * Request a payout
-     * Uses Firestore transaction to prevent race conditions and overdraft
+     * SECURITY UPDATE: Now calls Cloud Function instead of direct Firestore mutation
      */
     async requestPayout(courierId: string, request: PayoutRequest): Promise<string> {
         try {
@@ -569,24 +414,11 @@ export class CourierEarningsFirebaseService {
                 throw new Error('Unauthorized: Can only request payout for yourself');
             }
 
-            // Input validation
+            // Basic input validation (Cloud Function does full validation)
             if (request.amount <= 0) {
                 throw new Error('Payout amount must be positive');
             }
 
-            // Minimum payout validation (e.g., 1000 XAF)
-            const MIN_PAYOUT = 1000;
-            if (request.amount < MIN_PAYOUT) {
-                throw new Error(`Minimum payout amount is ${MIN_PAYOUT}`);
-            }
-
-            // Maximum payout validation (e.g., 500000 XAF per request)
-            const MAX_PAYOUT = 500000;
-            if (request.amount > MAX_PAYOUT) {
-                throw new Error(`Maximum payout amount is ${MAX_PAYOUT} per request`);
-            }
-
-            // Validate payment account format
             if (!request.paymentAccount || request.paymentAccount.length < 8) {
                 throw new Error('Invalid payment account');
             }
@@ -595,106 +427,34 @@ export class CourierEarningsFirebaseService {
                 throw new Error('Account holder name is required');
             }
 
-            const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(courierId);
-            const payoutRef = this.firestore.collection(this.PAYOUTS_COLLECTION).doc();
+            // Get wallet to determine currency
+            const wallet = await this.getCourierWallet(courierId);
 
-            // Use transaction to prevent race conditions
-            const payoutId = await this.firestore.runTransaction(async (transaction: any) => {
-                // Read wallet inside transaction to get current balance
-                const walletDoc = await transaction.get(walletRef);
-
-                if (!walletDoc.exists) {
-                    throw new Error('Wallet not found');
-                }
-
-                const walletData = walletDoc.data();
-                const availableBalance = walletData.availableBalance || 0;
-
-                // Check balance inside transaction (prevents race condition)
-                if (request.amount > availableBalance) {
-                    throw new Error(`Insufficient balance. Available: ${availableBalance}, Requested: ${request.amount}`);
-                }
-
-                // Get available earnings to include in payout
-                const earningsSnapshot = await this.firestore
-                    .collection(this.EARNINGS_COLLECTION)
-                    .where('courierId', '==', courierId)
-                    .where('status', '==', 'available')
-                    .orderBy('createdAt', 'asc')
-                    .limit(100)
-                    .get();
-
-                let remainingAmount = request.amount;
-                const earningIds: string[] = [];
-
-                for (const doc of earningsSnapshot.docs) {
-                    if (remainingAmount <= 0) break;
-                    earningIds.push(doc.id);
-                    remainingAmount -= doc.data().netAmount;
-                }
-
-                const payoutData: Omit<CourierPayout, 'id'> = {
-                    courierId,
-                    amount: request.amount,
-                    currency: walletData.currency || 'XAF',
-                    paymentMethod: request.paymentMethod,
-                    paymentProvider: request.paymentProvider,
-                    paymentAccount: request.paymentAccount,
-                    accountHolderName: request.accountHolderName,
-                    status: 'pending',
-                    statusHistory: [{
-                        status: 'pending',
-                        timestamp: new Date(),
-                        note: 'Payout requested',
-                    }],
-                    earningIds,
-                    createdAt: new Date(),
-                };
-
-                // Create payout record
-                transaction.set(payoutRef, payoutData);
-
-                // Update wallet - deduct from available
-                transaction.update(walletRef, {
-                    availableBalance: FieldValue.increment(-request.amount),
-                    updatedAt: new Date(),
-                });
-
-                // Update earnings status to processing
-                for (const earningId of earningIds) {
-                    const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc(earningId);
-                    transaction.update(earningRef, {
-                        status: 'processing',
-                        payoutId: payoutRef.id,
-                        updatedAt: new Date(),
-                    });
-                }
-
-                return payoutRef.id;
+            // Call Cloud Function
+            const requestPayoutFn = this.functions.httpsCallable('requestPayout');
+            const result = await requestPayoutFn({
+                amount: request.amount,
+                currency: wallet.currency,
+                paymentMethod: request.paymentMethod,
+                paymentProvider: request.paymentProvider,
+                paymentAccount: request.paymentAccount,
+                accountHolderName: request.accountHolderName,
             });
 
-            // Audit log the payout request
-            await this.auditService.logPayoutRequested(
-                payoutId,
-                courierId,
-                request.amount,
-                'XAF', // Default currency, should come from wallet
-                request.paymentMethod,
-                request.paymentAccount
-            );
+            const data = result.data as { success: boolean; message: string; payoutId?: string };
 
-            console.log('Created payout request:', payoutId);
-            return payoutId;
-        } catch (error) {
+            if (!data.success) {
+                throw new Error(data.message || 'Payout request failed');
+            }
+
+            console.log('Created payout request via Cloud Function:', data.payoutId);
+            return data.payoutId!;
+        } catch (error: any) {
             console.error('Error requesting payout:', error);
-            // Log failed payout attempt
-            await this.auditService.logSecurityEvent(
-                'payout_requested',
-                `Failed payout request: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                { courierId, amount: request.amount },
-                courierId,
-                'courier'
-            );
+            // Handle Cloud Function errors
+            if (error.code) {
+                throw new Error(error.message || 'Payout request failed');
+            }
             throw error;
         }
     }
@@ -736,146 +496,36 @@ export class CourierEarningsFirebaseService {
 
     /**
      * Complete a payout (admin operation)
+     *
+     * SECURITY UPDATE: This method is now DEPRECATED.
+     * Payout completion is handled by admin Cloud Functions only.
+     *
+     * @deprecated Use admin Cloud Function instead
      */
     async completePayout(
-        payoutId: string,
-        transactionId: string,
-        adminId: string
+        _payoutId: string,
+        _transactionId: string,
+        _adminId: string
     ): Promise<void> {
-        try {
-            const payoutRef = this.firestore.collection(this.PAYOUTS_COLLECTION).doc(payoutId);
-            const payoutDoc = await payoutRef.get();
-
-            if (!payoutDoc.exists) {
-                throw new Error('Payout not found');
-            }
-
-            const payout = payoutDoc.data();
-            if (payout.status !== 'pending' && payout.status !== 'processing') {
-                throw new Error('Payout is not in a valid state for completion');
-            }
-
-            const batch = this.firestore.batch();
-
-            // Update payout status
-            batch.update(payoutRef, {
-                status: 'completed',
-                transactionId,
-                processedBy: adminId,
-                processedAt: new Date(),
-                completedAt: new Date(),
-                statusHistory: FieldValue.arrayUnion([{
-                    status: 'completed',
-                    timestamp: new Date(),
-                    note: `Completed by admin. Transaction: ${transactionId}`,
-                    updatedBy: adminId,
-                }]),
-            });
-
-            // Update wallet
-            const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(payout.courierId);
-            batch.update(walletRef, {
-                totalWithdrawn: FieldValue.increment(payout.amount),
-                updatedAt: new Date(),
-            });
-
-            // Update earnings status to paid
-            for (const earningId of payout.earningIds) {
-                const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc(earningId);
-                batch.update(earningRef, {
-                    status: 'paid',
-                    paidAt: new Date(),
-                    updatedAt: new Date(),
-                });
-            }
-
-            await batch.commit();
-
-            // Audit log the payout completion
-            await this.auditService.logPayoutCompleted(
-                payoutId,
-                payout.courierId,
-                payout.amount,
-                payout.currency || 'XAF',
-                transactionId,
-                adminId
-            );
-
-            console.log('Completed payout:', payoutId);
-        } catch (error) {
-            console.error('Error completing payout:', error);
-            throw error;
-        }
+        console.warn('completePayout is deprecated. Use admin Cloud Function instead.');
+        throw new Error('Payout completion is now handled by admin Cloud Functions only.');
     }
 
     /**
      * Fail a payout (admin operation)
+     *
+     * SECURITY UPDATE: This method is now DEPRECATED.
+     * Payout failure processing is handled by admin Cloud Functions only.
+     *
+     * @deprecated Use admin Cloud Function instead
      */
     async failPayout(
-        payoutId: string,
-        reason: string,
-        adminId: string
+        _payoutId: string,
+        _reason: string,
+        _adminId: string
     ): Promise<void> {
-        try {
-            const payoutRef = this.firestore.collection(this.PAYOUTS_COLLECTION).doc(payoutId);
-            const payoutDoc = await payoutRef.get();
-
-            if (!payoutDoc.exists) {
-                throw new Error('Payout not found');
-            }
-
-            const payout = payoutDoc.data();
-
-            const batch = this.firestore.batch();
-
-            // Update payout status
-            batch.update(payoutRef, {
-                status: 'failed',
-                failureReason: reason,
-                processedBy: adminId,
-                processedAt: new Date(),
-                statusHistory: FieldValue.arrayUnion([{
-                    status: 'failed',
-                    timestamp: new Date(),
-                    note: reason,
-                    updatedBy: adminId,
-                }]),
-            });
-
-            // Return funds to wallet
-            const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(payout.courierId);
-            batch.update(walletRef, {
-                availableBalance: FieldValue.increment(payout.amount),
-                updatedAt: new Date(),
-            });
-
-            // Revert earnings status to available
-            for (const earningId of payout.earningIds) {
-                const earningRef = this.firestore.collection(this.EARNINGS_COLLECTION).doc(earningId);
-                batch.update(earningRef, {
-                    status: 'available',
-                    payoutId: null,
-                    updatedAt: new Date(),
-                });
-            }
-
-            await batch.commit();
-
-            // Audit log the payout failure
-            await this.auditService.logPayoutFailed(
-                payoutId,
-                payout.courierId,
-                payout.amount,
-                payout.currency || 'XAF',
-                reason,
-                adminId
-            );
-
-            console.log('Failed payout:', payoutId, reason);
-        } catch (error) {
-            console.error('Error failing payout:', error);
-            throw error;
-        }
+        console.warn('failPayout is deprecated. Use admin Cloud Function instead.');
+        throw new Error('Payout failure processing is now handled by admin Cloud Functions only.');
     }
 
     // ========================================

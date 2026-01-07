@@ -13,6 +13,12 @@ rules_version = '2';
  * - exchange_proposals: Counter-proposals for exchanges
  * - pharmacy_inventory: Medicine inventory
  *
+ * SECURITY HARDENING (Phase 1):
+ * - Financial mutations locked to Cloud Functions only
+ * - Field-level protection on deliveries and exchanges
+ * - Audit logs server-only
+ * - Exchange proposals validated against parent
+ *
  * DEPLOYMENT:
  * firebase deploy --only firestore:rules
  *
@@ -36,17 +42,6 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Get user's role from their profile
-    function getUserRole() {
-      let pharmacyDoc = get(/databases/$(database)/documents/pharmacies/$(request.auth.uid));
-      let courierDoc = get(/databases/$(database)/documents/couriers/$(request.auth.uid));
-      let adminDoc = get(/databases/$(database)/documents/admins/$(request.auth.uid));
-
-      return pharmacyDoc.data != null ? 'pharmacist' :
-             courierDoc.data != null ? 'courier' :
-             adminDoc.data != null ? 'admin' : null;
-    }
-
     // Check if user is a pharmacist
     function isPharmacist() {
       return isAuthenticated() &&
@@ -65,24 +60,29 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Validate string field length
-    function validString(field, minLen, maxLen) {
-      return field is string && field.size() >= minLen && field.size() <= maxLen;
-    }
-
     // Validate required string field
     function validRequiredString(field) {
       return field is string && field.size() > 0;
     }
 
+    // Validate pharmacy has at least GPS coordinates OR address (min 5 chars)
+    function hasValidPharmacyLocation(data) {
+      let hasCoordinates = data.location != null &&
+                           data.location.coordinates != null &&
+                           data.location.coordinates.latitude is number &&
+                           data.location.coordinates.longitude is number;
+      let hasAddress = (data.address is string && data.address.size() >= 5) ||
+                       (data.location != null && data.location.address is string && data.location.address.size() >= 5);
+      return hasCoordinates || hasAddress;
+    }
+
     // Check if courier operates in a specific city
-    // Looks up the courier's operatingCities array in the users collection
+    // Uses couriers collection as source of truth
     function courierOperatesInCity(cityId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null &&
-             userDoc.data.role == 'courier' &&
-             userDoc.data.operatingCities != null &&
-             cityId in userDoc.data.operatingCities;
+      let courierDoc = get(/databases/$(database)/documents/couriers/$(request.auth.uid));
+      return courierDoc != null &&
+             courierDoc.data.operatingCities != null &&
+             cityId in courierDoc.data.operatingCities;
     }
 
     // ============================================
@@ -91,18 +91,20 @@ service cloud.firestore {
 
     // Pharmacies collection
     match /pharmacies/{userId} {
-      // Users can read their own profile
-      // Admins can read all profiles
-      // Other pharmacists can read basic info for exchange purposes
+      // Owner and admin can read full profile
+      // Other pharmacists can read for exchange purposes (limited PII exposure for demo)
+      // NOTE: For production, consider splitting into pharmacies_public/pharmacies_private
       allow read: if isOwner(userId) || isAdmin() || isPharmacist();
 
-      // Only the user can update their own profile (except isActive which admin controls)
+      // Only the user can update their own profile
+      // Protected fields: role, createdAt cannot be changed
       allow update: if isOwner(userId) &&
                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
 
-      // Users cannot create their own profiles directly (done through Cloud Functions)
-      // Admins can create profiles
-      allow create: if isAdmin();
+      // Users can create their own profile during registration
+      // Pharmacy must have at least GPS coordinates OR address
+      allow create: if (isOwner(userId) || isAdmin()) &&
+                       hasValidPharmacyLocation(request.resource.data);
 
       // Only admins can delete profiles
       allow delete: if isAdmin();
@@ -110,17 +112,16 @@ service cloud.firestore {
 
     // Couriers collection
     match /couriers/{userId} {
-      // Users can read their own profile
-      // Admins can read all profiles
-      // Pharmacists can read courier info for delivery tracking
+      // Owner, admin, and pharmacists (for delivery tracking) can read
       allow read: if isOwner(userId) || isAdmin() || isPharmacist();
 
       // Only the user can update their own profile
+      // Protected fields: role, createdAt cannot be changed
       allow update: if isOwner(userId) &&
                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
 
-      // Users cannot create their own profiles directly
-      allow create: if isAdmin();
+      // Users can create their own profile during registration
+      allow create: if isOwner(userId) || isAdmin();
 
       // Only admins can delete profiles
       allow delete: if isAdmin();
@@ -128,8 +129,7 @@ service cloud.firestore {
 
     // Admins collection
     match /admins/{userId} {
-      // Only the admin can read their own profile
-      // Other admins can read for verification
+      // Only admins can read admin profiles
       allow read: if isOwner(userId) || isAdmin();
 
       // Only the user can update their own profile
@@ -150,7 +150,7 @@ service cloud.firestore {
     match /pharmacy_inventory/{medicineId} {
       // Pharmacies can read their own inventory
       // Other pharmacies can read medicines available for exchange
-      // Admins can read all for statistics
+      // Admins can read all
       allow read: if isAuthenticated() && (
                      resource.data.pharmacyId == request.auth.uid ||
                      resource.data.availableForExchange == true ||
@@ -164,6 +164,7 @@ service cloud.firestore {
                        request.resource.data.quantity >= 0;
 
       // Pharmacy can only update their own medicines
+      // Cannot change pharmacyId
       allow update: if isPharmacist() &&
                        resource.data.pharmacyId == request.auth.uid &&
                        request.resource.data.pharmacyId == request.auth.uid &&
@@ -190,31 +191,43 @@ service cloud.firestore {
                    );
 
       // Only pharmacists can create exchanges
-      // Must be the proposer
+      // Must be the proposer with valid initial status
       allow create: if isPharmacist() &&
                        request.resource.data.proposedBy == request.auth.uid &&
-                       validRequiredString(request.resource.data.proposedTo) &&
                        request.resource.data.status in ['draft', 'pending', 'requested'];
 
-      // Both parties can update exchange (accept/reject)
-      // Courier can update status when delivering
+      // SECURITY HARDENING: Field-level protection on updates
+      // Immutable fields that can NEVER change after creation
       allow update: if isAuthenticated() && (
-                       // Proposer can update their own exchange
+                       // Proposer can update (but not critical fields)
                        (resource.data.proposedBy == request.auth.uid &&
-                        request.resource.data.proposedBy == resource.data.proposedBy) ||
-                       // Recipient can accept/reject
+                        request.resource.data.proposedBy == resource.data.proposedBy &&
+                        // Cannot change proposedTo once set (except from empty)
+                        (resource.data.proposedTo == '' ||
+                         request.resource.data.proposedTo == resource.data.proposedTo ||
+                         resource.data.proposedTo == null)) ||
+
+                       // Recipient can accept/reject only - cannot modify other fields
                        (resource.data.proposedTo == request.auth.uid &&
-                        request.resource.data.status in ['accepted', 'rejected', 'pending']) ||
-                       // Courier can update delivery status
+                        request.resource.data.status in ['accepted', 'rejected', 'pending'] &&
+                        request.resource.data.proposedBy == resource.data.proposedBy &&
+                        request.resource.data.proposedTo == resource.data.proposedTo &&
+                        request.resource.data.proposedMedicines == resource.data.proposedMedicines) ||
+
+                       // Courier can ONLY update status - nothing else
                        (isCourier() &&
                         resource.data.courierId == request.auth.uid &&
-                        request.resource.data.status in ['in_transit', 'completed']) ||
+                        request.resource.data.status in ['in_transit', 'completed'] &&
+                        request.resource.data.proposedBy == resource.data.proposedBy &&
+                        request.resource.data.proposedTo == resource.data.proposedTo &&
+                        request.resource.data.proposedMedicines == resource.data.proposedMedicines &&
+                        request.resource.data.offeredMedicines == resource.data.offeredMedicines) ||
+
                        // Admin can update any exchange
                        isAdmin()
                      );
 
       // Only proposer can delete draft exchanges
-      // Admins can delete any
       allow delete: if (isPharmacist() &&
                         resource.data.proposedBy == request.auth.uid &&
                         resource.data.status == 'draft') ||
@@ -226,9 +239,14 @@ service cloud.firestore {
     // ============================================
 
     match /exchange_proposals/{proposalId} {
-      // Read the parent exchange to verify access
+      // Helper to get parent exchange for validation
       function getParentExchange() {
         return get(/databases/$(database)/documents/exchanges/$(resource.data.exchangeId));
+      }
+
+      // Helper to get parent exchange for create validation (uses request data)
+      function getParentExchangeForCreate() {
+        return get(/databases/$(database)/documents/exchanges/$(request.resource.data.exchangeId));
       }
 
       // Both parties involved in the exchange can read proposals
@@ -238,14 +256,22 @@ service cloud.firestore {
                      isAdmin()
                    );
 
-      // Only parties in the exchange can create proposals
+      // SECURITY FIX: Validate proposal is linked to a valid exchange
+      // Creator must be a party to the exchange
       allow create: if isPharmacist() &&
-                       request.resource.data.proposedBy == request.auth.uid;
+                       request.resource.data.proposedBy == request.auth.uid &&
+                       request.resource.data.exchangeId != null &&
+                       getParentExchangeForCreate() != null &&
+                       (getParentExchangeForCreate().data.proposedBy == request.auth.uid ||
+                        getParentExchangeForCreate().data.proposedTo == request.auth.uid);
 
       // Only parties can update proposal status
+      // Cannot change exchangeId or proposedBy
       allow update: if isAuthenticated() && (
-                       getParentExchange().data.proposedBy == request.auth.uid ||
-                       getParentExchange().data.proposedTo == request.auth.uid
+                       (getParentExchange().data.proposedBy == request.auth.uid ||
+                        getParentExchange().data.proposedTo == request.auth.uid) &&
+                       request.resource.data.exchangeId == resource.data.exchangeId &&
+                       request.resource.data.proposedBy == resource.data.proposedBy
                      );
 
       // Only proposer can delete their proposal
@@ -259,26 +285,20 @@ service cloud.firestore {
 
     // Countries - Admin managed
     match /countries/{countryId} {
-      // All authenticated users can read countries
       allow read: if isAuthenticated();
-      // Only admins can create, update, delete
       allow create, update, delete: if isAdmin();
     }
 
     // Cities - Admin managed
     match /cities/{cityId} {
-      // All authenticated users can read cities
       allow read: if isAuthenticated();
-      // Only admins can create, update, delete
       allow create, update, delete: if isAdmin();
     }
 
     // Courier Assignments - Admin managed
     match /courier_assignments/{assignmentId} {
-      // Admins and the assigned courier can read
       allow read: if isAdmin() ||
                      (isCourier() && resource.data.courierId == request.auth.uid);
-      // Only admins can create, update, delete
       allow create, update, delete: if isAdmin();
     }
 
@@ -286,17 +306,15 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read their own profile
       // Admins can read all profiles
-      // Pharmacists can read other users for exchange purposes
-      allow read: if isOwner(userId) || isAdmin() || isPharmacist();
+      allow read: if isOwner(userId) || isAdmin();
 
       // Users can update their own profile (except role and createdAt)
-      allow update: if isOwner(userId) &&
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
+      // Admin can update any user (for operatingCities etc.)
+      allow update: if (isOwner(userId) &&
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt'])) ||
+                       isAdmin();
 
-      // Admin can update courier's operatingCities
-      allow update: if isAdmin();
-
-      // Admins can create profiles
+      // Users can create their own profile, admins can create any
       allow create: if isAdmin() || isOwner(userId);
 
       // Only admins can delete profiles
@@ -307,62 +325,98 @@ service cloud.firestore {
     // READ-ONLY COLLECTIONS (managed by backend)
     // ============================================
 
-    // Wallets - Read only for users, managed by Cloud Functions
+    // Wallets - Users can create their own wallet during registration
     match /wallets/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if false; // Only Cloud Functions can write
+      // Users can create their own wallet (initial creation only with zero balance)
+      allow create: if isOwner(userId) &&
+                       request.resource.data.userId == userId &&
+                       request.resource.data.balance == 0 &&
+                       request.resource.data.isActive == true;
+      // Only Cloud Functions can update/delete
+      allow update, delete: if false;
     }
 
     // Ledger - Read only transaction history
     match /ledger/{transactionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      allow write: if false;
     }
 
     // Subscriptions - Read only subscription status
     match /subscriptions/{subscriptionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      allow write: if false;
     }
 
-    // Deliveries - Couriers can read/update their assigned deliveries
+    // ============================================
+    // DELIVERIES
+    // SECURITY HARDENING: Consolidated rules with field-level protection
+    // ============================================
+
     match /deliveries/{deliveryId} {
-      // Users can read deliveries they are involved in
+      // READ: Involved parties can read their deliveries
+      // Couriers can read pending deliveries in their operating cities
       allow read: if isAuthenticated() && (
+                     // Assigned courier can read
                      resource.data.courierId == request.auth.uid ||
+                     // Involved pharmacies can read
                      resource.data.fromPharmacyId == request.auth.uid ||
                      resource.data.toPharmacyId == request.auth.uid ||
-                     isAdmin()
+                     // Admin can read all
+                     isAdmin() ||
+                     // Couriers can browse pending deliveries in their cities
+                     (isCourier() &&
+                      resource.data.status == 'pending' &&
+                      resource.data.location != null &&
+                      resource.data.location.cityId != null &&
+                      courierOperatesInCity(resource.data.location.cityId))
                    );
-      // SECURITY FIX: Couriers can only read pending deliveries in their operating cities
-      // This prevents couriers from seeing delivery addresses outside their assigned areas
-      allow read: if isCourier() &&
-                     resource.data.status == 'pending' &&
-                     resource.data.location != null &&
-                     resource.data.location.cityId != null &&
-                     courierOperatesInCity(resource.data.location.cityId);
-      // Couriers can update delivery status for their assigned deliveries
-      allow update: if isCourier() &&
-                       resource.data.courierId == request.auth.uid &&
-                       request.resource.data.status in ['picked_up', 'in_transit', 'delivered'];
-      // Couriers can accept pending deliveries only in their operating cities
-      allow update: if isCourier() &&
-                       resource.data.status == 'pending' &&
-                       request.resource.data.courierId == request.auth.uid &&
-                       request.resource.data.status == 'assigned' &&
-                       resource.data.location != null &&
-                       resource.data.location.cityId != null &&
-                       courierOperatesInCity(resource.data.location.cityId);
-      allow create, delete: if false; // Only Cloud Functions
+
+      // UPDATE: Strict field-level control
+      // Courier can ONLY modify allowed fields, nothing else
+      allow update: if isCourier() && (
+                       // Case 1: Assigned courier updating status
+                       (resource.data.courierId == request.auth.uid &&
+                        request.resource.data.status in ['picked_up', 'in_transit', 'delivered'] &&
+                        // IMMUTABLE: Cannot change these fields
+                        request.resource.data.exchangeId == resource.data.exchangeId &&
+                        request.resource.data.fromPharmacyId == resource.data.fromPharmacyId &&
+                        request.resource.data.toPharmacyId == resource.data.toPharmacyId &&
+                        request.resource.data.deliveryFee == resource.data.deliveryFee &&
+                        request.resource.data.feePerPharmacy == resource.data.feePerPharmacy &&
+                        request.resource.data.currency == resource.data.currency &&
+                        request.resource.data.medicineDetails == resource.data.medicineDetails &&
+                        request.resource.data.fromPharmacyPayment == resource.data.fromPharmacyPayment &&
+                        request.resource.data.toPharmacyPayment == resource.data.toPharmacyPayment) ||
+
+                       // Case 2: Courier accepting a pending delivery in their city
+                       (resource.data.status == 'pending' &&
+                        resource.data.courierId == null &&
+                        request.resource.data.courierId == request.auth.uid &&
+                        request.resource.data.status == 'assigned' &&
+                        resource.data.location != null &&
+                        resource.data.location.cityId != null &&
+                        courierOperatesInCity(resource.data.location.cityId) &&
+                        // IMMUTABLE: Cannot change these fields when accepting
+                        request.resource.data.exchangeId == resource.data.exchangeId &&
+                        request.resource.data.fromPharmacyId == resource.data.fromPharmacyId &&
+                        request.resource.data.toPharmacyId == resource.data.toPharmacyId &&
+                        request.resource.data.deliveryFee == resource.data.deliveryFee &&
+                        request.resource.data.feePerPharmacy == resource.data.feePerPharmacy &&
+                        request.resource.data.currency == resource.data.currency &&
+                        request.resource.data.medicineDetails == resource.data.medicineDetails)
+                     );
+
+      // CREATE/DELETE: Only Cloud Functions (Admin SDK)
+      allow create, delete: if false;
     }
 
     // Subscription Plans - Read by all, managed by admins
     match /subscription_plans/{planId} {
-      // All authenticated users can read plans
       allow read: if isAuthenticated();
-      // Only admins can create, update, delete plans
       allow create, update, delete: if isAdmin();
     }
 
@@ -373,7 +427,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        request.resource.data.userId == request.auth.uid &&
                        request.resource.data.amount > 0;
-      allow update, delete: if false; // Only Cloud Functions
+      allow update, delete: if false;
     }
 
     // Subscription Requests - Users can create and read their own requests
@@ -382,43 +436,27 @@ service cloud.firestore {
                      (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() &&
                        request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false; // Only Cloud Functions
+      allow update, delete: if false;
     }
 
     // ============================================
     // COURIER EARNINGS & PAYMENTS
+    // All mutations handled by Cloud Functions only
     // ============================================
 
-    // Courier Earnings - Couriers can read their own earnings
+    // Courier Earnings - Read only for couriers
     match /courier_earnings/{earningId} {
-      // Couriers can read their own earnings
-      // Admins can read all for payout processing
       allow read: if isAuthenticated() &&
                      (resource.data.courierId == request.auth.uid || isAdmin());
-      // Earnings are created when a courier confirms delivery
-      // The courier creating must match the courierId in the earning
-      // and must be in pending status with proper amounts
-      allow create: if isCourier() &&
-                       request.resource.data.courierId == request.auth.uid &&
-                       request.resource.data.status == 'pending' &&
-                       request.resource.data.amount > 0 &&
-                       request.resource.data.netAmount > 0;
-      // Only admins can update earning status (for payout processing)
-      // Or courier's own earnings for status updates (pending -> available -> processing)
-      allow update: if isAdmin() ||
-                       (isCourier() &&
-                        resource.data.courierId == request.auth.uid &&
-                        request.resource.data.status in ['available', 'processing']);
-      allow delete: if false;
+      // CRITICAL: Only Cloud Functions can write
+      allow create, update, delete: if false;
     }
 
-    // Courier Wallets - Couriers can read their own wallet
+    // Courier Wallets - Couriers can read and update preferences only
     match /courier_wallets/{courierId} {
-      // Courier can read their own wallet
       allow read: if isOwner(courierId) || isAdmin();
 
-      // Courier can create their own wallet (initial creation only)
-      // Wallet is created with zero balances when courier first accesses it
+      // Courier can create their own wallet (zero balances only)
       allow create: if isOwner(courierId) &&
                        isCourier() &&
                        request.resource.data.courierId == courierId &&
@@ -427,73 +465,59 @@ service cloud.firestore {
                        request.resource.data.totalEarned == 0 &&
                        request.resource.data.totalWithdrawn == 0;
 
-      // Couriers can update their own wallet for:
-      // 1. Payment preferences (always allowed)
-      // 2. Balance updates (pendingBalance, availableBalance, totalEarned)
-      //    - pendingBalance can increase (new earnings) or decrease (moved to available)
-      //    - availableBalance can increase (from pending) or decrease (payout requested)
-      //    - totalEarned can only increase
-      // Note: For production, balance updates should ideally be handled by Cloud Functions
+      // Courier can ONLY update payment preferences, NOT balances
       allow update: if isOwner(courierId) &&
                        isCourier() &&
                        request.resource.data.courierId == courierId &&
-                       // Ensure totalWithdrawn doesn't decrease (prevents fraud)
-                       request.resource.data.totalWithdrawn >= resource.data.totalWithdrawn &&
-                       // Ensure balances don't go negative
-                       request.resource.data.availableBalance >= 0 &&
-                       request.resource.data.pendingBalance >= 0;
-
-      // Admins can update wallet balances (for payouts, earnings processing)
-      allow update: if isAdmin();
+                       // BLOCK all balance field changes
+                       request.resource.data.availableBalance == resource.data.availableBalance &&
+                       request.resource.data.pendingBalance == resource.data.pendingBalance &&
+                       request.resource.data.totalEarned == resource.data.totalEarned &&
+                       request.resource.data.totalWithdrawn == resource.data.totalWithdrawn;
 
       allow delete: if false;
     }
 
-    // Courier Payouts - Couriers can read and request payouts
+    // Courier Payouts - Read only
     match /courier_payouts/{payoutId} {
-      // Courier can read their own payouts
-      // Admins can read all for processing
       allow read: if isAuthenticated() &&
                      (resource.data.courierId == request.auth.uid || isAdmin());
-      // Couriers can create payout requests
-      allow create: if isCourier() &&
-                       request.resource.data.courierId == request.auth.uid &&
-                       request.resource.data.amount > 0 &&
-                       request.resource.data.status == 'pending';
-      // Only admins can update payout status (approve/reject)
-      allow update: if isAdmin();
-      allow delete: if false;
+      // CRITICAL: Only Cloud Functions can write
+      allow create, update, delete: if false;
     }
 
     // Delivery Fee Configs - Admin managed
     match /delivery_fee_configs/{configId} {
-      // All authenticated users can read fee configs
       allow read: if isAuthenticated();
-      // Only admins can manage fee configurations
       allow create, update, delete: if isAdmin();
     }
 
     // ============================================
-    // AUDIT LOGS
+    // IDEMPOTENCY KEYS (Cloud Functions only)
     // ============================================
 
-    // Audit logs are immutable - can only be created, never updated or deleted
+    match /idempotency_keys/{keyId} {
+      // No client access
+      allow read, write: if false;
+    }
+
+    // ============================================
+    // AUDIT LOGS
+    // SECURITY FIX: Server-only writes to prevent forgery/flooding
+    // ============================================
+
     match /audit_logs/{logId} {
       // Only admins can read audit logs
       allow read: if isAdmin();
-      // Authenticated users can create audit logs for their own actions
-      allow create: if isAuthenticated() &&
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.timestamp != null;
-      // No updates or deletes allowed - audit logs are immutable
-      allow update, delete: if false;
+      // SECURITY FIX: Only Cloud Functions can write audit logs
+      // This prevents log forgery and flooding attacks
+      allow create, update, delete: if false;
     }
 
     // ============================================
     // DENY ALL OTHER ACCESS
     // ============================================
 
-    // Catch-all rule - deny access to any undefined collections
     match /{document=**} {
       allow read, write: if false;
     }

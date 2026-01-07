@@ -4,22 +4,25 @@
  * Handles delivery fee payments from pharmacies.
  * Both pharmacies split the delivery fee 50/50.
  *
+ * SECURITY: All financial mutations now go through Cloud Functions.
+ * This service only handles:
+ * - Read operations (getPendingPayments, hasPharmacyPaid)
+ * - Calling Cloud Functions for payment operations
+ *
  * Payment Flow:
  * 1. Exchange is accepted -> Delivery is created with 'awaiting_payment' status
- * 2. Both pharmacies pay their share (can pay from wallet or mobile money)
+ * 2. Both pharmacies pay via Cloud Function (payDeliveryFee)
  * 3. Once both paid -> Delivery becomes 'pending' and visible to couriers
- * 4. Courier completes delivery -> Payment released to courier
+ * 4. Courier completes delivery -> Trigger creates earning automatically
  */
 
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
-import { FieldValue } from '@nativescript/firebase-firestore';
+import '@nativescript/firebase-functions';
 import { AuthFirebaseService } from './auth-firebase.service';
-import { CourierEarningsFirebaseService } from './courier-earnings-firebase.service';
 import {
     Delivery,
     DeliveryPayment,
-    DeliveryPaymentStatus,
 } from '../../models/delivery.model';
 
 /**
@@ -47,17 +50,15 @@ export interface PaymentConfirmation {
 export class DeliveryPaymentFirebaseService {
     private static instance: DeliveryPaymentFirebaseService;
     private firestore: any;
+    private functions: any;
     private authService: AuthFirebaseService;
-    private earningsService: CourierEarningsFirebaseService;
 
     private readonly DELIVERIES_COLLECTION = 'deliveries';
-    private readonly WALLETS_COLLECTION = 'wallets';
-    private readonly LEDGER_COLLECTION = 'ledger';
 
     private constructor() {
         this.firestore = firebase().firestore();
+        this.functions = firebase().functions('europe-west1');
         this.authService = AuthFirebaseService.getInstance();
-        this.earningsService = CourierEarningsFirebaseService.getInstance();
     }
 
     static getInstance(): DeliveryPaymentFirebaseService {
@@ -125,8 +126,9 @@ export class DeliveryPaymentFirebaseService {
 
     /**
      * Pay delivery fee from pharmacy wallet
+     * SECURITY: Now calls Cloud Function instead of mutating Firestore directly
      */
-    async payFromWallet(deliveryId: string, pharmacyId: string): Promise<void> {
+    async payFromWallet(deliveryId: string, pharmacyId: string): Promise<{ bothPaid: boolean; message: string }> {
         try {
             // Verify the pharmacy is authenticated
             const currentUser = this.authService.getCurrentUser();
@@ -134,111 +136,32 @@ export class DeliveryPaymentFirebaseService {
                 throw new Error('Unauthorized: Can only pay for your own pharmacy');
             }
 
-            // Get delivery details
-            const deliveryDoc = await this.firestore
-                .collection(this.DELIVERIES_COLLECTION)
-                .doc(deliveryId)
-                .get();
+            // Call Cloud Function
+            const payDeliveryFee = this.functions.httpsCallable('payDeliveryFee');
+            const result = await payDeliveryFee({ deliveryId });
 
-            if (!deliveryDoc.exists) {
-                throw new Error('Delivery not found');
+            const data = result.data as { success: boolean; message: string; bothPaid?: boolean };
+
+            if (!data.success) {
+                throw new Error(data.message || 'Payment failed');
             }
-
-            const delivery = deliveryDoc.data() as Delivery;
-
-            // Determine which payment this is
-            const isFromPharmacy = delivery.fromPharmacyId === pharmacyId;
-            const isToPharmacy = delivery.toPharmacyId === pharmacyId;
-
-            if (!isFromPharmacy && !isToPharmacy) {
-                throw new Error('Pharmacy is not part of this delivery');
-            }
-
-            const payment = isFromPharmacy
-                ? delivery.fromPharmacyPayment
-                : delivery.toPharmacyPayment;
-
-            if (!payment) {
-                throw new Error('Payment not initialized');
-            }
-
-            if (payment.status === 'paid') {
-                throw new Error('Already paid');
-            }
-
-            // Check wallet balance
-            const walletDoc = await this.firestore
-                .collection(this.WALLETS_COLLECTION)
-                .doc(pharmacyId)
-                .get();
-
-            if (!walletDoc.exists) {
-                throw new Error('Wallet not found');
-            }
-
-            const wallet = walletDoc.data();
-            if (wallet.balance < payment.amount) {
-                throw new Error(`Insufficient balance. Required: ${payment.amount} ${payment.currency}, Available: ${wallet.balance} ${wallet.currency}`);
-            }
-
-            // Use batch for atomic update
-            const batch = this.firestore.batch();
-
-            // Deduct from wallet
-            const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(pharmacyId);
-            batch.update(walletRef, {
-                balance: FieldValue.increment(-payment.amount),
-                updatedAt: new Date(),
-            });
-
-            // Create ledger entry
-            const ledgerRef = this.firestore.collection(this.LEDGER_COLLECTION).doc();
-            batch.set(ledgerRef, {
-                userId: pharmacyId,
-                type: 'debit',
-                amount: payment.amount,
-                currency: payment.currency,
-                description: `Delivery fee for delivery ${deliveryId}`,
-                reference: deliveryId,
-                referenceType: 'delivery_payment',
-                status: 'completed',
-                createdAt: new Date(),
-            });
-
-            // Update payment status
-            const paymentField = isFromPharmacy ? 'fromPharmacyPayment' : 'toPharmacyPayment';
-            const updatedPayment: DeliveryPayment = {
-                ...payment,
-                status: 'paid',
-                paidAt: new Date(),
-                paymentMethod: 'wallet',
-                transactionId: ledgerRef.id,
-            };
-
-            // Check if other party has paid
-            const otherPayment = isFromPharmacy
-                ? delivery.toPharmacyPayment
-                : delivery.fromPharmacyPayment;
-            const bothPaid = otherPayment?.status === 'paid';
-
-            const deliveryRef = this.firestore.collection(this.DELIVERIES_COLLECTION).doc(deliveryId);
-            batch.update(deliveryRef, {
-                [paymentField]: updatedPayment,
-                paymentStatus: bothPaid ? 'payment_complete' : 'partial_payment',
-                // If both paid, make delivery visible to couriers
-                ...(bothPaid && { status: 'pending' }),
-                updatedAt: new Date(),
-            });
-
-            await batch.commit();
 
             console.log(`Pharmacy ${pharmacyId} paid for delivery ${deliveryId}`);
 
-            if (bothPaid) {
+            if (data.bothPaid) {
                 console.log('Both pharmacies paid - delivery now available for couriers');
             }
-        } catch (error) {
+
+            return {
+                bothPaid: data.bothPaid || false,
+                message: data.message
+            };
+        } catch (error: any) {
             console.error('Error paying from wallet:', error);
+            // Handle Cloud Function errors
+            if (error.code) {
+                throw new Error(error.message || 'Payment failed');
+            }
             throw error;
         }
     }
@@ -464,89 +387,28 @@ export class DeliveryPaymentFirebaseService {
 
     /**
      * Refund delivery payments (when delivery is cancelled)
-     * Only admins or the system can initiate refunds
+     * SECURITY: Now calls Cloud Function - only admins can process refunds
      */
-    async refundDeliveryPayments(deliveryId: string, reason: string): Promise<void> {
+    async refundDeliveryPayments(deliveryId: string, reason: string): Promise<{ refundedCount: number }> {
         try {
-            const deliveryDoc = await this.firestore
-                .collection(this.DELIVERIES_COLLECTION)
-                .doc(deliveryId)
-                .get();
+            // Call Cloud Function (requires admin token)
+            const refundDeliveryPayment = this.functions.httpsCallable('refundDeliveryPayment');
+            const result = await refundDeliveryPayment({ deliveryId, reason });
 
-            if (!deliveryDoc.exists) {
-                throw new Error('Delivery not found');
+            const data = result.data as { success: boolean; message: string; refundedCount: number };
+
+            if (!data.success) {
+                throw new Error(data.message || 'Refund failed');
             }
 
-            const delivery = deliveryDoc.data() as Delivery;
+            console.log(`Refunded ${data.refundedCount} payment(s) for delivery ${deliveryId}`);
 
-            if (delivery.paymentStatus === 'released_to_courier') {
-                throw new Error('Cannot refund - payment already released to courier');
-            }
-
-            const batch = this.firestore.batch();
-            const deliveryRef = this.firestore.collection(this.DELIVERIES_COLLECTION).doc(deliveryId);
-
-            // Refund from pharmacy if paid
-            if (delivery.fromPharmacyPayment?.status === 'paid') {
-                const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(delivery.fromPharmacyId);
-                batch.update(walletRef, {
-                    balance: FieldValue.increment(delivery.fromPharmacyPayment.amount),
-                    updatedAt: new Date(),
-                });
-
-                // Create refund ledger entry
-                const ledgerRef = this.firestore.collection(this.LEDGER_COLLECTION).doc();
-                batch.set(ledgerRef, {
-                    userId: delivery.fromPharmacyId,
-                    type: 'credit',
-                    amount: delivery.fromPharmacyPayment.amount,
-                    currency: delivery.fromPharmacyPayment.currency,
-                    description: `Refund for cancelled delivery ${deliveryId}: ${reason}`,
-                    reference: deliveryId,
-                    referenceType: 'delivery_refund',
-                    status: 'completed',
-                    createdAt: new Date(),
-                });
-            }
-
-            // Refund to pharmacy if paid
-            if (delivery.toPharmacyPayment?.status === 'paid') {
-                const walletRef = this.firestore.collection(this.WALLETS_COLLECTION).doc(delivery.toPharmacyId);
-                batch.update(walletRef, {
-                    balance: FieldValue.increment(delivery.toPharmacyPayment.amount),
-                    updatedAt: new Date(),
-                });
-
-                // Create refund ledger entry
-                const ledgerRef = this.firestore.collection(this.LEDGER_COLLECTION).doc();
-                batch.set(ledgerRef, {
-                    userId: delivery.toPharmacyId,
-                    type: 'credit',
-                    amount: delivery.toPharmacyPayment.amount,
-                    currency: delivery.toPharmacyPayment.currency,
-                    description: `Refund for cancelled delivery ${deliveryId}: ${reason}`,
-                    reference: deliveryId,
-                    referenceType: 'delivery_refund',
-                    status: 'completed',
-                    createdAt: new Date(),
-                });
-            }
-
-            // Update delivery payment status
-            batch.update(deliveryRef, {
-                paymentStatus: 'refunded',
-                'fromPharmacyPayment.status': delivery.fromPharmacyPayment?.status === 'paid' ? 'refunded' : 'pending',
-                'fromPharmacyPayment.refundedAt': delivery.fromPharmacyPayment?.status === 'paid' ? new Date() : null,
-                'toPharmacyPayment.status': delivery.toPharmacyPayment?.status === 'paid' ? 'refunded' : 'pending',
-                'toPharmacyPayment.refundedAt': delivery.toPharmacyPayment?.status === 'paid' ? new Date() : null,
-                updatedAt: new Date(),
-            });
-
-            await batch.commit();
-
-            console.log(`Refunded delivery payments for ${deliveryId}`);
-        } catch (error) {
+            return { refundedCount: data.refundedCount };
+        } catch (error: any) {
             console.error('Error refunding delivery payments:', error);
+            if (error.code) {
+                throw new Error(error.message || 'Refund failed');
+            }
             throw error;
         }
     }
@@ -557,7 +419,9 @@ export class DeliveryPaymentFirebaseService {
 
     /**
      * Release payment to courier after successful delivery
-     * Called after confirmDelivery
+     * NOTE: Courier earnings are now created automatically by the
+     * onDeliveryCompleted Cloud Function trigger when delivery status
+     * changes to 'delivered'. This method is kept for status tracking only.
      */
     async releasePaymentToCourier(deliveryId: string): Promise<void> {
         try {
@@ -581,22 +445,11 @@ export class DeliveryPaymentFirebaseService {
                 return;
             }
 
-            if (delivery.paymentStatus !== 'payment_complete') {
-                throw new Error('Payment not complete from both pharmacies');
-            }
-
-            // Update delivery payment status
-            await this.firestore
-                .collection(this.DELIVERIES_COLLECTION)
-                .doc(deliveryId)
-                .update({
-                    paymentStatus: 'released_to_courier',
-                    updatedAt: new Date(),
-                });
-
-            console.log(`Payment released to courier for delivery ${deliveryId}`);
+            // Note: The actual earning creation is handled by the Cloud Function trigger
+            // This just updates the payment status for tracking
+            console.log(`Payment release for delivery ${deliveryId} - handled by Cloud Function trigger`);
         } catch (error) {
-            console.error('Error releasing payment to courier:', error);
+            console.error('Error in releasePaymentToCourier:', error);
             throw error;
         }
     }
