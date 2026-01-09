@@ -9,6 +9,7 @@ dist/
 *.js
 !webpack.config.js
 !tools/run-phase1.js
+!tools/nativescript-reviewer/**/*.js
 
 # Logs
 logs
