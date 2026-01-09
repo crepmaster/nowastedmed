@@ -47,7 +47,7 @@
 
                     <!-- Countries List -->
                     <Label text="No countries configured"
-                           visibility="{{ countries.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           visibility="{{ countries.length === 0 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}"
                            class="text-gray-500 text-center p-4" />
 
                     <StackLayout>
@@ -104,7 +104,7 @@
 
                     <!-- Cities List -->
                     <Label text="No cities in this country"
-                           visibility="{{ filteredCities.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           visibility="{{ filteredCities.length === 0 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}"
                            class="text-gray-500 text-center p-4" />
 
                     <StackLayout>
@@ -155,7 +155,7 @@
                     <Label text="All Couriers" class="font-bold text-lg m-2 mt-4" />
 
                     <Label text="No couriers registered"
-                           visibility="{{ allCouriers.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                           visibility="{{ allCouriers.length === 0 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}"
                            class="text-gray-500 text-center p-4" />
 
                     <StackLayout>

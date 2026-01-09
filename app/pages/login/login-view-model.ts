@@ -118,6 +118,14 @@ export class LoginViewModel extends Observable {
         this.updateLabels();
     }
 
+    onSetFrench(): void {
+        this.setLanguage('fr');
+    }
+
+    onSetEnglish(): void {
+        this.setLanguage('en');
+    }
+
     onToggleLanguage(): void {
         const newLang = getCurrentLanguage() === 'fr' ? 'en' : 'fr';
         this.setLanguage(newLang);

@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core';
-import { Courier } from '../../models/user.model';
+import type { Courier } from '../../models/user.model';
 import { DatabaseService } from '../database/database.service';
 
 export class CarrierCrudService extends Observable {

@@ -25,6 +25,11 @@
         <item name="colorPrimary">@color/ns_primary</item>
         <item name="colorPrimaryDark">@color/ns_primaryDark</item>
         <item name="colorAccent">@color/ns_accent</item>
+
+        <!-- Fix status bar - content should NOT go under it -->
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:statusBarColor">@color/ns_primaryDark</item>
+        <item name="android:fitsSystemWindows">true</item>
     </style>
 
     <style name="AppTheme" parent="AppThemeBase">

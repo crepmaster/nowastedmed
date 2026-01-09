@@ -15,6 +15,8 @@ export class PharmacyDashboardViewModel extends Observable {
     private unsubscribe: (() => void) | null = null;
 
     public medicines: Medicine[] = [];
+    public availableExchanges: any[] = [];
+    public myRequests: any[] = [];
     public selectedTabIndex: number = 0;
     public isLoading: boolean = false;
     public stats = {
@@ -158,6 +160,58 @@ export class PharmacyDashboardViewModel extends Observable {
     onViewExchanges() {
         this.navigationService.navigate({
             moduleName: 'pages/pharmacy/exchange/exchange-list-page'
+        });
+    }
+
+    onCreateExchange() {
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/create-exchange-page'
+        });
+    }
+
+    onOpenWallet() {
+        this.navigationService.navigate({
+            moduleName: 'pages/shared/wallet/wallet-page'
+        });
+    }
+
+    onOpenSubscription() {
+        this.navigationService.navigate({
+            moduleName: 'pages/shared/subscription/subscription-page'
+        });
+    }
+
+    onOpenAccount() {
+        // TODO: Create account page
+        alert('Account page coming soon');
+    }
+
+    onOpenMenu() {
+        // TODO: Implement side menu
+        alert('Menu coming soon');
+    }
+
+    onRequestExchange(args: any) {
+        const exchange = args.object.bindingContext;
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/exchange-proposal-page',
+            context: { exchangeId: exchange.id }
+        });
+    }
+
+    onExchangeDetails(args: any) {
+        const exchange = args.object.bindingContext;
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/exchange-details-page',
+            context: { exchangeId: exchange.id }
+        });
+    }
+
+    onRequestDetails(args: any) {
+        const request = args.object.bindingContext;
+        this.navigationService.navigate({
+            moduleName: 'pages/pharmacy/exchange/exchange-details-page',
+            context: { exchangeId: request.id }
         });
     }
 

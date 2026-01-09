@@ -1,7 +1,7 @@
 import { Observable } from '@nativescript/core';
 import { PharmacyCrudService } from '../../../services/crud/pharmacy.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
-import { Pharmacist } from '../../../models/user.model';
+import type { Pharmacist } from '../../../models/user.model';
 import { confirm } from '@nativescript/core/ui/dialogs';
 
 export class PharmacyListViewModel extends Observable {

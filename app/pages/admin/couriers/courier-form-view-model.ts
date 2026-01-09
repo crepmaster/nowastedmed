@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core';
-import { Courier } from '../../../models/user.model';
+import type { Courier } from '../../../models/user.model';
 import { CourierCrudService } from '../../../services/crud/courier.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
 import { ValidationUtil } from '../../../utils/validation.util';

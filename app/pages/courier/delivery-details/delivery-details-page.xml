@@ -123,7 +123,7 @@
         </ScrollView>
 
         <!-- Action Buttons -->
-        <StackLayout row="1" class="p-4 bg-white" visibility="{{ !isLoading && showActions ? 'visible' : 'collapsed' }}">
+        <StackLayout row="1" class="p-4 bg-white" visibility="{{ !isLoading &amp;&amp; showActions ? 'visible' : 'collapsed' }}">
             <!-- Pending: Accept -->
             <Button text="Accept Delivery"
                     class="bg-green-500 text-white p-4 rounded-lg font-bold"
@@ -153,7 +153,7 @@
             <Button text="Report Problem"
                     class="bg-red-100 text-red-600 p-3 rounded-lg mt-2"
                     tap="{{ onReportProblem }}"
-                    visibility="{{ delivery.status !== 'delivered' && delivery.status !== 'failed' && delivery.status !== 'cancelled' ? 'visible' : 'collapsed' }}" />
+                    visibility="{{ delivery.status !== 'delivered' &amp;&amp; delivery.status !== 'failed' &amp;&amp; delivery.status !== 'cancelled' ? 'visible' : 'collapsed' }}" />
         </StackLayout>
     </GridLayout>
 </Page>

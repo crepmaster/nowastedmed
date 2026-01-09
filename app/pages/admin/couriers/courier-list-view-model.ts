@@ -1,7 +1,7 @@
 import { Observable } from '@nativescript/core';
 import { CourierCrudService } from '../../../services/crud/courier.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
-import { Courier } from '../../../models/user.model';
+import type { Courier } from '../../../models/user.model';
 import { confirm } from '@nativescript/core/ui/dialogs';
 
 export class CourierListViewModel extends Observable {

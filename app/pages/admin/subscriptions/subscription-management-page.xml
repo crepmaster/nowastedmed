@@ -45,7 +45,7 @@
                                class="text-blue-500" />
 
             <!-- All Plans Tab -->
-            <ScrollView visibility="{{ selectedTabIndex === 0 && !isLoading ? 'visible' : 'collapsed' }}">
+            <ScrollView visibility="{{ selectedTabIndex === 0 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}">
                 <StackLayout class="p-2">
                     <!-- Country Filter -->
                     <GridLayout columns="*, auto" class="bg-white p-3 m-2 rounded-lg">
@@ -124,7 +124,7 @@
             </ScrollView>
 
             <!-- By Country Tab -->
-            <ScrollView visibility="{{ selectedTabIndex === 1 && !isLoading ? 'visible' : 'collapsed' }}">
+            <ScrollView visibility="{{ selectedTabIndex === 1 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}">
                 <StackLayout class="p-2">
                     <Label text="Plans by Country" class="text-lg font-bold p-2" />
 

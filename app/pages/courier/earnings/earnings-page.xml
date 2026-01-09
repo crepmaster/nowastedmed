@@ -59,7 +59,7 @@
                                class="text-blue-500 mt-4" />
 
             <!-- Earnings List -->
-            <ScrollView row="1" visibility="{{ selectedTab === 'earnings' && !isLoading ? 'visible' : 'collapsed' }}">
+            <ScrollView row="1" visibility="{{ selectedTab === 'earnings' &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}">
                 <StackLayout class="p-4">
                     <Label text="No earnings yet"
                            class="text-center text-gray-500 p-4"
@@ -85,7 +85,7 @@
             </ScrollView>
 
             <!-- Payouts List -->
-            <ScrollView row="1" visibility="{{ selectedTab === 'payouts' && !isLoading ? 'visible' : 'collapsed' }}">
+            <ScrollView row="1" visibility="{{ selectedTab === 'payouts' &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}">
                 <StackLayout class="p-4">
                     <Label text="No payouts yet"
                            class="text-center text-gray-500 p-4"

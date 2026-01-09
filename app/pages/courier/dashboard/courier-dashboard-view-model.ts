@@ -4,7 +4,7 @@ import { getAuthService, IAuthService } from '../../../services/auth-factory.ser
 import { DeliveryFirebaseService } from '../../../services/firebase/delivery-firebase.service';
 import { QRCodeUtil } from '../../../utils/qrcode.util';
 import { Delivery, DeliveryStatus, CourierStats } from '../../../models/delivery.model';
-import { User } from '../../../models/user.model';
+import type { User } from '../../../models/user.model';
 
 interface DeliveryDisplay extends Delivery {
     statusLabel: string;

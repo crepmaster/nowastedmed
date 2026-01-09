@@ -1,5 +1,49 @@
-import { Observable, ApplicationSettings } from '@nativescript/core';
+import { Observable, ApplicationSettings, isAndroid, isIOS } from '@nativescript/core';
 import * as crypto from 'crypto-js';
+
+declare const java: any;
+declare const interop: any;
+declare const SecRandomCopyBytes: (rnd: any, count: number, bytes: any) => number;
+declare const kSecRandomDefault: any;
+
+/**
+ * Generate cryptographically secure random bytes using native APIs.
+ * - Android: java.security.SecureRandom
+ * - iOS: SecRandomCopyBytes
+ */
+function generateSecureRandomBytes(length: number): Uint8Array {
+    if (isAndroid) {
+        const secureRandom = new java.security.SecureRandom();
+        const bytes = Array.create('byte', length);
+        secureRandom.nextBytes(bytes);
+        const result = new Uint8Array(length);
+        for (let i = 0; i < length; i++) {
+            result[i] = bytes[i] & 0xff;
+        }
+        return result;
+    } else if (isIOS) {
+        const bytesPointer = interop.alloc(length * interop.sizeof(interop.types.uint8));
+        const status = SecRandomCopyBytes(kSecRandomDefault, length, bytesPointer);
+        if (status !== 0) {
+            throw new Error('SecRandomCopyBytes failed with status: ' + status);
+        }
+        const result = new Uint8Array(length);
+        for (let i = 0; i < length; i++) {
+            result[i] = interop.handleof(bytesPointer).add(i).readUInt8();
+        }
+        return result;
+    }
+    throw new Error('Unsupported platform for secure random generation');
+}
+
+/**
+ * Convert bytes to hex string
+ */
+function bytesToHex(bytes: Uint8Array): string {
+    return Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
 
 /**
  * Security Service - Handles encryption, hashing, and token generation
@@ -31,8 +75,7 @@ export class SecurityService extends Observable {
     private getOrCreateDeviceKey(): string {
         let key = ApplicationSettings.getString(this.DEVICE_KEY_STORAGE);
         if (!key) {
-            // Generate a new random key for this device
-            key = crypto.lib.WordArray.random(32).toString();
+            key = bytesToHex(generateSecureRandomBytes(32));
             ApplicationSettings.setString(this.DEVICE_KEY_STORAGE, key);
         }
         return key;
@@ -68,6 +111,6 @@ export class SecurityService extends Observable {
      * Generate a cryptographically secure random token
      */
     generateSecureToken(): string {
-        return crypto.lib.WordArray.random(32).toString();
+        return bytesToHex(generateSecureRandomBytes(32));
     }
 }

@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core';
-import { Pharmacist } from '../../../models/user.model';
+import type { Pharmacist } from '../../../models/user.model';
 import { PharmacyCrudService } from '../../../services/crud/pharmacy.crud.service';
 import { NavigationService } from '../../../services/navigation.service';
 import { ValidationUtil } from '../../../utils/validation.util';

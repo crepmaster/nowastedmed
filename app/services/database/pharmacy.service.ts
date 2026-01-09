@@ -1,5 +1,5 @@
 import { Observable } from '@nativescript/core';
-import { Pharmacist, User } from '../../models/user.model';
+import type { Pharmacist, User } from '../../models/user.model';
 import { AuthService } from '../auth.service';
 
 export class PharmacyDatabaseService extends Observable {

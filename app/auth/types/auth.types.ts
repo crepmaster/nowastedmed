@@ -1,7 +1,7 @@
-import { User, UserRole, Pharmacist, Courier } from '../../models/user.model';
+import type { User, UserRole, Pharmacist, Courier } from '../../models/user.model';
 
 // Re-export user types for convenience
-export { User, UserRole, Pharmacist, Courier };
+export type { User, UserRole, Pharmacist, Courier };
 
 export interface AuthCredentials {
     email: string;

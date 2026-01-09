@@ -15,6 +15,17 @@ module.exports = (env) => {
     // Ensure "~" resolves to app root (covers "~/<...>" patterns)
     config.resolve.alias.set('~', path.resolve(__dirname, 'app'));
 
+    // Fallback for Node core modules not available in NativeScript
+    // source-map/lib/url.js uses: typeof URL === "function" ? URL : require("url").URL
+    // NativeScript has global URL, so we can safely stub out the 'url' module
+    // crypto-js optionally tries require('crypto') for Node - not needed in NativeScript
+    const existingFallback = config.resolve.get('fallback') || {};
+    config.resolve.set('fallback', {
+      ...existingFallback,
+      url: false,
+      crypto: false
+    });
+
     // Alias ~/package.json to a stub to prevent ESM/runtime resolution errors
     // @nativescript/core uses require('~/package.json') in profiling/index.js and style-scope.js
     config.resolve.alias.set(

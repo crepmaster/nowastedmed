@@ -1,4 +1,4 @@
-<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
     <ActionBar title="My Wallet" class="bg-blue-500 text-white">
         <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
     </ActionBar>

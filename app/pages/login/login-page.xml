@@ -1,14 +1,15 @@
-<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
-    <ActionBar title="{{ loginTitle }}" class="bg-blue-500 text-white">
-        <ActionItem tap="{{ onToggleLanguage }}" ios.position="right">
-            <ActionItem.actionView>
-                <Label text="{{ currentLanguageShort }}" class="text-white p-2" />
-            </ActionItem.actionView>
-        </ActionItem>
-    </ActionBar>
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6" actionBarHidden="true">
 
     <ScrollView>
         <StackLayout class="p-4">
+            <!-- Language Selector at top -->
+            <StackLayout orientation="horizontal" horizontalAlignment="right" class="mb-2">
+                <Button text="FR" tap="{{ onSetFrench }}"
+                        class="{{ currentLanguage === 'fr' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-3 py-1 rounded-l text-sm" />
+                <Button text="EN" tap="{{ onSetEnglish }}"
+                        class="{{ currentLanguage === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-3 py-1 rounded-r text-sm" />
+            </StackLayout>
+
             <!-- App Logo/Title -->
             <StackLayout class="mb-6">
                 <Label text="NoWastedMed" class="text-3xl font-bold text-center text-blue-600" />
@@ -65,16 +66,6 @@
                 </StackLayout>
             </StackLayout>
 
-            <!-- Language Selector -->
-            <StackLayout class="mt-6 items-center">
-                <Label text="{{ selectLanguageLabel }}" class="text-gray-500 text-sm mb-2" />
-                <StackLayout orientation="horizontal" horizontalAlignment="center">
-                    <Button text="FR" tap="{{ () => setLanguage('fr') }}"
-                            class="{{ currentLanguage === 'fr' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-4 py-2 rounded-l" />
-                    <Button text="EN" tap="{{ () => setLanguage('en') }}"
-                            class="{{ currentLanguage === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700' }} px-4 py-2 rounded-r" />
-                </StackLayout>
-            </StackLayout>
         </StackLayout>
     </ScrollView>
 </Page>

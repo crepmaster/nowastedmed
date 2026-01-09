@@ -46,7 +46,7 @@
                                    class="m-4" />
 
                 <!-- Empty State -->
-                <StackLayout visibility="{{ assignedCouriers.length === 0 && !isLoading ? 'visible' : 'collapsed' }}"
+                <StackLayout visibility="{{ assignedCouriers.length === 0 &amp;&amp; !isLoading ? 'visible' : 'collapsed' }}"
                              class="text-center p-8">
                     <Label text="No couriers assigned" class="text-gray-500 text-lg" />
                     <Label text="Tap '+ Add Courier' to assign couriers to this city"

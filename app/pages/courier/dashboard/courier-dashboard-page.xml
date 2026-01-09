@@ -1,65 +1,70 @@
-<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
     <ActionBar title="Courier Dashboard" class="bg-blue-500 text-white">
         <ActionItem ios.position="right" android.position="actionBar" tap="{{ onLogout }}">
             <Label text="Logout" class="text-white p-2" />
         </ActionItem>
     </ActionBar>
 
-    <GridLayout rows="auto, *">
-        <!-- Stats Overview -->
-        <GridLayout row="0" columns="*, *, *" class="p-4">
-            <StackLayout col="0" class="bg-white p-4 m-1 rounded-lg shadow">
-                <Label text="Pending" class="text-gray-600" />
-                <Label text="{{ stats.pending }}" class="text-2xl text-center text-orange-500" />
-            </StackLayout>
-            <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg shadow">
-                <Label text="In Transit" class="text-gray-600" />
-                <Label text="{{ stats.inTransit }}" class="text-2xl text-center text-blue-500" />
-            </StackLayout>
-            <StackLayout col="2" class="bg-white p-4 m-1 rounded-lg shadow">
-                <Label text="Delivered" class="text-gray-600" />
-                <Label text="{{ stats.delivered }}" class="text-2xl text-center text-green-500" />
-            </StackLayout>
+    <!-- Use GridLayout with single cell for FAB overlay pattern -->
+    <GridLayout rows="*">
+        <!-- Main Content -->
+        <GridLayout row="0" rows="auto, *">
+            <!-- Stats Overview -->
+            <GridLayout row="0" columns="*, *, *" class="p-4">
+                <StackLayout col="0" class="bg-white p-4 m-1 rounded-lg shadow">
+                    <Label text="Pending" class="text-gray-600 text-center" />
+                    <Label text="{{ stats.pending }}" class="text-2xl text-center text-orange-500" />
+                </StackLayout>
+                <StackLayout col="1" class="bg-white p-4 m-1 rounded-lg shadow">
+                    <Label text="In Transit" class="text-gray-600 text-center" />
+                    <Label text="{{ stats.inTransit }}" class="text-2xl text-center text-blue-500" />
+                </StackLayout>
+                <StackLayout col="2" class="bg-white p-4 m-1 rounded-lg shadow">
+                    <Label text="Delivered" class="text-gray-600 text-center" />
+                    <Label text="{{ stats.delivered }}" class="text-2xl text-center text-green-500" />
+                </StackLayout>
+            </GridLayout>
+
+            <!-- Deliveries List -->
+            <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white">
+                <TabViewItem title="Active Deliveries">
+                    <ListView items="{{ activeDeliveries }}" class="list-group">
+                        <ListView.itemTemplate>
+                            <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
+                                <StackLayout col="0">
+                                    <Label text="{{ medicineName }}" class="text-lg font-bold" />
+                                    <Label text="{{ 'From: ' + fromPharmacy }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ 'To: ' + toPharmacy }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ status }}" class="text-sm" color="{{ status === 'pending' ? '#f97316' : '#3b82f6' }}" />
+                                </StackLayout>
+                                <Button col="1" text="{{ status === 'pending' ? 'Start' : 'Complete' }}"
+                                        tap="{{ $parents['ListView'].onDeliveryAction }}"
+                                        class="{{ status === 'pending' ? 'bg-orange-500' : 'bg-blue-500' }} text-white p-2 rounded" />
+                            </GridLayout>
+                        </ListView.itemTemplate>
+                    </ListView>
+                </TabViewItem>
+                <TabViewItem title="History">
+                    <ListView items="{{ deliveryHistory }}" class="list-group">
+                        <ListView.itemTemplate>
+                            <GridLayout columns="*" class="p-4 bg-white border-b border-gray-200">
+                                <StackLayout>
+                                    <Label text="{{ medicineName }}" class="text-lg font-bold" />
+                                    <Label text="{{ 'From: ' + fromPharmacy }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ 'To: ' + toPharmacy }}" class="text-sm text-gray-600" />
+                                    <Label text="{{ completedAt }}" class="text-sm text-green-600" />
+                                </StackLayout>
+                            </GridLayout>
+                        </ListView.itemTemplate>
+                    </ListView>
+                </TabViewItem>
+            </TabView>
         </GridLayout>
 
-        <!-- Deliveries List -->
-        <TabView row="1" selectedIndex="{{ selectedTabIndex }}" class="bg-white">
-            <TabViewItem title="Active Deliveries">
-                <ListView items="{{ activeDeliveries }}" class="list-group">
-                    <ListView.itemTemplate>
-                        <GridLayout columns="*, auto" class="p-4 bg-white border-b border-gray-200">
-                            <StackLayout col="0">
-                                <Label text="{{ medicineName }}" class="text-lg font-bold" />
-                                <Label text="{{ 'From: ' + fromPharmacy }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'To: ' + toPharmacy }}" class="text-sm text-gray-600" />
-                                <Label text="{{ status }}" class="text-sm" color="{{ status === 'pending' ? '#f97316' : '#3b82f6' }}" />
-                            </StackLayout>
-                            <Button col="1" text="{{ status === 'pending' ? 'Start' : 'Complete' }}" 
-                                    tap="{{ $parent.onDeliveryAction }}"
-                                    class="{{ status === 'pending' ? 'bg-orange-500' : 'bg-blue-500' }} text-white p-2 rounded" />
-                        </GridLayout>
-                    </ListView.itemTemplate>
-                </ListView>
-            </TabViewItem>
-            <TabViewItem title="History">
-                <ListView items="{{ deliveryHistory }}" class="list-group">
-                    <ListView.itemTemplate>
-                        <GridLayout columns="*" class="p-4 bg-white border-b border-gray-200">
-                            <StackLayout>
-                                <Label text="{{ medicineName }}" class="text-lg font-bold" />
-                                <Label text="{{ 'From: ' + fromPharmacy }}" class="text-sm text-gray-600" />
-                                <Label text="{{ 'To: ' + toPharmacy }}" class="text-sm text-gray-600" />
-                                <Label text="{{ completedAt, 'Completed: dd/MM/yyyy HH:mm' }}" class="text-sm text-green-600" />
-                            </StackLayout>
-                        </GridLayout>
-                    </ListView.itemTemplate>
-                </ListView>
-            </TabViewItem>
-        </TabView>
-
-        <!-- Scan QR Button -->
-        <Button row="1" text="Scan QR" tap="{{ onScanQR }}" 
-                class="bg-blue-500 text-white text-lg w-16 h-16 rounded-full"
+        <!-- FAB - Scan QR Button (overlays content in same grid cell) -->
+        <Button row="0" text="Scan QR" tap="{{ onScanQR }}"
+                class="bg-blue-500 text-white text-lg rounded-full"
+                width="64" height="64"
                 horizontalAlignment="right" verticalAlignment="bottom" margin="16" />
     </GridLayout>
 </Page>

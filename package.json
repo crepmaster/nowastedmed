@@ -8,7 +8,11 @@
   },
   "scripts": {
     "ns-review": "node ../tools/nativescript-reviewer/index.js .",
-    "reviewer:phase1": "node tools/run-phase1.js"
+    "reviewer:phase1": "node tools/run-phase1.js",
+    "android:prebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\copy-google-services.ps1",
+    "android:clean": "ns clean && node -e \"require('fs').rmSync('platforms',{recursive:true,force:true})\"",
+    "android:build": "npm run android:prebuild && ns build android --clean",
+    "android": "npm run android:prebuild && ns run android"
   },
   "dependencies": {
     "@nativescript/core": "~8.3.0",
@@ -21,7 +25,7 @@
     "nativescript-barcodescanner": "~4.1.2"
   },
   "devDependencies": {
-    "@nativescript/android": "9.0.1",
+    "@nativescript/android": "9.0.2",
     "@nativescript/ios": "~8.8.0",
     "@nativescript/preview-cli": "1.0.14",
     "@nativescript/stackblitz": "~0.0.7",

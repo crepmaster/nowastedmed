@@ -3,9 +3,22 @@ import { SubscriptionViewModel } from './subscription-view-model';
 
 export function onNavigatingTo(args: NavigatedData): void {
     const page = <Page>args.object;
-    page.bindingContext = new SubscriptionViewModel();
+    if (!page.bindingContext) {
+        page.bindingContext = new SubscriptionViewModel();
+    }
 }
 
 export function goBack(): void {
-    Frame.topmost().goBack();
+    console.log('SUBSCRIPTION: goBack called');
+    const frame = Frame.topmost();
+    if (frame && frame.canGoBack()) {
+        console.log('SUBSCRIPTION: Can go back, navigating back');
+        frame.goBack();
+    } else {
+        console.log('SUBSCRIPTION: Cannot go back, navigating to dashboard');
+        frame.navigate({
+            moduleName: 'pages/pharmacy/dashboard/pharmacy-dashboard-page',
+            clearHistory: true
+        });
+    }
 }

@@ -11,7 +11,7 @@ import {
     getCitiesByCountry,
     getCountryByCode
 } from '../../models/location.model';
-import { UserLocation } from '../../models/user.model';
+import type { UserLocation } from '../../models/user.model';
 
 export class RegistrationViewModel extends Observable {
     private navigationService: NavigationService;

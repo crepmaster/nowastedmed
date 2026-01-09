@@ -49,3 +49,7 @@ ns-review-report.json
 
 # Test files
 test-scenarios.csv
+
+# Firebase Android (NativeScript)
+App_Resources/Android/google-services.json
+

@@ -4,7 +4,7 @@ import { Auth } from '@nativescript/firebase-auth';
 import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
 import { Observable } from '@nativescript/core';
 import { FirestoreService } from './firestore.service';
-import { User, UserRole } from '../../models/user.model';
+import type { User, UserRole } from '../../models/user.model';
 
 /**
  * Firebase Authentication Service
@@ -45,11 +45,13 @@ export class AuthFirebaseService extends Observable {
 
   /**
    * Register a new user with Firebase Auth
+   * @param userData - Contains email, password, and all user profile data
    */
-  async register(email: string, password: string, userData: any): Promise<boolean> {
+  async register(userData: any): Promise<boolean> {
     try {
       console.log('🔐 Registering user with Firebase Auth...');
 
+      const { email, password } = userData;
       const result = await this.auth.createUserWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
@@ -65,14 +67,15 @@ export class AuthFirebaseService extends Observable {
         phoneNumber: userData.phoneNumber || '',
         isActive: true,
         createdAt: new Date(),
+        location: userData.location || null,
         ...(userRole === 'pharmacist' && {
           pharmacyName: userData.pharmacyName || '',
           address: userData.address || '',
-          license: userData.license || ''
+          licenseNumber: userData.licenseNumber || ''
         }),
         ...(userRole === 'courier' && {
           vehicleType: userData.vehicleType || '',
-          licenseNumber: userData.licenseNumber || ''
+          operatingCities: userData.operatingCities || []
         }),
         hasActiveSubscription: false,
         subscriptionStatus: 'pendingPayment'
@@ -103,8 +106,18 @@ export class AuthFirebaseService extends Observable {
       const result = await this.auth.signInWithEmailAndPassword(email, password);
       const firebaseUser = result.user;
 
-      console.log('✅ Login successful');
-      return true;
+      console.log('✅ Login successful, loading user profile...');
+
+      // Wait for user profile to load before returning
+      await this.loadUserProfile(firebaseUser.uid);
+
+      if (this.currentUser) {
+        console.log('✅ User profile loaded:', this.currentUser.role);
+        return true;
+      } else {
+        console.error('❌ User profile not found after login');
+        return false;
+      }
     } catch (error: any) {
       console.error('❌ Login error:', error.message);
       return false;

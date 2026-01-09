@@ -21,8 +21,9 @@ export {
     getCurrentLanguage,
     setLanguage,
     LANGUAGE_DISPLAY_NAMES,
-    TranslationKey,
 } from './i18n.service';
+
+export type { TranslationKey } from './i18n.service';
 
 export { FR_TRANSLATIONS } from './translations/fr';
 export { EN_TRANSLATIONS } from './translations/en';

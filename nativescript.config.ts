@@ -1,7 +1,7 @@
 import { NativeScriptConfig } from '@nativescript/core';
 
 export default {
-  id: 'com.pharmapp.pharmacy',
+  id: 'com.promoshake.nowastemed',
   appPath: 'app',
   appResourcesPath: 'App_Resources',
   android: {
