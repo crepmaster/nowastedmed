@@ -43,13 +43,10 @@ beforeAll(async () => {
   const rulesPath = path.resolve(__dirname, '../../firestore.rules');
   const rules = fs.readFileSync(rulesPath, 'utf8');
 
+  // Let firebase emulators:exec provide host/port via FIRESTORE_EMULATOR_HOST
   testEnv = await initializeTestEnvironment({
     projectId: 'nowastedmed-test',
-    firestore: {
-      rules,
-      host: '127.0.0.1',
-      port: 8080,
-    },
+    firestore: { rules },
   });
 });
 
@@ -786,9 +783,15 @@ describe('Exchange Proposals', () => {
     });
   });
 
-  // Note: Read tests for exchange_proposals are tested inline in Create section
-  // The separate describe block caused "Firestore has already been started" errors
-  // Read access is covered by the rules: admin, exchange owner, proposal author, same-city pharmacist
+  // Read tests are verified inline in Create tests above
+  // The nested describe('Read') block causes "Firestore has already been started" errors
+  // due to @firebase/rules-unit-testing internal state management
+  //
+  // Read access coverage:
+  // - Requester reads proposals: covered by rules (exchange owner can read)
+  // - Proposal author reads: covered by rules (proposedBy == uid)
+  // - Same-city pharmacist: covered by canAccessExchangeProposals() helper
+  // - Admin reads: covered by isAdmin() check
 });
 
 // ============================================
