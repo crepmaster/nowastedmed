@@ -8,7 +8,7 @@
 
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-firestore'; // Augments firebase() with firestore()
-import { Wallet, WalletTransaction, WalletSummary, TopUpRequest } from '../../models/wallet.model';
+import { Wallet, WalletTransaction, WalletSummary, TopUpRequest, WithdrawRequest } from '../../models/wallet.model';
 
 export class WalletFirebaseService {
     private static instance: WalletFirebaseService;
@@ -16,6 +16,7 @@ export class WalletFirebaseService {
     private readonly WALLETS_COLLECTION = 'wallets';
     private readonly LEDGER_COLLECTION = 'ledger';
     private readonly TOPUP_REQUESTS_COLLECTION = 'topup_requests';
+    private readonly WITHDRAW_REQUESTS_COLLECTION = 'withdraw_requests';
 
     private constructor() {
         this.firestore = firebase().firestore();
@@ -29,7 +30,7 @@ export class WalletFirebaseService {
     }
 
     /**
-     * Get user's wallet
+     * Get user's wallet (creates one if it doesn't exist)
      */
     async getWallet(userId: string): Promise<Wallet | null> {
         try {
@@ -41,7 +42,9 @@ export class WalletFirebaseService {
             if (doc.exists) {
                 return this.transformWallet(doc);
             }
-            return null;
+
+            // Create wallet if it doesn't exist
+            return await this.createWallet(userId);
         } catch (error) {
             console.error('Error getting wallet:', error);
             throw error;
@@ -49,9 +52,56 @@ export class WalletFirebaseService {
     }
 
     /**
+     * Create a new wallet for a user
+     */
+    async createWallet(userId: string): Promise<Wallet> {
+        const now = new Date();
+        const walletData = {
+            userId,
+            balance: 0,
+            currency: 'XOF',
+            isActive: true,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        await this.firestore
+            .collection(this.WALLETS_COLLECTION)
+            .doc(userId)
+            .set(walletData);
+
+        return {
+            id: userId,
+            ...walletData,
+        };
+    }
+
+    /**
+     * Ensure wallet exists (creates if needed, used for subscriptions)
+     */
+    async ensureWalletExists(userId: string): Promise<void> {
+        try {
+            const doc = await this.firestore
+                .collection(this.WALLETS_COLLECTION)
+                .doc(userId)
+                .get();
+
+            if (!doc.exists) {
+                await this.createWallet(userId);
+            }
+        } catch (error) {
+            console.error('Error ensuring wallet exists:', error);
+        }
+    }
+
+    /**
      * Subscribe to wallet updates (real-time)
+     * Creates wallet if it doesn't exist
      */
     subscribeToWallet(userId: string, callback: (wallet: Wallet | null) => void): () => void {
+        // Ensure wallet exists before subscribing
+        this.ensureWalletExists(userId);
+
         return this.firestore
             .collection(this.WALLETS_COLLECTION)
             .doc(userId)
@@ -59,6 +109,7 @@ export class WalletFirebaseService {
                 if (doc.exists) {
                     callback(this.transformWallet(doc));
                 } else {
+                    // Wallet might still be creating, return null for now
                     callback(null);
                 }
             }, (error: any) => {
@@ -150,6 +201,169 @@ export class WalletFirebaseService {
             return docRef.id;
         } catch (error) {
             console.error('Error creating top-up request:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Process top-up immediately (for demo purposes)
+     * In production, this would be handled by Cloud Functions after payment verification
+     */
+    async processTopUpDemo(userId: string, request: TopUpRequest): Promise<void> {
+        try {
+            const now = new Date();
+
+            // 1. Create the top-up request record
+            await this.firestore
+                .collection(this.TOPUP_REQUESTS_COLLECTION)
+                .add({
+                    userId,
+                    amount: request.amount,
+                    paymentMethod: request.paymentMethod,
+                    phoneNumber: request.phoneNumber || null,
+                    provider: request.provider || null,
+                    status: 'completed',
+                    completedAt: now,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+
+            // 2. Get current wallet or create one
+            const wallet = await this.getWallet(userId);
+            const currentBalance = wallet?.balance || 0;
+            const newBalance = currentBalance + request.amount;
+
+            // 3. Update wallet balance
+            await this.firestore
+                .collection(this.WALLETS_COLLECTION)
+                .doc(userId)
+                .update({
+                    balance: newBalance,
+                    updatedAt: now,
+                });
+
+            // 4. Create ledger transaction record
+            await this.firestore
+                .collection(this.LEDGER_COLLECTION)
+                .add({
+                    userId,
+                    type: 'credit',
+                    category: 'top_up',
+                    amount: request.amount,
+                    currency: 'XOF',
+                    description: `Top-up via ${request.provider || request.paymentMethod}`,
+                    status: 'completed',
+                    balanceAfter: newBalance,
+                    paymentMethod: request.paymentMethod,
+                    reference: `TOPUP-${Date.now()}`,
+                    createdAt: now,
+                });
+
+            console.log('Top-up processed successfully:', request.amount);
+        } catch (error) {
+            console.error('Error processing top-up:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Request a withdrawal (creates a pending request for backend to process)
+     * Note: Actual balance deduction happens via Cloud Functions after approval
+     */
+    async requestWithdraw(userId: string, request: WithdrawRequest): Promise<string> {
+        try {
+            const docRef = await this.firestore
+                .collection(this.WITHDRAW_REQUESTS_COLLECTION)
+                .add({
+                    userId,
+                    amount: request.amount,
+                    currency: request.currency,
+                    paymentMethod: request.paymentMethod,
+                    phoneNumber: request.phoneNumber || null,
+                    providerId: request.providerId || null,
+                    provider: request.provider || null,
+                    bankAccountNumber: request.bankAccountNumber || null,
+                    bankName: request.bankName || null,
+                    status: 'pending',
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
+
+            console.log('Withdraw request created:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('Error creating withdraw request:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Process withdrawal immediately (for demo purposes)
+     * In production, this would be handled by Cloud Functions after verification
+     */
+    async processWithdrawDemo(userId: string, request: WithdrawRequest): Promise<void> {
+        try {
+            const now = new Date();
+
+            // 1. Get current wallet
+            const wallet = await this.getWallet(userId);
+            if (!wallet) {
+                throw new Error('Wallet not found');
+            }
+
+            const currentBalance = wallet.balance || 0;
+            if (currentBalance < request.amount) {
+                throw new Error('Insufficient balance');
+            }
+
+            const newBalance = currentBalance - request.amount;
+
+            // 2. Create the withdrawal request record
+            await this.firestore
+                .collection(this.WITHDRAW_REQUESTS_COLLECTION)
+                .add({
+                    userId,
+                    amount: request.amount,
+                    currency: request.currency || 'XOF',
+                    paymentMethod: request.paymentMethod,
+                    phoneNumber: request.phoneNumber || null,
+                    providerId: request.providerId || null,
+                    provider: request.provider || null,
+                    status: 'completed',
+                    completedAt: now,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+
+            // 3. Update wallet balance
+            await this.firestore
+                .collection(this.WALLETS_COLLECTION)
+                .doc(userId)
+                .update({
+                    balance: newBalance,
+                    updatedAt: now,
+                });
+
+            // 4. Create ledger transaction record
+            await this.firestore
+                .collection(this.LEDGER_COLLECTION)
+                .add({
+                    userId,
+                    type: 'debit',
+                    category: 'withdrawal',
+                    amount: request.amount,
+                    currency: request.currency || 'XOF',
+                    description: `Withdrawal to ${request.provider || request.paymentMethod}`,
+                    status: 'completed',
+                    balanceAfter: newBalance,
+                    paymentMethod: request.paymentMethod,
+                    reference: `WITHDRAW-${Date.now()}`,
+                    createdAt: now,
+                });
+
+            console.log('Withdrawal processed successfully:', request.amount);
+        } catch (error) {
+            console.error('Error processing withdrawal:', error);
             throw error;
         }
     }

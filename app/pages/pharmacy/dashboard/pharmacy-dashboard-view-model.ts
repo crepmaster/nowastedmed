@@ -182,8 +182,9 @@ export class PharmacyDashboardViewModel extends Observable {
     }
 
     onOpenAccount() {
-        // TODO: Create account page
-        alert('Account page coming soon');
+        this.navigationService.navigate({
+            moduleName: 'pages/shared/account/account-page'
+        });
     }
 
     onOpenMenu() {

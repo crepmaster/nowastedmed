@@ -27,6 +27,10 @@ export interface UserLocation {
   coordinates?: GeoCoordinates; // GPS coordinates - required for pharmacies
 }
 
+export type SubscriptionStatus = 'none' | 'pendingPayment' | 'active' | 'expired' | 'cancelled';
+
+export type MobileMoneyProvider = 'mtn' | 'moov' | 'orange' | 'wave' | 'flooz' | 'airtel';
+
 export interface User {
   id: string;
   email: string;
@@ -43,6 +47,17 @@ export interface User {
   operatingCities?: string[]; // For couriers - list of cityIds they operate in
   isActive?: boolean;
   createdAt?: Date | any;
+
+  // Subscription fields
+  hasActiveSubscription?: boolean;
+  subscriptionStatus?: SubscriptionStatus;
+  subscriptionPlanId?: string;
+  subscriptionStartDate?: Date | any;
+  subscriptionEndDate?: Date | any;
+
+  // Payment preferences
+  mobileMoneyProvider?: MobileMoneyProvider;
+  mobileMoneyNumber?: string;
 }
 
 /**

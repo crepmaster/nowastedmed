@@ -1,0 +1,123 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
+    <ActionBar title="{{ pageTitle }}" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Profile Header -->
+            <StackLayout class="bg-white rounded-xl p-6 mb-4 shadow items-center">
+                <StackLayout class="w-20 h-20 rounded-full bg-blue-500 items-center justify-center mb-3">
+                    <Label text="{{ userInitials }}" class="text-3xl text-white font-bold" />
+                </StackLayout>
+                <Label text="{{ userName }}" class="text-xl font-bold text-gray-800" />
+                <Label text="{{ userEmail }}" class="text-gray-500" />
+                <Label text="{{ roleBadge }}" class="mt-2 px-3 py-1 rounded-full text-sm"
+                       backgroundColor="{{ roleColor }}" color="white" />
+            </StackLayout>
+
+            <!-- Account Information -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Account Information" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="auto, *" rows="auto, auto, auto, auto, auto, auto" class="mb-2">
+                    <Label row="0" col="0" text="Phone:" class="text-gray-500 p-2" />
+                    <Label row="0" col="1" text="{{ phoneNumber }}" class="text-gray-800 p-2" />
+
+                    <Label row="1" col="0" text="Country:" class="text-gray-500 p-2" />
+                    <Label row="1" col="1" text="{{ userCountry }}" class="text-gray-800 p-2" />
+
+                    <Label row="2" col="0" text="City:" class="text-gray-500 p-2" />
+                    <Label row="2" col="1" text="{{ userCity }}" class="text-gray-800 p-2" />
+
+                    <Label row="3" col="0" text="Member since:" class="text-gray-500 p-2" />
+                    <Label row="3" col="1" text="{{ memberSince }}" class="text-gray-800 p-2" />
+
+                    <Label row="4" col="0" text="Status:" class="text-gray-500 p-2" />
+                    <Label row="4" col="1" text="{{ accountStatus }}" class="{{ statusClass }} p-2" />
+
+                    <Label row="5" col="0" text="Subscription:" class="text-gray-500 p-2" />
+                    <Label row="5" col="1" text="{{ subscriptionStatus }}" class="text-gray-800 p-2" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Payment Settings -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payment Settings" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="auto, *, auto" rows="auto">
+                    <Label row="0" col="0" text="Mobile Money:" class="text-gray-500 p-2" />
+                    <Label row="0" col="1" text="{{ mobileMoneyProvider }}"
+                           class="{{ hasMobileMoneyProvider ? 'text-gray-800' : 'text-orange-500' }} p-2" />
+                    <Button row="0" col="2" text="Change" tap="{{ onChangeMobileMoneyProvider }}"
+                            class="bg-blue-100 text-blue-600 p-2 rounded text-sm" />
+                </GridLayout>
+
+                <Label visibility="{{ hasMobileMoneyProvider ? 'collapsed' : 'visible' }}"
+                       text="Please configure your mobile money provider to use wallet features"
+                       class="text-orange-600 text-sm p-2 bg-orange-50 rounded mt-2" textWrap="true" />
+            </StackLayout>
+
+            <!-- Pharmacy-specific info -->
+            <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}" class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Pharmacy Details" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="auto, *" rows="auto, auto, auto">
+                    <Label row="0" col="0" text="Name:" class="text-gray-500 p-2" />
+                    <Label row="0" col="1" text="{{ pharmacyName }}" class="text-gray-800 p-2" />
+
+                    <Label row="1" col="0" text="License:" class="text-gray-500 p-2" />
+                    <Label row="1" col="1" text="{{ licenseNumber }}" class="text-gray-800 p-2" />
+
+                    <Label row="2" col="0" text="Address:" class="text-gray-500 p-2" />
+                    <Label row="2" col="1" text="{{ address }}" class="text-gray-800 p-2" textWrap="true" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Courier-specific info -->
+            <StackLayout visibility="{{ isCourier ? 'visible' : 'collapsed' }}" class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Courier Details" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="auto, *" rows="auto, auto, auto">
+                    <Label row="0" col="0" text="Vehicle:" class="text-gray-500 p-2" />
+                    <Label row="0" col="1" text="{{ vehicleType }}" class="text-gray-800 p-2" />
+
+                    <Label row="1" col="0" text="Rating:" class="text-gray-500 p-2" />
+                    <Label row="1" col="1" text="{{ rating }}" class="text-gray-800 p-2" />
+
+                    <Label row="2" col="0" text="Deliveries:" class="text-gray-500 p-2" />
+                    <Label row="2" col="1" text="{{ totalDeliveries }}" class="text-gray-800 p-2" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Quick Actions -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Quick Actions" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="*, *" rows="auto" class="mb-2">
+                    <Button col="0" text="My Wallet" tap="{{ onGoToWallet }}" class="bg-green-500 text-white p-3 rounded-lg mr-1" />
+                    <Button col="1" text="Subscription" tap="{{ onGoToSubscription }}" class="bg-blue-500 text-white p-3 rounded-lg ml-1"
+                            visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}" />
+                    <Button col="1" text="My Earnings" tap="{{ onGoToEarnings }}" class="bg-blue-500 text-white p-3 rounded-lg ml-1"
+                            visibility="{{ isCourier ? 'visible' : 'collapsed' }}" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Settings -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Settings" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Button text="Edit Profile" tap="{{ onEditProfile }}" class="bg-blue-500 text-white p-3 rounded-lg mb-2" />
+                <Button text="Change Password" tap="{{ onChangePassword }}" class="bg-gray-500 text-white p-3 rounded-lg mb-2" />
+                <Button text="Notification Settings" tap="{{ onNotificationSettings }}" class="bg-gray-500 text-white p-3 rounded-lg mb-2" />
+                <Button text="Language" tap="{{ onChangeLanguage }}" class="bg-gray-500 text-white p-3 rounded-lg" />
+            </StackLayout>
+
+            <!-- Danger Zone -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Account" class="text-lg font-bold text-gray-800 mb-3" />
+                <Button text="Logout" tap="{{ onLogout }}" class="bg-red-500 text-white p-3 rounded-lg" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+</Page>

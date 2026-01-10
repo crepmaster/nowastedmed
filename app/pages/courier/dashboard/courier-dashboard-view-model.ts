@@ -526,6 +526,33 @@ export class CourierDashboardViewModel extends Observable {
     }
 
     /**
+     * Navigate to account
+     */
+    onOpenAccount(): void {
+        Frame.topmost().navigate({
+            moduleName: 'pages/shared/account/account-page',
+        });
+    }
+
+    /**
+     * Navigate to earnings
+     */
+    onViewEarnings(): void {
+        Frame.topmost().navigate({
+            moduleName: 'pages/courier/earnings/earnings-page',
+        });
+    }
+
+    /**
+     * Navigate to payout request
+     */
+    onRequestPayout(): void {
+        Frame.topmost().navigate({
+            moduleName: 'pages/courier/payout/payout-request-page',
+        });
+    }
+
+    /**
      * Refresh data
      */
     async onRefresh(): Promise<void> {

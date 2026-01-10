@@ -5,28 +5,29 @@
 
     <GridLayout rows="auto, auto, *">
         <!-- Balance Card -->
-        <StackLayout row="0" class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 m-4 rounded-xl shadow-lg">
-            <Label text="Available Balance" class="text-white text-opacity-80 text-center" />
-            <StackLayout orientation="horizontal" horizontalAlignment="center" class="m-2">
-                <Label text="{{ balance | number:'1.0-0' }}" class="text-4xl font-bold text-white" />
-                <Label text=" {{ currency }}" class="text-xl text-white mt-2" />
+        <StackLayout row="0" class="p-6 m-4 rounded-xl shadow-lg" backgroundColor="#1E40AF">
+            <Label text="Available Balance" class="text-center text-sm" color="#BFDBFE" />
+            <StackLayout orientation="horizontal" horizontalAlignment="center" class="m-3">
+                <Label text="{{ balance }}" class="font-bold" fontSize="42" color="#FFFFFF" />
+                <Label text="{{ currency }}" class="mt-3 ml-2" fontSize="20" color="#93C5FD" />
             </StackLayout>
-            <GridLayout columns="*, *" class="mt-4">
-                <StackLayout col="0" class="text-center">
-                    <Label text="Pending In" class="text-white text-opacity-70 text-sm" />
-                    <Label text="{{ '+' + pendingCredits + ' ' + currency }}" class="text-green-300" />
+            <GridLayout columns="*, *" class="mt-2">
+                <StackLayout col="0" horizontalAlignment="center">
+                    <Label text="Pending In" class="text-sm" color="#93C5FD" />
+                    <Label text="{{ '+' + pendingCredits + ' ' + currency }}" color="#86EFAC" fontWeight="bold" />
                 </StackLayout>
-                <StackLayout col="1" class="text-center">
-                    <Label text="Pending Out" class="text-white text-opacity-70 text-sm" />
-                    <Label text="{{ '-' + pendingDebits + ' ' + currency }}" class="text-red-300" />
+                <StackLayout col="1" horizontalAlignment="center">
+                    <Label text="Pending Out" class="text-sm" color="#93C5FD" />
+                    <Label text="{{ '-' + pendingDebits + ' ' + currency }}" color="#FCA5A5" fontWeight="bold" />
                 </StackLayout>
             </GridLayout>
         </StackLayout>
 
         <!-- Action Buttons -->
-        <GridLayout row="1" columns="*, *" class="px-4 pb-4">
+        <GridLayout row="1" columns="*, *, *" class="px-4 pb-4">
             <Button col="0" text="Top Up" tap="{{ onTopUp }}" class="bg-green-500 text-white m-1 rounded-lg p-4" />
-            <Button col="1" text="History" tap="{{ onViewHistory }}" class="bg-gray-500 text-white m-1 rounded-lg p-4" />
+            <Button col="1" text="Withdraw" tap="{{ onWithdraw }}" class="bg-orange-500 text-white m-1 rounded-lg p-4" />
+            <Button col="2" text="History" tap="{{ onViewHistory }}" class="bg-gray-500 text-white m-1 rounded-lg p-4" />
         </GridLayout>
 
         <!-- Recent Transactions -->

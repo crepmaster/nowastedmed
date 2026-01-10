@@ -10,6 +10,13 @@ export type BillingCycle = 'monthly' | 'quarterly' | 'yearly';
 
 /**
  * Subscription Plan Definition
+ *
+ * Plans can be:
+ * - Global: No countryCode/cityId set (applies everywhere)
+ * - Country-specific: countryCode set (applies to all cities in that country)
+ * - City-specific: countryCode + cityId set (applies only to that city)
+ *
+ * Plans are admin-managed via Firestore collection 'subscription_plans'
  */
 export interface SubscriptionPlan {
     id: string;
@@ -22,9 +29,11 @@ export interface SubscriptionPlan {
     features: PlanFeature[];
     limits: PlanLimits;
     isActive: boolean;
-    // Country-specific fields
-    countryCode?: string;       // Optional: If set, plan is country-specific
+    // Location-specific fields (admin-managed)
+    countryCode?: string;       // If set, plan is country-specific
     countryName?: string;       // Country name for display
+    cityId?: string;            // If set with countryCode, plan is city-specific
+    cityName?: string;          // City name for display
     region?: string;            // Region for grouping (e.g., 'west_africa')
     // Metadata
     createdAt: Date | any;
@@ -91,7 +100,74 @@ export interface SubscriptionUsage {
 }
 
 /**
- * Default Plans Configuration
+ * Get applicable plans for a user's location
+ * Priority: city-specific > country-specific > global
+ *
+ * @param plans - All available plans
+ * @param countryCode - User's country code
+ * @param cityId - User's city ID (optional)
+ * @returns Filtered and sorted plans for the user's location
+ */
+export function getPlansForLocation(
+    plans: SubscriptionPlan[],
+    countryCode: string,
+    cityId?: string
+): SubscriptionPlan[] {
+    // Filter active plans only
+    const activePlans = plans.filter(p => p.isActive);
+
+    // Get plans applicable to this location
+    const applicablePlans = activePlans.filter(plan => {
+        // City-specific plan
+        if (plan.cityId && plan.countryCode) {
+            return plan.countryCode === countryCode && plan.cityId === cityId;
+        }
+        // Country-specific plan
+        if (plan.countryCode && !plan.cityId) {
+            return plan.countryCode === countryCode;
+        }
+        // Global plan (no location restriction)
+        return !plan.countryCode && !plan.cityId;
+    });
+
+    // Sort by price (free first, then ascending)
+    return applicablePlans.sort((a, b) => a.price - b.price);
+}
+
+/**
+ * Get the Free plan (always available as fallback)
+ */
+export function getFreePlan(): SubscriptionPlan {
+    return {
+        id: 'plan_free',
+        name: 'Free',
+        type: 'free',
+        description: 'Basic access to the platform',
+        price: 0,
+        currency: 'XOF',
+        billingCycle: 'monthly',
+        features: [
+            { name: 'Medicine Exchange', description: 'Exchange medicines with other pharmacies', included: true },
+            { name: 'Basic Inventory', description: 'Manage up to 50 medicines', included: true },
+            { name: 'QR Verification', description: 'Verify exchanges with QR codes', included: true },
+            { name: 'Priority Support', description: '24/7 priority support', included: false },
+            { name: 'Analytics', description: 'Advanced analytics dashboard', included: false },
+        ],
+        limits: {
+            maxExchangesPerMonth: 5,
+            maxMedicinesInInventory: 50,
+            maxActiveExchanges: 2,
+            prioritySupport: false,
+            analyticsAccess: false,
+            apiAccess: false,
+        },
+        isActive: true,
+        createdAt: new Date(),
+    };
+}
+
+/**
+ * Default Plans Configuration (fallback if no admin-created plans)
  */
 export const DEFAULT_PLANS: Omit<SubscriptionPlan, 'id' | 'createdAt'>[] = [
     {

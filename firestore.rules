@@ -314,24 +314,69 @@ service cloud.firestore {
     // READ-ONLY COLLECTIONS (managed by backend)
     // ============================================
 
-    // Wallets - Read only for users, managed by Cloud Functions
+    // Wallets - Users can read and manage their own wallet
     match /wallets/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if false; // Only Cloud Functions can write
+      // Users can create their own wallet
+      allow create: if isOwner(userId) &&
+                       request.resource.data.balance >= 0;
+      // Users can update their wallet (for top-ups, payments)
+      // Balance cannot go negative
+      allow update: if isOwner(userId) &&
+                       request.resource.data.balance >= 0;
+      // Admins can manage wallets
+      allow write: if isAdmin();
+    }
+
+    // Transactions - Users can read and create their own transactions
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can create transactions for their account
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      // Only admins can update/delete transactions
+      allow update, delete: if isAdmin();
+    }
+
+    // Payouts - Users can read and create payout requests
+    match /payouts/{payoutId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can create payout requests
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.amount > 0;
+      // Only admins can update payout status
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // Ledger - Read only transaction history
+    // Users can read their own transactions via queries
     match /ledger/{transactionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      // Allow users to create their own transaction records (for demo purposes)
+      // In production, this should be Cloud Functions only
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Only Cloud Functions can update/delete
     }
 
-    // Subscriptions - Read only subscription status
+    // Subscriptions - Users can read and manage their own subscriptions
     match /subscriptions/{subscriptionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      // Allow users to create their own subscription (for demo purposes)
+      // In production, this should be Cloud Functions only
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      // Allow users to update their own subscription status
+      allow update: if isAuthenticated() &&
+                       resource.data.userId == request.auth.uid;
+      allow delete: if false;
     }
 
     // Deliveries - Couriers can read/update their assigned deliveries

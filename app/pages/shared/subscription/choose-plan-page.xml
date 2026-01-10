@@ -1,0 +1,89 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
+    <ActionBar title="Choose Your Plan" class="bg-blue-500 text-white">
+        <!-- No back button - must choose a plan -->
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Welcome Message -->
+            <StackLayout class="bg-white rounded-xl p-6 mb-4 shadow">
+                <Label text="Welcome to NoWastedMed!" class="text-2xl font-bold text-center text-blue-600" />
+                <Label text="Choose a subscription plan to get started. You can always upgrade later."
+                       class="text-gray-500 text-center mt-2" textWrap="true" />
+            </StackLayout>
+
+            <!-- Free Plan Highlight -->
+            <StackLayout visibility="{{ showFreePlanHighlight ? 'visible' : 'collapsed' }}" class="bg-green-50 rounded-xl p-4 mb-4 border border-green-200">
+                <Label text="Start with Free!" class="text-lg font-bold text-green-700" />
+                <Label text="You can start using the platform immediately with our Free plan. Upgrade anytime to unlock more features."
+                       class="text-green-600 text-sm" textWrap="true" />
+            </StackLayout>
+
+            <!-- Available Plans -->
+            <Label text="Available Plans" class="text-lg font-bold mb-2" />
+
+            <!-- Loading Indicator -->
+            <ActivityIndicator busy="{{ isLoading }}" visibility="{{ isLoading ? 'visible' : 'collapsed' }}" class="m-4" />
+
+            <StackLayout visibility="{{ isLoading ? 'collapsed' : 'visible' }}">
+                <!-- Plan Cards -->
+                <Repeater items="{{ plans }}">
+                    <Repeater.itemTemplate>
+                        <StackLayout class="bg-white rounded-xl p-4 mb-3 shadow"
+                                     borderColor="{{ isRecommended ? '#10B981' : 'transparent' }}"
+                                     borderWidth="{{ isRecommended ? 2 : 0 }}">
+                            <!-- Recommended Badge -->
+                            <Label text="RECOMMENDED" class="text-xs text-white bg-green-500 p-1 px-2 rounded mb-2 self-start"
+                                   visibility="{{ isRecommended ? 'visible' : 'collapsed' }}" />
+
+                            <!-- Plan Header -->
+                            <GridLayout columns="*, auto">
+                                <StackLayout col="0">
+                                    <Label text="{{ name }}" class="text-xl font-bold" />
+                                    <Label text="{{ description }}" class="text-gray-500 text-sm" />
+                                </StackLayout>
+                                <StackLayout col="1" class="items-end">
+                                    <Label text="{{ price === 0 ? 'Free' : price + ' ' + currency }}"
+                                           class="text-2xl font-bold text-blue-600" />
+                                    <Label text="{{ price > 0 ? '/' + billingCycle : '' }}" class="text-gray-500 text-sm" />
+                                </StackLayout>
+                            </GridLayout>
+
+                            <!-- Features List -->
+                            <StackLayout class="mt-4">
+                                <Repeater items="{{ features }}">
+                                    <Repeater.itemTemplate>
+                                        <GridLayout columns="auto, *" class="mb-2">
+                                            <Label col="0" text="{{ included ? '✓' : '✗' }}"
+                                                   class="{{ included ? 'text-green-500' : 'text-gray-300' }} mr-2 font-bold" />
+                                            <Label col="1" text="{{ name }}"
+                                                   class="{{ included ? 'text-gray-700' : 'text-gray-400' }}" />
+                                        </GridLayout>
+                                    </Repeater.itemTemplate>
+                                </Repeater>
+                            </StackLayout>
+
+                            <!-- Limits Info -->
+                            <StackLayout class="mt-3 pt-3 border-t border-gray-100">
+                                <Label text="{{ limitsText }}" class="text-xs text-gray-500" />
+                            </StackLayout>
+
+                            <!-- Action Button -->
+                            <Button text="{{ buttonText }}"
+                                    tap="onPlanTap"
+                                    planId="{{ id }}"
+                                    planType="{{ type }}"
+                                    planPrice="{{ price }}"
+                                    class="{{ price === 0 ? 'bg-green-500' : 'bg-blue-500' }} text-white mt-4 rounded-lg" />
+                        </StackLayout>
+                    </Repeater.itemTemplate>
+                </Repeater>
+            </StackLayout>
+
+            <!-- Skip Option (for free plan) -->
+            <Button text="Continue with Free Plan" tap="{{ onContinueWithFree }}"
+                    class="bg-gray-100 text-gray-600 mt-2 rounded-lg"
+                    visibility="{{ hasFreePlan ? 'visible' : 'collapsed' }}" />
+        </StackLayout>
+    </ScrollView>
+</Page>

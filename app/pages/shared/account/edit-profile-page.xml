@@ -1,0 +1,96 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
+    <ActionBar title="Edit Profile" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Profile Picture Section -->
+            <StackLayout class="bg-white rounded-xl p-6 mb-4 shadow items-center">
+                <StackLayout class="w-24 h-24 rounded-full bg-blue-500 items-center justify-center mb-3">
+                    <Label text="{{ userInitials }}" class="text-4xl text-white font-bold" />
+                </StackLayout>
+                <Label text="Tap to change photo (coming soon)" class="text-gray-400 text-sm" />
+            </StackLayout>
+
+            <!-- Basic Information -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Basic Information" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Label text="Full Name" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ userName }}" hint="Enter your name" class="border border-gray-300 rounded-lg p-3 mb-3" />
+
+                <Label text="Email" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ userEmail }}" hint="Enter your email" keyboardType="email"
+                           class="border border-gray-300 rounded-lg p-3 mb-3 bg-gray-100" editable="false" />
+                <Label text="Email cannot be changed" class="text-gray-400 text-xs mb-3" />
+
+                <Label text="Phone Number" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ phoneNumber }}" hint="Enter phone number" keyboardType="phone"
+                           class="border border-gray-300 rounded-lg p-3 mb-3" />
+            </StackLayout>
+
+            <!-- Location Information -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Location" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Label text="Country" class="text-gray-600 text-sm mb-1" />
+                <ListPicker items="{{ countryNames }}" selectedIndex="{{ selectedCountryIndex }}"
+                            class="border border-gray-300 rounded-lg mb-3" />
+
+                <Label text="City" class="text-gray-600 text-sm mb-1" />
+                <ListPicker items="{{ cityNames }}" selectedIndex="{{ selectedCityIndex }}"
+                            class="border border-gray-300 rounded-lg mb-3" />
+
+                <Label text="Address / Landmark" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ address }}" hint="Enter address or landmark"
+                           class="border border-gray-300 rounded-lg p-3 mb-3" />
+            </StackLayout>
+
+            <!-- Payment Settings -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payment Settings" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Label text="Mobile Money Provider" class="text-gray-600 text-sm mb-1" />
+                <ListPicker items="{{ providerNames }}" selectedIndex="{{ selectedProviderIndex }}"
+                            class="border border-gray-300 rounded-lg mb-3" />
+                <Label text="This provider will be used for wallet top-ups and withdrawals"
+                       class="text-gray-400 text-xs" />
+            </StackLayout>
+
+            <!-- Pharmacy-specific fields -->
+            <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}" class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Pharmacy Details" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Label text="Pharmacy Name" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ pharmacyName }}" hint="Enter pharmacy name"
+                           class="border border-gray-300 rounded-lg p-3 mb-3" />
+
+                <Label text="License Number" class="text-gray-600 text-sm mb-1" />
+                <TextField text="{{ licenseNumber }}" hint="Enter license number"
+                           class="border border-gray-300 rounded-lg p-3 mb-3" />
+            </StackLayout>
+
+            <!-- Courier-specific fields -->
+            <StackLayout visibility="{{ isCourier ? 'visible' : 'collapsed' }}" class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Courier Details" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <Label text="Vehicle Type" class="text-gray-600 text-sm mb-1" />
+                <ListPicker items="{{ vehicleTypes }}" selectedIndex="{{ selectedVehicleIndex }}"
+                            class="border border-gray-300 rounded-lg mb-3" />
+            </StackLayout>
+
+            <!-- Error Message -->
+            <Label text="{{ errorMessage }}" class="text-red-500 text-center mb-2"
+                   visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" textWrap="true" />
+
+            <!-- Save Button -->
+            <Button text="{{ isSaving ? 'Saving...' : 'Save Changes' }}" tap="{{ onSave }}"
+                    isEnabled="{{ !isSaving }}"
+                    class="bg-blue-500 text-white p-4 rounded-lg mb-2" />
+
+            <Button text="Cancel" tap="{{ onCancel }}"
+                    class="bg-gray-200 text-gray-600 p-3 rounded-lg mb-4" />
+        </StackLayout>
+    </ScrollView>
+</Page>

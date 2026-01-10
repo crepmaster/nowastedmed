@@ -1,0 +1,105 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
+    <ActionBar title="Pay Delivery Fee" class="bg-blue-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Delivery Summary -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Delivery Details" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="auto, *" rows="auto, auto, auto, auto, auto" class="mb-2">
+                    <Label row="0" col="0" text="Medicine:" class="text-gray-500 p-2" />
+                    <Label row="0" col="1" text="{{ medicineName }}" class="text-gray-800 p-2 font-bold" />
+
+                    <Label row="1" col="0" text="Quantity:" class="text-gray-500 p-2" />
+                    <Label row="1" col="1" text="{{ quantity }}" class="text-gray-800 p-2" />
+
+                    <Label row="2" col="0" text="From:" class="text-gray-500 p-2" />
+                    <Label row="2" col="1" text="{{ fromPharmacy }}" class="text-gray-800 p-2" textWrap="true" />
+
+                    <Label row="3" col="0" text="To:" class="text-gray-500 p-2" />
+                    <Label row="3" col="1" text="{{ toPharmacy }}" class="text-gray-800 p-2" textWrap="true" />
+
+                    <Label row="4" col="0" text="Distance:" class="text-gray-500 p-2" />
+                    <Label row="4" col="1" text="{{ distance }}" class="text-gray-800 p-2" />
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Payment Breakdown -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payment Breakdown" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="*, auto" rows="auto, auto, auto, auto" class="mb-2">
+                    <Label row="0" col="0" text="Delivery Fee:" class="text-gray-600 p-2" />
+                    <Label row="0" col="1" text="{{ deliveryFee }} {{ currency }}" class="text-gray-800 p-2" />
+
+                    <Label row="1" col="0" text="Platform Fee:" class="text-gray-600 p-2" />
+                    <Label row="1" col="1" text="{{ platformFee }} {{ currency }}" class="text-gray-800 p-2" />
+
+                    <Label row="2" col="0" text="Tax:" class="text-gray-600 p-2" />
+                    <Label row="2" col="1" text="{{ tax }} {{ currency }}" class="text-gray-800 p-2" />
+
+                    <StackLayout row="3" col="0" colSpan="2" class="border-t border-gray-200 mt-2 pt-2">
+                        <GridLayout columns="*, auto">
+                            <Label col="0" text="Total:" class="text-lg font-bold text-gray-800 p-2" />
+                            <Label col="1" text="{{ totalAmount }} {{ currency }}" class="text-lg font-bold text-blue-600 p-2" />
+                        </GridLayout>
+                    </StackLayout>
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Wallet Balance -->
+            <StackLayout class="bg-blue-50 rounded-xl p-4 mb-4 border border-blue-200">
+                <GridLayout columns="*, auto">
+                    <StackLayout col="0">
+                        <Label text="Wallet Balance" class="text-blue-800 font-medium" />
+                        <Label text="{{ walletBalance }} {{ currency }}" class="text-2xl font-bold text-blue-600" />
+                    </StackLayout>
+                    <StackLayout col="1" verticalAlignment="center">
+                        <Label text="{{ hasSufficientBalance ? 'Sufficient' : 'Insufficient' }}"
+                               class="{{ hasSufficientBalance ? 'text-green-600' : 'text-red-600' }} font-medium" />
+                    </StackLayout>
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Payment Method Selection -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payment Method" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <StackLayout tap="{{ onSelectWallet }}"
+                             class="p-4 rounded-lg mb-2"
+                             backgroundColor="{{ paymentMethod === 'wallet' ? '#DBEAFE' : '#F3F4F6' }}">
+                    <GridLayout columns="auto, *, auto">
+                        <Label col="0" text="Wallet" class="text-blue-600 font-medium" />
+                        <Label col="1" text="{{ walletBalance }} {{ currency }}" class="text-gray-600 ml-2" />
+                        <Label col="2" text="{{ paymentMethod === 'wallet' ? 'Selected' : '' }}" class="text-blue-600" />
+                    </GridLayout>
+                </StackLayout>
+
+                <StackLayout tap="{{ onSelectTopUp }}"
+                             visibility="{{ hasSufficientBalance ? 'collapsed' : 'visible' }}"
+                             class="p-4 rounded-lg bg-gray-100">
+                    <GridLayout columns="auto, *">
+                        <Label col="0" text="+ Top Up Wallet" class="text-green-600 font-medium" />
+                        <Label col="1" text="Add funds to continue" class="text-gray-500 ml-2" />
+                    </GridLayout>
+                </StackLayout>
+            </StackLayout>
+
+            <!-- Pay Button -->
+            <Button text="{{ payButtonText }}"
+                    tap="{{ onPayDelivery }}"
+                    isEnabled="{{ canPay }}"
+                    class="{{ canPay ? 'bg-green-500' : 'bg-gray-400' }} text-white p-4 rounded-lg text-lg font-bold" />
+
+            <!-- Status Message -->
+            <Label text="{{ statusMessage }}"
+                   visibility="{{ statusMessage ? 'visible' : 'collapsed' }}"
+                   class="text-center mt-4 p-3 rounded-lg"
+                   backgroundColor="{{ statusType === 'success' ? '#D1FAE5' : '#FEE2E2' }}"
+                   color="{{ statusType === 'success' ? '#065F46' : '#991B1B' }}" />
+        </StackLayout>
+    </ScrollView>
+</Page>
