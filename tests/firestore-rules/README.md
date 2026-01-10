@@ -4,84 +4,119 @@ Unit tests for NoWastedMed Firestore security rules.
 
 ## Prerequisites
 
-1. **Firebase CLI** - Install globally:
-   ```bash
-   npm install -g firebase-tools
-   ```
+- **Node.js 18+**
+- **Java 21+** (required for Firebase emulator)
+  - Download from [Adoptium](https://adoptium.net/)
 
-2. **Java Runtime** - Required for Firebase emulators (JRE 11+)
+## Quick Start (Single Command)
 
-## Setup
+### Windows (PowerShell)
+```powershell
+cd tests/firestore-rules
+.\run-tests.ps1
+```
 
-1. Install test dependencies:
-   ```bash
-   cd tests/firestore-rules
-   npm install
-   ```
+### Windows (CMD)
+```cmd
+cd tests\firestore-rules
+run-tests.bat
+```
 
-2. Start the Firebase Firestore emulator (from project root):
-   ```bash
-   firebase emulators:start --only firestore
-   ```
+The script will:
+1. Auto-detect Java 21 installation
+2. Install npm dependencies if needed
+3. Start Firebase emulator
+4. Run all tests
+5. Stop emulator and report results
 
-   The emulator UI will be available at http://127.0.0.1:4000
+## Manual Setup
 
-## Running Tests
-
-With the emulator running, in a separate terminal:
-
+### 1. Install dependencies
 ```bash
 cd tests/firestore-rules
+npm install
+```
+
+### 2. Run tests with emulator (recommended)
+```bash
+npm run test:emulator
+```
+
+This uses `firebase emulators:exec` to start/stop the emulator automatically.
+
+### 3. Alternative: Manual emulator
+```bash
+# Terminal 1: Start emulator
+npm run emulator:start
+
+# Terminal 2: Run tests
 npm test
 ```
 
-Or from project root:
-```bash
-npm run test:rules
-```
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm test` | Run tests (requires running emulator) |
+| `npm run test:emulator` | Start emulator, run tests, stop emulator |
+| `npm run emulator:start` | Start emulator only |
+| `npm run test:watch` | Watch mode for development |
+| `npm run test:coverage` | Run with coverage report |
+
+## CI/CD
+
+Tests run automatically on GitHub Actions when:
+- `firestore.rules` is modified
+- Files in `tests/firestore-rules/` change
+- PR is opened against `main`
+
+See `.github/workflows/firestore-rules.yml`
 
 ## Test Coverage
 
-The tests cover:
+### Auth & Profiles
+- Pharmacy profile CRUD with role checks
+- Courier profile CRUD with role checks
+- Admin profile access restrictions
 
-### Exchange State Machine
-- Creation (draft/pending status)
-- Status transitions (draft → pending → accepted → in_transit → completed)
-- Accept/reject by responder
-- Immutable field protection (proposedBy, location.cityId)
+### Exchanges
+- Create validation (location, status, ownership)
+- State machine: `draft → pending → accepted → in_transit → completed`
+- Immutable field protection (`proposedBy`, `location.cityId`)
+- City-based filtering for broadcasts
 
-### Delivery State Machine
-- Payment gate enforcement (couriers only see paid deliveries)
-- Status transitions (pending → assigned → picked_up → in_transit → delivered)
-- Pharmacy cancellation rules
-- Pharmacy payment updates (field-level restrictions)
+### Deliveries
+- Payment gate: couriers only see paid deliveries
+- State machine: `pending → assigned → picked_up → in_transit → delivered`
+- Pharmacy cancellation (before pickup only)
+- Field-level payment update restrictions
 
-### City-Based Filtering
-- Same-city exchange visibility
-- Courier operating city restrictions
-
-### Role-Based Access Control
-- Profile read/write permissions
-- Admin-only operations (countries, deliveries creation)
-- Inventory access rules
-
-### Wallet & Financial
-- Wallet creation and updates
-- Courier wallet fraud protection
+### Wallet/Ledger
+- Owner-only access
+- Balance validation
 - Ledger immutability (audit trail)
 
-### Exchange Proposals
-- Same-city requirement for proposals
-- Self-proposal prevention
-- Read access for broadcast exchanges
+### Courier Earnings & Payouts
+- Courier self-service restrictions
+- Fraud prevention (totalWithdrawn can't decrease)
+- Admin-only payout processing
 
-## File Structure
+## Troubleshooting
 
+### Java not found
 ```
-tests/firestore-rules/
-├── package.json           # Test dependencies
-├── jest.config.js         # Jest configuration
-├── tsconfig.json          # TypeScript config
-├── firestore.rules.test.ts # Main test file
-└── README.md              # This file
+ERROR: Java 21 not found.
+```
+Install Java 21+ from https://adoptium.net/
+
+### Port 8080 in use
+```
+Error: Could not start Firestore Emulator, port taken.
+```
+Kill the process using port 8080 or change port in `firebase.json`
+
+### Tests timeout
+Increase timeout in `jest.config.js`:
+```js
+testTimeout: 60000, // 60 seconds
 ```

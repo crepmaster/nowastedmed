@@ -326,10 +326,13 @@ service cloud.firestore {
                        // - Transition: pending → rejected (reject the exchange)
                        // - Set proposedTo to themselves when accepting
                        // - Must preserve immutable fields
+                       // - CANNOT be the requester (no self-acceptance)
                        (isPharmacist() &&
                         resource.data.status == 'pending' &&
                         exchangeImmutableFieldsUnchanged() &&
                         request.resource.data.status in ['accepted', 'rejected'] &&
+                        // Cannot accept/reject own exchange
+                        resource.data.proposedBy != request.auth.uid &&
                         // Responder must be the one accepting/rejecting
                         (request.resource.data.proposedTo == request.auth.uid ||
                          resource.data.proposedTo == request.auth.uid)) ||
