@@ -428,6 +428,16 @@ service cloud.firestore {
       allow update, delete: if false; // Only Cloud Functions
     }
 
+    // Withdraw Requests - Users can create and read their own requests
+    match /withdraw_requests/{requestId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.amount > 0;
+      allow update, delete: if false; // Only Cloud Functions
+    }
+
     // Subscription Requests - Users can create and read their own requests
     match /subscription_requests/{requestId} {
       allow read: if isAuthenticated() &&
@@ -469,14 +479,15 @@ service cloud.firestore {
       // Courier can read their own wallet
       allow read: if isOwner(courierId) || isAdmin();
 
-      // Courier can create their own wallet (initial creation only)
-      // Wallet is created with zero balances when courier first accesses it
+      // Courier can create their own wallet
+      // Wallet can be created with initial earnings (from first delivery)
+      // or with zero balances when courier first accesses it
       allow create: if isOwner(courierId) &&
                        isCourier() &&
                        request.resource.data.courierId == courierId &&
-                       request.resource.data.availableBalance == 0 &&
-                       request.resource.data.pendingBalance == 0 &&
-                       request.resource.data.totalEarned == 0 &&
+                       request.resource.data.availableBalance >= 0 &&
+                       request.resource.data.pendingBalance >= 0 &&
+                       request.resource.data.totalEarned >= 0 &&
                        request.resource.data.totalWithdrawn == 0;
 
       // Couriers can update their own wallet for:
