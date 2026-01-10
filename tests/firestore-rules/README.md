@@ -120,3 +120,20 @@ Increase timeout in `jest.config.js`:
 ```js
 testTimeout: 60000, // 60 seconds
 ```
+
+## Contributing
+
+### Rules Testing Policy
+
+> **Every modification to `firestore.rules` MUST be accompanied by a test.**
+
+When adding or modifying security rules:
+
+1. **Write tests first** (TDD approach recommended)
+2. **Cover both ALLOW and DENY cases** for each rule
+3. **Test state machine transitions** when applicable
+4. **Run the full test suite** before committing:
+   ```bash
+   npm run test:emulator
+   ```
+5. **CI will block merges** if tests fail
