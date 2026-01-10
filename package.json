@@ -12,7 +12,9 @@
     "android:prebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\copy-google-services.ps1",
     "android:clean": "ns clean && node -e \"require('fs').rmSync('platforms',{recursive:true,force:true})\"",
     "android:build": "npm run android:prebuild && ns build android --clean",
-    "android": "npm run android:prebuild && ns run android"
+    "android": "npm run android:prebuild && ns run android",
+    "test:rules": "cd tests/firestore-rules && npm test",
+    "test:rules:install": "cd tests/firestore-rules && npm install"
   },
   "dependencies": {
     "@nativescript/core": "~8.3.0",
