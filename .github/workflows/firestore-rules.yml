@@ -45,7 +45,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: tests/firestore-rules
-        run: npm ci
+        run: npm install
 
       - name: Run Firestore Rules Tests
         working-directory: tests/firestore-rules
