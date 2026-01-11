@@ -483,7 +483,7 @@ describe('Exchanges', () => {
       });
     });
 
-    describe('Responder Transitions', () => {
+    describe('Proposal Flow (Responder submits, Requester decides)', () => {
       beforeEach(async () => {
         await testEnv.withSecurityRulesDisabled(async (context) => {
           const doc = await context.firestore().collection('exchanges').add({
@@ -492,14 +492,69 @@ describe('Exchanges', () => {
             status: 'pending',
             location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
             proposedMedicines: [],
+            offeredMedicines: [],
             createdAt: new Date(),
           });
           exchangeId = doc.id;
         });
       });
 
-      test('ALLOW: responder can pending → accepted', async () => {
+      test('ALLOW: responder can submit proposal (set proposedTo, keep pending)', async () => {
         const db = testEnv.authenticatedContext(PHARMACY_B_ID).firestore();
+        await assertSucceeds(
+          db.collection('exchanges').doc(exchangeId).update({
+            status: 'pending',
+            proposedTo: PHARMACY_B_ID,
+            proposedBy: PHARMACY_A_ID,
+            location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
+            offeredMedicines: [{ medicineId: 'med1', quantity: 10 }],
+          })
+        );
+      });
+
+      test('DENY: responder cannot submit proposal if proposedTo already set', async () => {
+        // First responder claims it
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await context.firestore().collection('exchanges').doc(exchangeId).update({
+            proposedTo: PHARMACY_B_ID,
+          });
+        });
+
+        // Second responder tries to claim
+        const db = testEnv.authenticatedContext(PHARMACY_C_ID).firestore();
+        await assertFails(
+          db.collection('exchanges').doc(exchangeId).update({
+            status: 'pending',
+            proposedTo: PHARMACY_C_ID,
+            proposedBy: PHARMACY_A_ID,
+            location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
+          })
+        );
+      });
+
+      test('DENY: requester cannot self-propose', async () => {
+        const db = testEnv.authenticatedContext(PHARMACY_A_ID).firestore();
+        await assertFails(
+          db.collection('exchanges').doc(exchangeId).update({
+            status: 'pending',
+            proposedTo: PHARMACY_A_ID,
+            proposedBy: PHARMACY_A_ID,
+            location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
+          })
+        );
+      });
+
+      test('ALLOW: requester can accept proposal (pending → accepted)', async () => {
+        // First, responder submits proposal
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await context.firestore().collection('exchanges').doc(exchangeId).update({
+            proposedTo: PHARMACY_B_ID,
+            offeredMedicines: [{ medicineId: 'med1', quantity: 10 }],
+          });
+        });
+
+        // Requester accepts
+        const db = testEnv.authenticatedContext(PHARMACY_A_ID).firestore();
         await assertSucceeds(
           db.collection('exchanges').doc(exchangeId).update({
             status: 'accepted',
@@ -510,8 +565,17 @@ describe('Exchanges', () => {
         );
       });
 
-      test('ALLOW: responder can pending → rejected', async () => {
-        const db = testEnv.authenticatedContext(PHARMACY_B_ID).firestore();
+      test('ALLOW: requester can reject proposal (pending → rejected)', async () => {
+        // First, responder submits proposal
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await context.firestore().collection('exchanges').doc(exchangeId).update({
+            proposedTo: PHARMACY_B_ID,
+            offeredMedicines: [{ medicineId: 'med1', quantity: 10 }],
+          });
+        });
+
+        // Requester rejects
+        const db = testEnv.authenticatedContext(PHARMACY_A_ID).firestore();
         await assertSucceeds(
           db.collection('exchanges').doc(exchangeId).update({
             status: 'rejected',
@@ -522,12 +586,44 @@ describe('Exchanges', () => {
         );
       });
 
-      test('DENY: requester cannot accept own exchange', async () => {
+      test('DENY: requester cannot accept without proposal (proposedTo empty)', async () => {
         const db = testEnv.authenticatedContext(PHARMACY_A_ID).firestore();
         await assertFails(
           db.collection('exchanges').doc(exchangeId).update({
             status: 'accepted',
-            proposedTo: PHARMACY_A_ID,
+            proposedTo: '',
+            proposedBy: PHARMACY_A_ID,
+            location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
+          })
+        );
+      });
+
+      test('DENY: requester cannot change proposedTo when accepting', async () => {
+        // First, responder submits proposal
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await context.firestore().collection('exchanges').doc(exchangeId).update({
+            proposedTo: PHARMACY_B_ID,
+          });
+        });
+
+        // Requester tries to change proposedTo
+        const db = testEnv.authenticatedContext(PHARMACY_A_ID).firestore();
+        await assertFails(
+          db.collection('exchanges').doc(exchangeId).update({
+            status: 'accepted',
+            proposedTo: PHARMACY_C_ID, // Trying to change!
+            proposedBy: PHARMACY_A_ID,
+            location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
+          })
+        );
+      });
+
+      test('DENY: responder cannot directly accept (only requester can)', async () => {
+        const db = testEnv.authenticatedContext(PHARMACY_B_ID).firestore();
+        await assertFails(
+          db.collection('exchanges').doc(exchangeId).update({
+            status: 'accepted',
+            proposedTo: PHARMACY_B_ID,
             proposedBy: PHARMACY_A_ID,
             location: { cityId: CITY_NAIROBI, countryCode: 'KE', cityName: 'Nairobi' },
           })

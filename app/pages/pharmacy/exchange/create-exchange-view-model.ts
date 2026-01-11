@@ -1,15 +1,15 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
-import { AuthService } from '../../../services/auth.service';
-import { MedicineService } from '../../../services/medicine.service';
+import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
+import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 import { Medicine } from '../../../models/medicine.model';
 
 export class CreateExchangeViewModel extends Observable {
     private navigationService: NavigationService;
-    private exchangeService: ExchangeService;
-    private authService: AuthService;
-    private medicineService: MedicineService;
+    private exchangeService: ExchangeFirebaseService;
+    private authService: AuthFirebaseService;
+    private medicineService: MedicineFirebaseService;
     private medicine: Medicine;
 
     public exchangeQuantity: number = 0;
@@ -21,9 +21,9 @@ export class CreateExchangeViewModel extends Observable {
     constructor(medicine: Medicine) {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.medicineService = MedicineService.getInstance();
+        this.exchangeService = ExchangeFirebaseService.getInstance();
+        this.authService = AuthFirebaseService.getInstance();
+        this.medicineService = MedicineFirebaseService.getInstance();
         this.medicine = medicine;
 
         // Set medicine as observable property
@@ -40,7 +40,13 @@ export class CreateExchangeViewModel extends Observable {
                 return;
             }
 
-            // First make the medicine available for exchange
+            // Validate user has location data BEFORE any mutations (required for exchanges)
+            if (!user.location?.cityId) {
+                this.set('errorMessage', 'Your pharmacy location is not set. Please update your profile.');
+                return;
+            }
+
+            // Make the medicine available for exchange
             const success = await this.medicineService.makeAvailableForExchange(
                 this.medicine.id,
                 this.exchangeQuantity
@@ -51,9 +57,10 @@ export class CreateExchangeViewModel extends Observable {
                 return;
             }
 
-            // Create the exchange record
+            // Create the exchange record with location data
             await this.exchangeService.createExchange({
                 proposedBy: user.id,
+                proposedByName: user.pharmacyName || user.name,
                 status: 'pending',
                 priority: this.priorityLevels[this.selectedPriorityIndex].toLowerCase() as 'low' | 'medium' | 'high',
                 proposedMedicines: [{
@@ -62,7 +69,12 @@ export class CreateExchangeViewModel extends Observable {
                     medicine: this.medicine
                 }],
                 offeredMedicines: [],
-                notes: this.notes
+                notes: this.notes,
+                location: {
+                    countryCode: user.location.countryCode,
+                    cityId: user.location.cityId,
+                    cityName: user.location.cityName
+                }
             });
 
             // Navigate back to dashboard

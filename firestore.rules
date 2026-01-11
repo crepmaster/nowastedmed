@@ -107,7 +107,8 @@ service cloud.firestore {
 
     // Valid exchange status transitions
     // draft → pending (requester publishes)
-    // pending → accepted (responder accepts) | rejected (responder rejects)
+    // pending → pending (responder submits proposal, sets proposedTo)
+    // pending → accepted (requester accepts proposal) | rejected (requester rejects proposal)
     // accepted → in_transit (courier picks up)
     // in_transit → completed (courier delivers)
     // rejected → pending (requester can re-open for new responders)
@@ -321,21 +322,39 @@ service cloud.firestore {
                           (resource.data.status == 'rejected' && request.resource.data.status == 'pending')
                         )) ||
 
-                       // RESPONDER can:
-                       // - Transition: pending → accepted (accept the exchange)
-                       // - Transition: pending → rejected (reject the exchange)
-                       // - Set proposedTo to themselves when accepting
+                       // REQUESTER can accept/reject a proposal:
+                       // - Only when proposedTo is already set (proposal received)
+                       // - Transition: pending → accepted (accept the proposal)
+                       // - Transition: pending → rejected (reject the proposal)
+                       // - Must preserve immutable fields including proposedTo
+                       (isExchangeRequester(resource.data) &&
+                        isPharmacist() &&
+                        resource.data.status == 'pending' &&
+                        // A proposal must exist (proposedTo is set)
+                        resource.data.proposedTo != null &&
+                        resource.data.proposedTo != '' &&
+                        exchangeImmutableFieldsUnchanged() &&
+                        // Cannot change proposedTo when accepting/rejecting
+                        request.resource.data.proposedTo == resource.data.proposedTo &&
+                        request.resource.data.status in ['accepted', 'rejected']) ||
+
+                       // RESPONDER can submit a proposal:
+                       // - Set proposedTo to themselves (claiming the exchange)
+                       // - Add offeredMedicines
+                       // - Status remains pending until requester accepts
                        // - Must preserve immutable fields
-                       // - CANNOT be the requester (no self-acceptance)
+                       // - CANNOT be the requester (no self-proposal)
                        (isPharmacist() &&
                         resource.data.status == 'pending' &&
                         exchangeImmutableFieldsUnchanged() &&
-                        request.resource.data.status in ['accepted', 'rejected'] &&
-                        // Cannot accept/reject own exchange
+                        // Cannot propose on own exchange
                         resource.data.proposedBy != request.auth.uid &&
-                        // Responder must be the one accepting/rejecting
-                        (request.resource.data.proposedTo == request.auth.uid ||
-                         resource.data.proposedTo == request.auth.uid)) ||
+                        // Status must stay pending (requester decides)
+                        request.resource.data.status == 'pending' &&
+                        // Responder sets themselves as proposedTo
+                        request.resource.data.proposedTo == request.auth.uid &&
+                        // proposedTo must be empty before (first proposal wins)
+                        (resource.data.proposedTo == null || resource.data.proposedTo == '')) ||
 
                        // COURIER can:
                        // - Transition: accepted → in_transit (pickup confirmed)

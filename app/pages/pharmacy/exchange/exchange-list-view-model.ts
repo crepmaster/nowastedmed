@@ -1,17 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
 import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
-import { AuthService } from '../../../services/auth.service';
 import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
 import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 
 export class ExchangeListViewModel extends Observable {
     private navigationService: NavigationService;
-    private exchangeService: ExchangeService;
-    private exchangeFirebaseService: ExchangeFirebaseService;
-    private authService: AuthService;
-    private authFirebaseService: AuthFirebaseService;
+    private exchangeService: ExchangeFirebaseService;
+    private authService: AuthFirebaseService;
 
     public exchanges: any[] = [];
     public filterIndex: number = 0;
@@ -20,31 +16,22 @@ export class ExchangeListViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
-        this.exchangeFirebaseService = ExchangeFirebaseService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.authFirebaseService = AuthFirebaseService.getInstance();
+        this.exchangeService = ExchangeFirebaseService.getInstance();
+        this.authService = AuthFirebaseService.getInstance();
 
         this.loadExchanges();
     }
 
     async loadExchanges() {
         try {
-            const user = this.authFirebaseService.getCurrentUser() || this.authService.getCurrentUser();
+            const user = this.authService.getCurrentUser();
             if (!user) return;
 
             // Get user's city for filtering available exchanges
             this.currentUserCityId = user.location?.cityId || '';
 
-            // Load exchanges from Firebase (preferred) or local storage
-            let exchanges: MedicineExchange[];
-            try {
-                exchanges = await this.exchangeFirebaseService.getExchangesByPharmacy(user.id);
-            } catch {
-                // Fallback to local storage if Firebase is unavailable
-                exchanges = await this.exchangeService.getExchangesByPharmacy(user.id);
-            }
-
+            // Load exchanges from Firebase
+            const exchanges = await this.exchangeService.getExchangesByPharmacy(user.id);
             this.processExchanges(exchanges);
         } catch (error) {
             console.error('Error loading exchanges:', error);
@@ -56,7 +43,7 @@ export class ExchangeListViewModel extends Observable {
      */
     async loadAvailableExchanges() {
         try {
-            const user = this.authFirebaseService.getCurrentUser() || this.authService.getCurrentUser();
+            const user = this.authService.getCurrentUser();
             if (!user) return [];
 
             const cityId = user.location?.cityId;
@@ -66,7 +53,7 @@ export class ExchangeListViewModel extends Observable {
             }
 
             // Get only same-city pending exchanges
-            return await this.exchangeFirebaseService.getPendingExchangesByCity(cityId, user.id);
+            return await this.exchangeService.getPendingExchangesByCity(cityId, user.id);
         } catch (error) {
             console.error('Error loading available exchanges:', error);
             return [];
@@ -87,7 +74,7 @@ export class ExchangeListViewModel extends Observable {
     }
 
     private filterExchanges(exchanges: any[]) {
-        const currentUser = this.authFirebaseService.getCurrentUser() || this.authService.getCurrentUser();
+        const currentUser = this.authService.getCurrentUser();
         switch (this.filterIndex) {
             case 0: // Available (IMPORTANT: Only show same-city exchanges)
                 return exchanges.filter(e =>

@@ -1,37 +1,50 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
-import { AuthService } from '../../../services/auth.service';
-import { MedicineService } from '../../../services/medicine.service';
+import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
+import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 
 export class ExchangeProposalViewModel extends Observable {
     private navigationService: NavigationService;
-    private exchangeService: ExchangeService;
-    private authService: AuthService;
-    private medicineService: MedicineService;
+    private exchangeService: ExchangeFirebaseService;
+    private authService: AuthFirebaseService;
+    private medicineService: MedicineFirebaseService;
 
-    public availableMedicine: any;
+    public exchange: any;
     public exchangeId: string;
     public myMedicines: any[] = [];
     public notes: string = '';
     public errorMessage: string = '';
+    public isLoading: boolean = false;
 
-    constructor(availableMedicine: any, exchangeId?: string) {
+    constructor(exchange: any, exchangeId?: string) {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.medicineService = MedicineService.getInstance();
+        this.exchangeService = ExchangeFirebaseService.getInstance();
+        this.authService = AuthFirebaseService.getInstance();
+        this.medicineService = MedicineFirebaseService.getInstance();
 
-        this.availableMedicine = availableMedicine;
-        this.exchangeId = exchangeId || availableMedicine?.id;
+        this.exchange = exchange;
+        // Use explicit exchangeId, fallback to exchange.id (the exchange document ID)
+        this.exchangeId = exchangeId || exchange?.id;
+
+        if (!this.exchangeId) {
+            console.error('ExchangeProposalViewModel: No exchangeId provided');
+            this.set('errorMessage', 'Invalid exchange reference');
+            return;
+        }
+
         this.loadMyMedicines();
     }
 
     async loadMyMedicines() {
         try {
+            this.set('isLoading', true);
             const user = this.authService.getCurrentUser();
-            if (!user) return;
+            if (!user) {
+                this.set('errorMessage', 'User not logged in');
+                return;
+            }
 
             const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
             this.set('myMedicines', medicines.map(m => ({
@@ -42,6 +55,8 @@ export class ExchangeProposalViewModel extends Observable {
         } catch (error) {
             console.error('Error loading medicines:', error);
             this.set('errorMessage', 'Failed to load medicines');
+        } finally {
+            this.set('isLoading', false);
         }
     }
 
@@ -55,14 +70,19 @@ export class ExchangeProposalViewModel extends Observable {
                 .filter(m => m.selected && m.offerQuantity > 0)
                 .map(m => ({
                     medicineId: m.id,
-                    quantity: m.offerQuantity
+                    quantity: m.offerQuantity,
+                    medicine: m
                 }));
 
             const user = this.authService.getCurrentUser();
-            if (!user) return;
+            if (!user) {
+                this.set('errorMessage', 'User not logged in');
+                return;
+            }
 
+            // Use the correct exchangeId (document ID), not medicine ID
             await this.exchangeService.createProposal(
-                this.availableMedicine.id,
+                this.exchangeId,
                 user.id,
                 selectedMedicines
             );

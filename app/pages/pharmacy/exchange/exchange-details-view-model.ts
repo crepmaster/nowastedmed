@@ -1,63 +1,67 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { ExchangeService } from '../../../services/exchange/exchange.service';
 import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
 import { ExchangeVerificationService } from '../../../services/exchange/exchange-verification.service';
-import { AuthService } from '../../../services/auth.service';
-import { MedicineService } from '../../../services/medicine.service';
-import { MedicineExchange, ExchangeStatus } from '../../../models/exchange/medicine-exchange.model';
+import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
+import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 import { alert, confirm } from '@nativescript/core/ui/dialogs';
 
 export class ExchangeDetailsViewModel extends Observable {
     private navigationService: NavigationService;
-    private exchangeService: ExchangeService;
-    private exchangeFirebaseService: ExchangeFirebaseService;
+    private exchangeService: ExchangeFirebaseService;
     private verificationService: ExchangeVerificationService;
-    private authService: AuthService;
-    private medicineService: MedicineService;
-    private useFirebase: boolean = true;
+    private authService: AuthFirebaseService;
+    private medicineService: MedicineFirebaseService;
 
     public exchange: MedicineExchange;
     public availableMedicines: any[] = [];
     public isResponding: boolean = false;
     public isOwner: boolean = false;
+    public canRespond: boolean = false;
+    public hasProposal: boolean = false;
     public canGenerateQR: boolean = false;
     public pickupQRCode: string = '';
     public deliveryQRCode: string = '';
+    public isLoading: boolean = false;
 
     constructor(exchangeId: string) {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.exchangeService = ExchangeService.getInstance();
-        this.exchangeFirebaseService = ExchangeFirebaseService.getInstance();
+        this.exchangeService = ExchangeFirebaseService.getInstance();
         this.verificationService = ExchangeVerificationService.getInstance();
-        this.authService = AuthService.getInstance();
-        this.medicineService = MedicineService.getInstance();
+        this.authService = AuthFirebaseService.getInstance();
+        this.medicineService = MedicineFirebaseService.getInstance();
 
         this.loadExchange(exchangeId);
     }
 
     async loadExchange(exchangeId: string) {
         try {
+            this.set('isLoading', true);
             const user = this.authService.getCurrentUser();
             if (!user) return;
 
-            let exchange: MedicineExchange | null = null;
-
-            if (this.useFirebase) {
-                exchange = await this.exchangeFirebaseService.getExchangeById(exchangeId);
-            } else {
-                const exchanges = await this.exchangeService.getExchangesByPharmacy(user.id);
-                exchange = exchanges.find(e => e.id === exchangeId) || null;
-            }
+            const exchange = await this.exchangeService.getExchangeById(exchangeId);
 
             if (exchange) {
                 this.exchange = exchange;
                 this.isOwner = exchange.proposedBy === user.id;
-                this.isResponding = this.shouldShowResponse(exchange);
+
+                // Check if user can respond to this exchange
+                // For broadcast exchanges: proposedTo is empty and status is pending
+                // For direct proposals: proposedTo matches user
+                this.canRespond = this.shouldShowResponse(exchange, user.id);
+
+                // Check if a proposal has already been submitted (proposedTo is set)
+                this.hasProposal = !!exchange.proposedTo && exchange.proposedTo.length > 0;
+
+                // isResponding: user is the recipient of a proposal
+                this.isResponding = exchange.proposedTo === user.id && exchange.status === 'pending';
+
                 this.canGenerateQR = exchange.status === 'accepted';
 
-                if (this.isResponding) {
+                if (this.canRespond) {
                     await this.loadAvailableMedicines();
                 }
 
@@ -69,11 +73,40 @@ export class ExchangeDetailsViewModel extends Observable {
                 this.notifyPropertyChange('exchange', this.exchange);
                 this.notifyPropertyChange('isResponding', this.isResponding);
                 this.notifyPropertyChange('isOwner', this.isOwner);
+                this.notifyPropertyChange('canRespond', this.canRespond);
+                this.notifyPropertyChange('hasProposal', this.hasProposal);
                 this.notifyPropertyChange('canGenerateQR', this.canGenerateQR);
             }
         } catch (error) {
             console.error('Error loading exchange:', error);
+        } finally {
+            this.set('isLoading', false);
         }
+    }
+
+    /**
+     * Determine if user should see the response UI
+     * - For broadcast exchanges (proposedTo empty): any pharmacy in same city can respond
+     * - For direct proposals: only the proposedTo user can respond
+     */
+    private shouldShowResponse(exchange: MedicineExchange, userId: string): boolean {
+        // Owner cannot respond to their own exchange
+        if (exchange.proposedBy === userId) {
+            return false;
+        }
+
+        // Only pending exchanges can receive responses
+        if (exchange.status !== 'pending') {
+            return false;
+        }
+
+        // Broadcast exchange: proposedTo is empty, anyone can respond
+        if (!exchange.proposedTo || exchange.proposedTo === '') {
+            return true;
+        }
+
+        // Direct proposal: only the recipient can respond
+        return exchange.proposedTo === userId;
     }
 
     /**
@@ -108,58 +141,80 @@ export class ExchangeDetailsViewModel extends Observable {
         this.availableMedicines = medicines.map(m => ({
             ...m,
             selected: false,
-            quantity: 0
+            offerQuantity: 0
         }));
         this.notifyPropertyChange('availableMedicines', this.availableMedicines);
     }
 
-    private shouldShowResponse(exchange: MedicineExchange): boolean {
-        const user = this.authService.getCurrentUser();
-        return exchange.status === 'pending' && 
-               exchange.proposedTo === user?.id;
-    }
-
     get primaryActionText(): string {
+        if (this.canRespond && !this.hasProposal) {
+            return 'Submit Proposal';
+        }
         if (this.isResponding) {
-            return 'Submit Response';
+            return 'Accept / Reject';
         }
         return this.exchange?.status === 'draft' ? 'Submit' : 'Close';
     }
 
     get primaryActionClass(): string {
-        return this.isResponding ? 'bg-green-500' : 'bg-blue-500';
+        return this.canRespond ? 'bg-green-500' : 'bg-blue-500';
     }
 
     async onPrimaryAction() {
-        if (this.isResponding) {
-            await this.submitResponse();
+        if (this.canRespond && !this.hasProposal) {
+            await this.submitProposal();
         } else {
             this.navigationService.goBack();
         }
     }
 
-    private async submitResponse() {
+    /**
+     * Submit a proposal for this exchange (responder action)
+     * This creates a proposal and updates the exchange with proposedTo
+     */
+    private async submitProposal() {
         try {
             const selectedMedicines = this.availableMedicines
-                .filter(m => m.selected && m.quantity > 0)
+                .filter(m => m.selected && m.offerQuantity > 0)
                 .map(m => ({
                     medicineId: m.id,
-                    quantity: m.quantity
+                    quantity: m.offerQuantity,
+                    medicine: m
                 }));
 
             if (selectedMedicines.length === 0) {
-                // Show error
+                await alert({
+                    title: 'No Medicines Selected',
+                    message: 'Please select at least one medicine to offer.',
+                    okButtonText: 'OK'
+                });
                 return;
             }
 
-            await this.exchangeService.updateExchangeStatus(
+            const user = this.authService.getCurrentUser();
+            if (!user) return;
+
+            // Create the proposal - this sets proposedTo and offeredMedicines
+            await this.exchangeService.createProposal(
                 this.exchange.id,
-                'accepted'
+                user.id,
+                selectedMedicines
             );
+
+            await alert({
+                title: 'Proposal Submitted',
+                message: 'Your proposal has been sent to the requester.',
+                okButtonText: 'OK'
+            });
 
             this.navigationService.goBack();
         } catch (error) {
-            console.error('Error submitting response:', error);
+            console.error('Error submitting proposal:', error);
+            await alert({
+                title: 'Error',
+                message: 'Failed to submit proposal. Please try again.',
+                okButtonText: 'OK'
+            });
         }
     }
 
@@ -168,31 +223,35 @@ export class ExchangeDetailsViewModel extends Observable {
     }
 
     /**
-     * Accept the exchange proposal
+     * Accept the exchange proposal (requester action)
+     * Uses acceptProposal to properly update both exchange and proposal
      */
     async onAccept() {
         try {
             const shouldAccept = await confirm({
                 title: 'Accept Exchange',
-                message: 'Are you sure you want to accept this exchange?',
+                message: 'Are you sure you want to accept this exchange proposal?',
                 okButtonText: 'Accept',
                 cancelButtonText: 'Cancel'
             });
 
             if (!shouldAccept) return;
 
-            let success: boolean;
-            if (this.useFirebase) {
-                success = await this.exchangeFirebaseService.updateExchangeStatus(
-                    this.exchange.id,
-                    'accepted'
-                );
-            } else {
-                success = await this.exchangeService.updateExchangeStatus(
-                    this.exchange.id,
-                    'accepted'
-                );
+            // Use lastProposalId to accept the proposal and update exchange atomically
+            const proposalId = this.exchange.lastProposalId;
+            if (!proposalId) {
+                await alert({
+                    title: 'Error',
+                    message: 'No proposal found to accept.',
+                    okButtonText: 'OK'
+                });
+                return;
             }
+
+            const success = await this.exchangeService.acceptProposal(
+                this.exchange.id,
+                proposalId
+            );
 
             if (success) {
                 await alert({
@@ -215,39 +274,49 @@ export class ExchangeDetailsViewModel extends Observable {
     }
 
     /**
-     * Reject the exchange proposal
+     * Reject the exchange proposal (requester action)
+     * Uses rejectProposal to properly update both exchange and proposal
      */
     async onReject() {
         try {
             const shouldReject = await confirm({
                 title: 'Reject Exchange',
-                message: 'Are you sure you want to reject this exchange?',
+                message: 'Are you sure you want to reject this proposal?',
                 okButtonText: 'Reject',
                 cancelButtonText: 'Cancel'
             });
 
             if (!shouldReject) return;
 
-            let success: boolean;
-            if (this.useFirebase) {
-                success = await this.exchangeFirebaseService.updateExchangeStatus(
-                    this.exchange.id,
-                    'rejected'
-                );
-            } else {
-                success = await this.exchangeService.updateExchangeStatus(
-                    this.exchange.id,
-                    'rejected'
-                );
+            // Use lastProposalId to reject the proposal and update exchange atomically
+            const proposalId = this.exchange.lastProposalId;
+            if (!proposalId) {
+                await alert({
+                    title: 'Error',
+                    message: 'No proposal found to reject.',
+                    okButtonText: 'OK'
+                });
+                return;
             }
+
+            const success = await this.exchangeService.rejectProposal(
+                this.exchange.id,
+                proposalId
+            );
 
             if (success) {
                 await alert({
                     title: 'Rejected',
-                    message: 'Exchange has been rejected.',
+                    message: 'Exchange proposal has been rejected.',
                     okButtonText: 'OK'
                 });
                 this.navigationService.goBack();
+            } else {
+                await alert({
+                    title: 'Error',
+                    message: 'Failed to reject exchange. Please try again.',
+                    okButtonText: 'OK'
+                });
             }
         } catch (error) {
             console.error('Error rejecting exchange:', error);
