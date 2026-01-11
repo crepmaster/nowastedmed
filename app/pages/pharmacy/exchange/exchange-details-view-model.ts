@@ -20,6 +20,7 @@ export class ExchangeDetailsViewModel extends Observable {
     public isOwner: boolean = false;
     public canRespond: boolean = false;
     public hasProposal: boolean = false;
+    public canDecide: boolean = false; // Requester can accept/reject when proposal received
     public canGenerateQR: boolean = false;
     public pickupQRCode: string = '';
     public deliveryQRCode: string = '';
@@ -56,8 +57,12 @@ export class ExchangeDetailsViewModel extends Observable {
                 // Check if a proposal has already been submitted (proposedTo is set)
                 this.hasProposal = !!exchange.proposedTo && exchange.proposedTo.length > 0;
 
-                // isResponding: user is the recipient of a proposal
+                // isResponding: user is the recipient of a proposal (responder sees this)
                 this.isResponding = exchange.proposedTo === user.id && exchange.status === 'pending';
+
+                // canDecide: REQUESTER can accept/reject when a proposal has been received
+                // Flow: Requester creates exchange → Responder submits proposal → Requester accepts/rejects
+                this.canDecide = this.isOwner && this.hasProposal && exchange.status === 'pending';
 
                 this.canGenerateQR = exchange.status === 'accepted';
 
@@ -75,6 +80,7 @@ export class ExchangeDetailsViewModel extends Observable {
                 this.notifyPropertyChange('isOwner', this.isOwner);
                 this.notifyPropertyChange('canRespond', this.canRespond);
                 this.notifyPropertyChange('hasProposal', this.hasProposal);
+                this.notifyPropertyChange('canDecide', this.canDecide);
                 this.notifyPropertyChange('canGenerateQR', this.canGenerateQR);
             }
         } catch (error) {
@@ -150,7 +156,8 @@ export class ExchangeDetailsViewModel extends Observable {
         if (this.canRespond && !this.hasProposal) {
             return 'Submit Proposal';
         }
-        if (this.isResponding) {
+        // Requester sees Accept/Reject when proposal received
+        if (this.canDecide) {
             return 'Accept / Reject';
         }
         return this.exchange?.status === 'draft' ? 'Submit' : 'Close';
