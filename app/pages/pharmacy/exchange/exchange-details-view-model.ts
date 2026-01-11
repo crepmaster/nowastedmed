@@ -5,7 +5,7 @@ import { ExchangeVerificationService } from '../../../services/exchange/exchange
 import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
 import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
-import { alert, confirm } from '@nativescript/core/ui/dialogs';
+import { action, alert, confirm } from '@nativescript/core/ui/dialogs';
 
 export class ExchangeDetailsViewModel extends Observable {
     private navigationService: NavigationService;
@@ -153,25 +153,51 @@ export class ExchangeDetailsViewModel extends Observable {
     }
 
     get primaryActionText(): string {
+        // Requester sees Accept/Reject when proposal received (check first)
+        if (this.canDecide) {
+            return 'Accept / Reject';
+        }
         if (this.canRespond && !this.hasProposal) {
             return 'Submit Proposal';
         }
-        // Requester sees Accept/Reject when proposal received
-        if (this.canDecide) {
+        if (this.isResponding) {
             return 'Accept / Reject';
         }
         return this.exchange?.status === 'draft' ? 'Submit' : 'Close';
     }
 
     get primaryActionClass(): string {
-        return this.canRespond ? 'bg-green-500' : 'bg-blue-500';
+        if (this.canDecide || this.canRespond) {
+            return 'bg-green-500';
+        }
+        return 'bg-blue-500';
     }
 
     async onPrimaryAction() {
-        if (this.canRespond && !this.hasProposal) {
+        if (this.canDecide) {
+            await this.promptDecision();
+        } else if (this.canRespond && !this.hasProposal) {
             await this.submitProposal();
         } else {
             this.navigationService.goBack();
+        }
+    }
+
+    /**
+     * Prompt requester to accept or reject the proposal
+     */
+    private async promptDecision(): Promise<void> {
+        const result = await action({
+            title: 'Decision',
+            message: 'Accept or reject this proposal?',
+            cancelButtonText: 'Cancel',
+            actions: ['Accept', 'Reject']
+        });
+
+        if (result === 'Accept') {
+            await this.onAccept(true);
+        } else if (result === 'Reject') {
+            await this.onReject(true);
         }
     }
 
@@ -232,17 +258,19 @@ export class ExchangeDetailsViewModel extends Observable {
     /**
      * Accept the exchange proposal (requester action)
      * Uses acceptProposal to properly update both exchange and proposal
+     * @param skipConfirm - Skip confirmation dialog (used when called from promptDecision)
      */
-    async onAccept() {
+    async onAccept(skipConfirm: boolean = false) {
         try {
-            const shouldAccept = await confirm({
-                title: 'Accept Exchange',
-                message: 'Are you sure you want to accept this exchange proposal?',
-                okButtonText: 'Accept',
-                cancelButtonText: 'Cancel'
-            });
-
-            if (!shouldAccept) return;
+            if (!skipConfirm) {
+                const shouldAccept = await confirm({
+                    title: 'Accept Exchange',
+                    message: 'Are you sure you want to accept this exchange proposal?',
+                    okButtonText: 'Accept',
+                    cancelButtonText: 'Cancel'
+                });
+                if (!shouldAccept) return;
+            }
 
             // Use lastProposalId to accept the proposal and update exchange atomically
             const proposalId = this.exchange.lastProposalId;
@@ -283,17 +311,19 @@ export class ExchangeDetailsViewModel extends Observable {
     /**
      * Reject the exchange proposal (requester action)
      * Uses rejectProposal to properly update both exchange and proposal
+     * @param skipConfirm - Skip confirmation dialog (used when called from promptDecision)
      */
-    async onReject() {
+    async onReject(skipConfirm: boolean = false) {
         try {
-            const shouldReject = await confirm({
-                title: 'Reject Exchange',
-                message: 'Are you sure you want to reject this proposal?',
-                okButtonText: 'Reject',
-                cancelButtonText: 'Cancel'
-            });
-
-            if (!shouldReject) return;
+            if (!skipConfirm) {
+                const shouldReject = await confirm({
+                    title: 'Reject Exchange',
+                    message: 'Are you sure you want to reject this proposal?',
+                    okButtonText: 'Reject',
+                    cancelButtonText: 'Cancel'
+                });
+                if (!shouldReject) return;
+            }
 
             // Use lastProposalId to reject the proposal and update exchange atomically
             const proposalId = this.exchange.lastProposalId;
