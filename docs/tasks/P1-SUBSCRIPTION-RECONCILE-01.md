@@ -32,12 +32,14 @@ This task reduces inconsistency without schema changes or migrations.
 ## 2) Scope Control
 **Allowed files**
 - app/services/firebase/subscription-firebase.service.ts
+- app/services/subscription-factory.service.ts (NEW – required, same pattern as auth-factory; conditional require())
+- app/services/local/subscription-local.service.ts (NEW – read-only, no Firebase imports/calls)
 - app/pages/shared/subscription/subscription-view-model.ts
 - app/pages/shared/subscription/choose-plan-view-model.ts
 - app/pages/registration/registration-view-model.ts (read-only / minimal adjustments only if needed)
 - app/models/subscription.model.ts
 - app/models/user.model.ts
-- app/services/auth-factory.service.ts (or the existing project mode-switch file/service used to choose Firebase vs Local)
+
 
 **Read-only (must not modify)**
 - app/app.ts
@@ -68,6 +70,8 @@ Must keep:
    - Firebase mode: read subscription record, normalize fields
    - Local mode: derive snapshot from local/profile data (no Firebase access)
    - includes fallback logic to profile fields
+   Mode selection must be implemented via a service factory using conditional require() (no UI mode checks), consistent with auth-factory.
+
 3. Update subscription-related ViewModels to use that snapshot only (via existing services), preserving behavior.
 4. Add defensive logging (non-intrusive) for missing/invalid records.
 
