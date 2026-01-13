@@ -1,5 +1,6 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { Observable, Dialogs } from '@nativescript/core';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 import {
     Country,
     City,
@@ -12,7 +13,8 @@ import {
 } from '../../../models/wallet.model';
 
 export class EditProfileViewModel extends Observable {
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
 
     // Form fields
     private _userName: string = '';
@@ -49,7 +51,8 @@ export class EditProfileViewModel extends Observable {
 
     constructor() {
         super();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadUserData();
     }
 
@@ -184,7 +187,7 @@ export class EditProfileViewModel extends Observable {
      * Load current user data into form
      */
     private loadUserData(): void {
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
         if (!user) return;
 
         // Basic info
@@ -334,7 +337,7 @@ export class EditProfileViewModel extends Observable {
                 updates.vehicleType = this._vehicleTypes[this._selectedVehicleIndex];
             }
 
-            const success = await this.authService.updateUserProfile(updates);
+            const success = await this.authSession.updateUserProfile(updates);
 
             if (success) {
                 await Dialogs.alert({
@@ -342,7 +345,7 @@ export class EditProfileViewModel extends Observable {
                     message: 'Your profile has been updated.',
                     okButtonText: 'OK'
                 });
-                Frame.topmost().goBack();
+                this.navigationService.goBack();
             } else {
                 this.errorMessage = 'Failed to update profile. Please try again.';
             }
@@ -386,6 +389,6 @@ export class EditProfileViewModel extends Observable {
      * Cancel editing
      */
     onCancel(): void {
-        Frame.topmost().goBack();
+        this.navigationService.goBack();
     }
 }

@@ -1,6 +1,6 @@
-import { Observable, Dialogs, Frame } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { DeliveryFirebaseService } from '../../../services/firebase/delivery-firebase.service';
 import { QRCodeUtil } from '../../../utils/qrcode.util';
 import { Delivery, DeliveryStatus, CourierStats } from '../../../models/delivery.model';
@@ -15,7 +15,7 @@ interface DeliveryDisplay extends Delivery {
 
 export class CourierDashboardViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private deliveryService: DeliveryFirebaseService;
     private qrCodeUtil: QRCodeUtil;
 
@@ -44,7 +44,7 @@ export class CourierDashboardViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         this.deliveryService = DeliveryFirebaseService.getInstance();
         this.qrCodeUtil = QRCodeUtil.getInstance();
 
@@ -116,7 +116,7 @@ export class CourierDashboardViewModel extends Observable {
         try {
             this.isLoading = true;
 
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 console.error('No user logged in');
                 return;
@@ -351,7 +351,7 @@ export class CourierDashboardViewModel extends Observable {
         });
 
         if (confirmed) {
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
             await this.deliveryService.acceptDelivery(
@@ -490,7 +490,7 @@ export class CourierDashboardViewModel extends Observable {
      * View delivery details
      */
     private viewDeliveryDetails(delivery: Delivery): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/courier/delivery/delivery-details-page',
             context: { deliveryId: delivery.id },
         });
@@ -520,7 +520,7 @@ export class CourierDashboardViewModel extends Observable {
      * Navigate to wallet
      */
     onViewWallet(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/wallet/wallet-page',
         });
     }
@@ -529,7 +529,7 @@ export class CourierDashboardViewModel extends Observable {
      * Navigate to account
      */
     onOpenAccount(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/account/account-page',
         });
     }
@@ -538,7 +538,7 @@ export class CourierDashboardViewModel extends Observable {
      * Navigate to earnings
      */
     onViewEarnings(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/courier/earnings/earnings-page',
         });
     }
@@ -547,7 +547,7 @@ export class CourierDashboardViewModel extends Observable {
      * Navigate to payout request
      */
     onRequestPayout(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/courier/payout/payout-request-page',
         });
     }
@@ -562,8 +562,8 @@ export class CourierDashboardViewModel extends Observable {
     /**
      * Logout
      */
-    onLogout(): void {
-        this.authService.logout();
+    async onLogout(): Promise<void> {
+        await this.authSession.logout();
         this.navigationService.navigate({
             moduleName: 'pages/login/login-page',
             clearHistory: true,

@@ -1,8 +1,10 @@
-import { Observable, Frame } from '@nativescript/core';
-import { AuthFirebaseService } from '../../services/firebase/auth-firebase.service';
+import { Observable } from '@nativescript/core';
+import { getAuthSessionService, AuthSessionService } from '../../services/auth-session.service';
+import { NavigationService } from '../../services/navigation.service';
 
 export class RegistrationSuccessViewModel extends Observable {
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
 
     // View bindings
     private _isPharmacy: boolean = false;
@@ -10,7 +12,8 @@ export class RegistrationSuccessViewModel extends Observable {
 
     constructor() {
         super();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.checkUserRole();
     }
 
@@ -31,7 +34,7 @@ export class RegistrationSuccessViewModel extends Observable {
     }
 
     private checkUserRole(): void {
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
         if (user) {
             this.isPharmacy = user.role === 'pharmacist';
             // Pharmacies go to choose plan, couriers wait for approval
@@ -40,7 +43,7 @@ export class RegistrationSuccessViewModel extends Observable {
     }
 
     onChoosePlan(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/subscription/choose-plan-page',
             clearHistory: true,
             transition: {
@@ -50,10 +53,10 @@ export class RegistrationSuccessViewModel extends Observable {
         });
     }
 
-    onBackToLogin(): void {
+    async onBackToLogin(): Promise<void> {
         // Logout first to clear session
-        this.authService.logout();
-        Frame.topmost().navigate({
+        await this.authSession.logout();
+        this.navigationService.navigate({
             moduleName: 'pages/login/login-page',
             clearHistory: true,
             transition: {

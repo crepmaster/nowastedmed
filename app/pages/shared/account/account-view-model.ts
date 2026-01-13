@@ -1,14 +1,17 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { Observable, Dialogs } from '@nativescript/core';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 import { MobileMoneyProvider, getProvidersByRegion } from '../../../models/wallet.model';
 import { getCountryByCode } from '../../../models/location.model';
 
 export class AccountViewModel extends Observable {
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
 
     constructor() {
         super();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadUserData();
     }
 
@@ -20,7 +23,7 @@ export class AccountViewModel extends Observable {
     }
 
     private loadUserData(): void {
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
 
         if (user) {
             // Common fields
@@ -100,7 +103,7 @@ export class AccountViewModel extends Observable {
     }
 
     onEditProfile(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/account/edit-profile-page'
         });
     }
@@ -114,7 +117,7 @@ export class AccountViewModel extends Observable {
     }
 
     onNotificationSettings(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/settings/settings-page'
         });
     }
@@ -137,25 +140,25 @@ export class AccountViewModel extends Observable {
     }
 
     onGoToWallet(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/wallet/wallet-page'
         });
     }
 
     onGoToSubscription(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/subscription/subscription-page'
         });
     }
 
     onGoToEarnings(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/courier/earnings/earnings-page'
         });
     }
 
     async onChangeMobileMoneyProvider(): Promise<void> {
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
         if (!user) return;
 
         const location = (user as any).location;
@@ -185,7 +188,7 @@ export class AccountViewModel extends Observable {
             if (selectedProvider) {
                 try {
                     // Update user profile with new provider
-                    await this.authService.updateUserProfile({
+                    await this.authSession.updateUserProfile({
                         mobileMoneyProvider: selectedProvider.id,
                         mobileMoneyProviderName: selectedProvider.name
                     });
@@ -219,8 +222,8 @@ export class AccountViewModel extends Observable {
         });
 
         if (result) {
-            await this.authService.logout();
-            Frame.topmost().navigate({
+            await this.authSession.logout();
+            this.navigationService.navigate({
                 moduleName: 'pages/login/login-page',
                 clearHistory: true
             });

@@ -1,4 +1,4 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { WalletFirebaseService } from '../../../services/firebase/wallet-firebase.service';
 import {
     Wallet,
@@ -10,11 +10,13 @@ import {
     getCurrencyConfig,
     SUPPORTED_CURRENCIES,
 } from '../../../models/wallet.model';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 export class WalletViewModel extends Observable {
     private walletService: WalletFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
     private unsubscribeWallet: (() => void) | null = null;
     private unsubscribeTransactions: (() => void) | null = null;
 
@@ -33,7 +35,8 @@ export class WalletViewModel extends Observable {
     constructor() {
         super();
         this.walletService = WalletFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadWalletData();
     }
 
@@ -95,7 +98,7 @@ export class WalletViewModel extends Observable {
     private async loadWalletData(): Promise<void> {
         try {
             this.isLoading = true;
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 console.error('No user logged in');
                 return;
@@ -213,7 +216,7 @@ export class WalletViewModel extends Observable {
             });
 
             if (configureResult) {
-                Frame.topmost().navigate({
+                this.navigationService.navigate({
                     moduleName: 'pages/shared/account/account-page',
                 });
             }
@@ -245,7 +248,7 @@ export class WalletViewModel extends Observable {
 
         if (result && result !== 'Cancel') {
             try {
-                const currentUser = this.authService.getCurrentUser();
+                const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
 
                 let paymentMethod: 'mobile_money' | 'card' | 'bank_transfer';
@@ -335,7 +338,7 @@ export class WalletViewModel extends Observable {
      * View full transaction history
      */
     onViewHistory(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/wallet/transaction-history-page',
             context: {},
         });
@@ -400,7 +403,7 @@ export class WalletViewModel extends Observable {
             });
 
             if (configureResult) {
-                Frame.topmost().navigate({
+                this.navigationService.navigate({
                     moduleName: 'pages/shared/account/account-page',
                 });
             }
@@ -432,7 +435,7 @@ export class WalletViewModel extends Observable {
 
         if (result && result !== 'Cancel') {
             try {
-                const currentUser = this.authService.getCurrentUser();
+                const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
 
                 let paymentMethod: 'mobile_money' | 'bank_transfer';
