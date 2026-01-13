@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
-import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { MedicineService } from '../../../services/medicine.service';
 import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 import { Medicine } from '../../../models/medicine.model';
@@ -8,7 +8,7 @@ import { prompt } from "@nativescript/core/ui/dialogs";
 
 export class PharmacyDashboardViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private medicineService: MedicineService;
     private medicineFirebaseService: MedicineFirebaseService;
     private useFirebase: boolean = true; // Set to false for offline mode
@@ -28,7 +28,7 @@ export class PharmacyDashboardViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         this.medicineService = MedicineService.getInstance();
         this.medicineFirebaseService = MedicineFirebaseService.getInstance();
 
@@ -45,7 +45,7 @@ export class PharmacyDashboardViewModel extends Observable {
     private setupRealtimeUpdates() {
         if (!this.useFirebase) return;
 
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
         if (!user) return;
 
         this.unsubscribe = this.medicineFirebaseService.subscribeToPharmacyInventory(
@@ -125,7 +125,7 @@ export class PharmacyDashboardViewModel extends Observable {
     async loadData() {
         try {
             this.set('isLoading', true);
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (user) {
                 if (this.useFirebase) {
                     this.medicines = await this.medicineFirebaseService.getMedicinesByPharmacy(user.id);
@@ -216,8 +216,8 @@ export class PharmacyDashboardViewModel extends Observable {
         });
     }
 
-    onLogout() {
-        this.authService.logout();
+    async onLogout() {
+        await this.authSession.logout();
         this.navigationService.navigate({
             moduleName: 'pages/login/login-page',
             clearHistory: true

@@ -1,10 +1,9 @@
-import { Observable, Dialogs, Frame } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import {
     AdminSubscriptionFirebaseService,
     PlanStatistics,
 } from '../../../services/firebase/admin-subscription-firebase.service';
 import { AdminLocationFirebaseService, CountryDocument } from '../../../services/firebase/admin-location-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
 import { SubscriptionPlan, PlanType, BillingCycle, DEFAULT_PLANS } from '../../../models/subscription.model';
 
 interface Stats {
@@ -16,7 +15,6 @@ interface Stats {
 export class SubscriptionManagementViewModel extends Observable {
     private subscriptionService: AdminSubscriptionFirebaseService;
     private locationService: AdminLocationFirebaseService;
-    private authService: AuthFirebaseService;
 
     private _selectedTabIndex: number = 0;
     private _isLoading: boolean = true;
@@ -35,7 +33,6 @@ export class SubscriptionManagementViewModel extends Observable {
         super();
         this.subscriptionService = AdminSubscriptionFirebaseService.getInstance();
         this.locationService = AdminLocationFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
 
         this.loadData();
     }

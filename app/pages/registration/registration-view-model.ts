@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../services/navigation.service';
-import { getAuthService, IAuthService } from '../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../services/auth-session.service';
 import { ValidationUtil } from '../../utils/validation.util';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 import { GeolocationService, GeoCoordinates } from '../../services/geolocation.service';
@@ -18,7 +18,7 @@ import type { UserLocation } from '../../models/user.model';
 
 export class RegistrationViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private validationUtil: ValidationUtil;
     private sanitizer: InputSanitizerService;
     private geolocationService: GeolocationService;
@@ -54,7 +54,7 @@ export class RegistrationViewModel extends Observable {
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         this.validationUtil = ValidationUtil.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
         this.geolocationService = GeolocationService.getInstance();
@@ -323,7 +323,7 @@ export class RegistrationViewModel extends Observable {
                 }
             }
 
-            const success = await this.authService.register(registrationData);
+            const success = await this.authSession.register(registrationData);
             if (success) {
                 this.navigationService.navigate({
                     moduleName: 'pages/registration/registration-success-page',

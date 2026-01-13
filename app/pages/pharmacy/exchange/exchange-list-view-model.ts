@@ -1,13 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
 import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 
 export class ExchangeListViewModel extends Observable {
     private navigationService: NavigationService;
     private exchangeService: ExchangeFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
 
     public exchanges: any[] = [];
     public filterIndex: number = 0;
@@ -17,14 +17,14 @@ export class ExchangeListViewModel extends Observable {
         super();
         this.navigationService = NavigationService.getInstance();
         this.exchangeService = ExchangeFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
 
         this.loadExchanges();
     }
 
     async loadExchanges() {
         try {
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return;
 
             // Get user's city for filtering available exchanges
@@ -43,7 +43,7 @@ export class ExchangeListViewModel extends Observable {
      */
     async loadAvailableExchanges() {
         try {
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return [];
 
             const cityId = user.location?.cityId;
@@ -61,7 +61,7 @@ export class ExchangeListViewModel extends Observable {
     }
 
     private processExchanges(exchanges: MedicineExchange[]) {
-        const currentUser = this.authService.getCurrentUser();
+        const currentUser = this.authSession.currentUser;
         const processed = exchanges.map(exchange => ({
             ...exchange,
             title: this.getExchangeTitle(exchange),
@@ -74,7 +74,7 @@ export class ExchangeListViewModel extends Observable {
     }
 
     private filterExchanges(exchanges: any[]) {
-        const currentUser = this.authService.getCurrentUser();
+        const currentUser = this.authSession.currentUser;
         switch (this.filterIndex) {
             case 0: // Available (IMPORTANT: Only show same-city exchanges)
                 return exchanges.filter(e =>

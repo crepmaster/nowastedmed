@@ -1,14 +1,14 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { Observable, Dialogs } from '@nativescript/core';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { FirestoreService } from '../../../services/firebase/firestore.service';
 
 export class PayoutRequestViewModel extends Observable {
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private firestoreService: FirestoreService;
 
     constructor() {
         super();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
         this.firestoreService = FirestoreService.getInstance();
 
         this.set('currency', 'FCFA');
@@ -23,7 +23,7 @@ export class PayoutRequestViewModel extends Observable {
 
     private async loadPayoutData(): Promise<void> {
         try {
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return;
 
             // Get wallet balance
@@ -145,7 +145,7 @@ export class PayoutRequestViewModel extends Observable {
             this.set('canRequestPayout', false);
             this.set('requestButtonText', 'Processing...');
 
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) throw new Error('User not authenticated');
 
             // Create payout request

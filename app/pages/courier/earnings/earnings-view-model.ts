@@ -1,6 +1,6 @@
-import { Observable, Dialogs, Frame } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { CourierEarningsFirebaseService, PayoutRequest } from '../../../services/firebase/courier-earnings-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { CourierEarning, CourierPayout, EarningsSummary, CourierWallet } from '../../../models/delivery.model';
 import { MOBILE_MONEY_PROVIDERS } from '../../../models/wallet.model';
 
@@ -21,7 +21,7 @@ interface PayoutDisplay extends CourierPayout {
 
 export class EarningsViewModel extends Observable {
     private earningsService: CourierEarningsFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private currentUserId: string = '';
     private wallet: CourierWallet | null = null;
 
@@ -34,9 +34,9 @@ export class EarningsViewModel extends Observable {
     constructor() {
         super();
         this.earningsService = CourierEarningsFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
 
-        const currentUser = this.authService.getCurrentUser();
+        const currentUser = this.authSession.currentUser;
         if (currentUser) {
             this.currentUserId = currentUser.id;
         }

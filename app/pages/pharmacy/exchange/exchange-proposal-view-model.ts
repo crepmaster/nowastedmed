@@ -1,13 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
 import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 
 export class ExchangeProposalViewModel extends Observable {
     private navigationService: NavigationService;
     private exchangeService: ExchangeFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private medicineService: MedicineFirebaseService;
 
     public exchange: any;
@@ -21,7 +21,7 @@ export class ExchangeProposalViewModel extends Observable {
         super();
         this.navigationService = NavigationService.getInstance();
         this.exchangeService = ExchangeFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
         this.medicineService = MedicineFirebaseService.getInstance();
 
         this.exchange = exchange;
@@ -40,7 +40,7 @@ export class ExchangeProposalViewModel extends Observable {
     async loadMyMedicines() {
         try {
             this.set('isLoading', true);
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) {
                 this.set('errorMessage', 'User not logged in');
                 return;
@@ -74,7 +74,7 @@ export class ExchangeProposalViewModel extends Observable {
                     medicine: m
                 }));
 
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) {
                 this.set('errorMessage', 'User not logged in');
                 return;

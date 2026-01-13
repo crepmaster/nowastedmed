@@ -2,7 +2,7 @@ import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../../services/navigation.service';
 import { ExchangeFirebaseService } from '../../../services/firebase/exchange-firebase.service';
 import { ExchangeVerificationService } from '../../../services/exchange/exchange-verification.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { MedicineFirebaseService } from '../../../services/firebase/medicine-firebase.service';
 import { MedicineExchange } from '../../../models/exchange/medicine-exchange.model';
 import { action, alert, confirm } from '@nativescript/core/ui/dialogs';
@@ -11,7 +11,7 @@ export class ExchangeDetailsViewModel extends Observable {
     private navigationService: NavigationService;
     private exchangeService: ExchangeFirebaseService;
     private verificationService: ExchangeVerificationService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private medicineService: MedicineFirebaseService;
 
     public exchange: MedicineExchange;
@@ -31,7 +31,7 @@ export class ExchangeDetailsViewModel extends Observable {
         this.navigationService = NavigationService.getInstance();
         this.exchangeService = ExchangeFirebaseService.getInstance();
         this.verificationService = ExchangeVerificationService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
         this.medicineService = MedicineFirebaseService.getInstance();
 
         this.loadExchange(exchangeId);
@@ -40,7 +40,7 @@ export class ExchangeDetailsViewModel extends Observable {
     async loadExchange(exchangeId: string) {
         try {
             this.set('isLoading', true);
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return;
 
             const exchange = await this.exchangeService.getExchangeById(exchangeId);
@@ -120,7 +120,7 @@ export class ExchangeDetailsViewModel extends Observable {
      */
     private async generateQRCodes() {
         try {
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return;
 
             this.pickupQRCode = await this.verificationService.generatePickupQR(
@@ -140,7 +140,7 @@ export class ExchangeDetailsViewModel extends Observable {
     }
 
     private async loadAvailableMedicines() {
-        const user = this.authService.getCurrentUser();
+        const user = this.authSession.currentUser;
         if (!user) return;
 
         const medicines = await this.medicineService.getMedicinesByPharmacy(user.id);
@@ -224,7 +224,7 @@ export class ExchangeDetailsViewModel extends Observable {
                 return;
             }
 
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) return;
 
             // Create the proposal - this sets proposedTo and offeredMedicines

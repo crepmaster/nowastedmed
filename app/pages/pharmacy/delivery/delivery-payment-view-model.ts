@@ -1,17 +1,20 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { Observable, Dialogs } from '@nativescript/core';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { FirestoreService } from '../../../services/firebase/firestore.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 export class DeliveryPaymentViewModel extends Observable {
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private firestoreService: FirestoreService;
+    private navigationService: NavigationService;
     private deliveryId: string;
     private exchangeId: string;
 
     constructor(context?: any) {
         super();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
         this.firestoreService = FirestoreService.getInstance();
+        this.navigationService = NavigationService.getInstance();
 
         // Initialize with context data
         if (context) {
@@ -43,7 +46,7 @@ export class DeliveryPaymentViewModel extends Observable {
             this.set('totalAmount', deliveryFee + platformFee + tax);
 
             // Get wallet balance
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (user) {
                 const walletDoc = await this.firestoreService.getDocument('wallets', user.id);
                 const walletBalance = walletDoc?.balance || 0;
@@ -66,7 +69,7 @@ export class DeliveryPaymentViewModel extends Observable {
     }
 
     onSelectTopUp(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/wallet/wallet-page'
         });
     }
@@ -89,7 +92,7 @@ export class DeliveryPaymentViewModel extends Observable {
             this.set('canPay', false);
             this.set('payButtonText', 'Processing...');
 
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) throw new Error('User not authenticated');
 
             const totalAmount = this.get('totalAmount');
@@ -129,7 +132,7 @@ export class DeliveryPaymentViewModel extends Observable {
 
             // Navigate back after delay
             setTimeout(() => {
-                Frame.topmost().goBack();
+                this.navigationService.goBack();
             }, 1500);
 
         } catch (error: any) {

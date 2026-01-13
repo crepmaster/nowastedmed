@@ -1,13 +1,13 @@
 import { Observable } from '@nativescript/core';
 import { AdminService } from '../../../services/admin.service';
 import { NavigationService } from '../../../services/navigation.service';
-import { getAuthService, IAuthService } from '../../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { AdminStats } from '../../../models/admin.model';
 
 export class AdminDashboardViewModel extends Observable {
     private adminService: AdminService;
     private navigationService: NavigationService;
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private refreshInterval: ReturnType<typeof setInterval>;
 
     public stats: AdminStats;
@@ -17,7 +17,7 @@ export class AdminDashboardViewModel extends Observable {
         super();
         this.adminService = AdminService.getInstance();
         this.navigationService = NavigationService.getInstance();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         
         // Initialize stats
         this.stats = this.adminService.getStats();
@@ -73,13 +73,13 @@ export class AdminDashboardViewModel extends Observable {
         });
     }
 
-    onLogout() {
+    async onLogout() {
         // Clear the refresh interval
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
 
-        this.authService.logout();
+        await this.authSession.logout();
         this.navigationService.navigate({
             moduleName: 'pages/login/login-page',
             clearHistory: true

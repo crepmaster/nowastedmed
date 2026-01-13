@@ -1,14 +1,14 @@
-import { Observable, Dialogs, Frame } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import {
     AdminLocationFirebaseService,
     CityDocument,
     CourierAssignment,
 } from '../../../services/firebase/admin-location-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 
 export class CityDetailsViewModel extends Observable {
     private adminService: AdminLocationFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private cityId: string;
 
     private _city: CityDocument | null = null;
@@ -20,7 +20,7 @@ export class CityDetailsViewModel extends Observable {
         super();
         this.cityId = cityId;
         this.adminService = AdminLocationFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
 
         this.loadData();
     }
@@ -133,7 +133,7 @@ export class CityDetailsViewModel extends Observable {
      */
     private async assignCourierToCity(courier: any): Promise<void> {
         try {
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 throw new Error('Admin user not found');
             }

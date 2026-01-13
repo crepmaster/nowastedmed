@@ -1,7 +1,8 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { SubscriptionFirebaseService } from '../../../services/firebase/subscription-firebase.service';
 import { SubscriptionPlan, PlanLimits, getPlansForLocation } from '../../../models/subscription.model';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 interface PlanDisplay extends SubscriptionPlan {
     isRecommended: boolean;
@@ -11,7 +12,8 @@ interface PlanDisplay extends SubscriptionPlan {
 
 export class ChoosePlanViewModel extends Observable {
     private subscriptionService: SubscriptionFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
 
     private _plans: PlanDisplay[] = [];
     private _isLoading: boolean = true;
@@ -21,7 +23,8 @@ export class ChoosePlanViewModel extends Observable {
     constructor() {
         super();
         this.subscriptionService = SubscriptionFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadPlans();
     }
 
@@ -64,7 +67,7 @@ export class ChoosePlanViewModel extends Observable {
     private async loadPlans(): Promise<void> {
         try {
             this.isLoading = true;
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
 
             // Get all plans
             const allPlans = await this.subscriptionService.getPlans();
@@ -167,7 +170,7 @@ export class ChoosePlanViewModel extends Observable {
      */
     private async activateFreePlan(planId: string, planType: string): Promise<void> {
         try {
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
             // Create subscription document in Firestore
@@ -179,7 +182,7 @@ export class ChoosePlanViewModel extends Observable {
             );
 
             // Update user's subscription to free plan
-            await this.authService.updateUserProfile({
+            await this.authSession.updateUserProfile({
                 subscriptionPlanId: planId,
                 subscriptionPlanType: planType,
                 subscriptionStatus: 'active',
@@ -203,7 +206,7 @@ export class ChoosePlanViewModel extends Observable {
      * Handle paid plan selection with payment options
      */
     private async handlePaidPlanSelection(plan: PlanDisplay): Promise<void> {
-        const currentUser = this.authService.getCurrentUser();
+        const currentUser = this.authSession.currentUser;
         if (!currentUser) return;
 
         const confirmMessage = `Subscribe to ${plan.name} for ${plan.price} ${plan.currency}/${plan.billingCycle}?`;
@@ -241,7 +244,7 @@ export class ChoosePlanViewModel extends Observable {
             if (paymentMethod === 'invoice') {
                 // For invoice, update status to pending and proceed
                 // NOTE: Type mismatch - 'pending' is not in User.SubscriptionStatus but was original code
-                await this.authService.updateUserProfile({
+                await this.authSession.updateUserProfile({
                     subscriptionPlanId: plan.id,
                     subscriptionPlanType: plan.type,
                     subscriptionStatus: 'pending' as any, // Pre-existing type mismatch, not fixing in this refactor
@@ -264,7 +267,7 @@ export class ChoosePlanViewModel extends Observable {
                 );
 
                 // Also update user profile
-                await this.authService.updateUserProfile({
+                await this.authSession.updateUserProfile({
                     subscriptionPlanId: plan.id,
                     subscriptionPlanType: plan.type,
                     subscriptionStatus: 'active',
@@ -308,7 +311,7 @@ export class ChoosePlanViewModel extends Observable {
      * Navigate to pharmacy dashboard
      */
     private navigateToDashboard(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/pharmacy/dashboard/pharmacy-dashboard-page',
             clearHistory: true,
             transition: {

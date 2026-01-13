@@ -1,12 +1,13 @@
-import { Observable, Dialogs, Frame } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import {
     AdminLocationFirebaseService,
     CountryDocument,
     CityDocument,
     CourierAssignment,
 } from '../../../services/firebase/admin-location-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { SupportedRegion } from '../../../models/wallet.model';
+import { NavigationService } from '../../../services/navigation.service';
 
 interface LocationStats {
     totalCountries: number;
@@ -19,7 +20,8 @@ interface LocationStats {
 
 export class LocationManagementViewModel extends Observable {
     private adminService: AdminLocationFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
 
     private _selectedTabIndex: number = 0;
     private _isLoading: boolean = true;
@@ -41,7 +43,8 @@ export class LocationManagementViewModel extends Observable {
     constructor() {
         super();
         this.adminService = AdminLocationFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
 
         this.loadData();
     }
@@ -382,7 +385,7 @@ export class LocationManagementViewModel extends Observable {
     async onManageCity(args: any): Promise<void> {
         const city: CityDocument = args.object.bindingContext;
 
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/admin/locations/city-details-page',
             context: { cityId: city.id },
         });
@@ -415,7 +418,7 @@ export class LocationManagementViewModel extends Observable {
                 await this.loadData();
             }
         } else if (result === 'Manage Couriers') {
-            Frame.topmost().navigate({
+            this.navigationService.navigate({
                 moduleName: 'pages/admin/locations/city-details-page',
                 context: { cityId: city.id },
             });
@@ -473,7 +476,7 @@ export class LocationManagementViewModel extends Observable {
         if (!selectedCity) return;
 
         try {
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 throw new Error('Admin user not found');
             }
