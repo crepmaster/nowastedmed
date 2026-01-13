@@ -177,6 +177,47 @@ export class SubscriptionFirebaseService {
     }
 
     /**
+     * Activate a subscription (for demo - creates subscription document)
+     * In production, this would be handled by Cloud Functions after payment verification
+     */
+    async activateSubscription(
+        userId: string,
+        planId: string,
+        planType: PlanType,
+        paymentMethod: string
+    ): Promise<string> {
+        try {
+            const now = new Date();
+            const endDate = new Date();
+            endDate.setMonth(endDate.getMonth() + 1); // 1 month subscription
+
+            // Create subscription document
+            const docRef = await this.firestore
+                .collection(this.SUBSCRIPTIONS_COLLECTION)
+                .add({
+                    userId,
+                    planId,
+                    planType,
+                    status: 'active',
+                    startDate: now,
+                    endDate: endDate,
+                    autoRenew: true,
+                    lastPaymentDate: now,
+                    nextPaymentDate: endDate,
+                    paymentMethod,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+
+            console.log('Subscription activated:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('Error activating subscription:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Request subscription cancellation
      */
     async requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<string> {

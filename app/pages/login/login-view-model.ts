@@ -1,5 +1,5 @@
 import { Observable, Dialogs } from '@nativescript/core';
-import { getAuthService, IAuthService } from '../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../services/auth-session.service';
 import { NavigationService } from '../../services/navigation.service';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 import { t, setLanguage, getCurrentLanguage, getI18nService, LANGUAGE_DISPLAY_NAMES } from '../../i18n';
@@ -7,7 +7,7 @@ import { SupportedLanguage } from '../../data/medicine-database.model';
 import { getEnvironmentService } from '../../config/environment.config';
 
 export class LoginViewModel extends Observable {
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private navigationService: NavigationService;
     private sanitizer: InputSanitizerService;
 
@@ -17,7 +17,7 @@ export class LoginViewModel extends Observable {
 
     constructor() {
         super();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         this.navigationService = NavigationService.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
 
@@ -161,32 +161,17 @@ export class LoginViewModel extends Observable {
 
             // Sanitize email before login attempt
             const sanitizedEmail = this.sanitizer.sanitizeEmail(this.email);
-            const success = await this.authService.login(sanitizedEmail, this.password);
+            const success = await this.authSession.login(sanitizedEmail, this.password);
             if (!success) {
                 this.set('errorMessage', t('auth.invalidCredentials'));
                 return;
             }
 
-            const user = this.authService.getCurrentUser();
-            if (!user) {
-                this.set('errorMessage', t('errors.notFound'));
+            // Use AuthSessionService for role-based routing
+            const targetPage = this.authSession.getDashboardRoute();
+            if (!targetPage) {
+                this.set('errorMessage', t('errors.unauthorized'));
                 return;
-            }
-
-            let targetPage = '';
-            switch (user.role) {
-                case 'admin':
-                    targetPage = 'pages/admin/dashboard/admin-dashboard-page';
-                    break;
-                case 'pharmacist':
-                    targetPage = 'pages/pharmacy/dashboard/pharmacy-dashboard-page';
-                    break;
-                case 'courier':
-                    targetPage = 'pages/courier/dashboard/courier-dashboard-page';
-                    break;
-                default:
-                    this.set('errorMessage', t('errors.unauthorized'));
-                    return;
             }
 
             this.navigationService.navigate({

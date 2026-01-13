@@ -1,9 +1,10 @@
-import { Observable, Frame, Dialogs, Utils } from '@nativescript/core';
+import { Observable, Dialogs, Utils } from '@nativescript/core';
 import { DeliveryFirebaseService } from '../../../services/firebase/delivery-firebase.service';
 import { CourierEarningsFirebaseService } from '../../../services/firebase/courier-earnings-firebase.service';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { QRCodeUtil } from '../../../utils/qrcode.util';
 import { Delivery, DeliveryStatusChange, CourierEarning } from '../../../models/delivery.model';
+import { NavigationService } from '../../../services/navigation.service';
 
 interface StatusHistoryItem {
     status: string;
@@ -17,8 +18,9 @@ interface StatusHistoryItem {
 export class DeliveryDetailsViewModel extends Observable {
     private deliveryService: DeliveryFirebaseService;
     private earningsService: CourierEarningsFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
     private qrCodeUtil: QRCodeUtil;
+    private navigationService: NavigationService;
     private unsubscribe: (() => void) | null = null;
 
     private _delivery: Delivery | null = null;
@@ -31,10 +33,11 @@ export class DeliveryDetailsViewModel extends Observable {
         super();
         this.deliveryService = DeliveryFirebaseService.getInstance();
         this.earningsService = CourierEarningsFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
         this.qrCodeUtil = QRCodeUtil.getInstance();
+        this.navigationService = NavigationService.getInstance();
 
-        const currentUser = this.authService.getCurrentUser();
+        const currentUser = this.authSession.currentUser;
         if (currentUser) {
             this.currentUserId = currentUser.id;
         }
@@ -231,7 +234,7 @@ export class DeliveryDetailsViewModel extends Observable {
         if (!confirm) return;
 
         try {
-            const user = this.authService.getCurrentUser();
+            const user = this.authSession.currentUser;
             if (!user) throw new Error('Not authenticated');
 
             await this.deliveryService.acceptDelivery(
@@ -444,7 +447,7 @@ export class DeliveryDetailsViewModel extends Observable {
                     okButtonText: 'OK',
                 });
 
-                Frame.topmost().goBack();
+                this.navigationService.goBack();
             }
         }
     }

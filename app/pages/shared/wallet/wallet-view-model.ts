@@ -1,19 +1,22 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { WalletFirebaseService } from '../../../services/firebase/wallet-firebase.service';
 import {
     Wallet,
     WalletTransaction,
     TopUpRequest,
+    WithdrawRequest,
     MobileMoneyProvider,
     getProvidersByCurrency,
     getCurrencyConfig,
     SUPPORTED_CURRENCIES,
 } from '../../../models/wallet.model';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 export class WalletViewModel extends Observable {
     private walletService: WalletFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
     private unsubscribeWallet: (() => void) | null = null;
     private unsubscribeTransactions: (() => void) | null = null;
 
@@ -25,10 +28,15 @@ export class WalletViewModel extends Observable {
     private _transactions: any[] = [];
     private _isLoading: boolean = true;
 
+    // User's preferred mobile money provider
+    private _userProviderId: string | null = null;
+    private _userProviderName: string | null = null;
+
     constructor() {
         super();
         this.walletService = WalletFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadWalletData();
     }
 
@@ -90,13 +98,17 @@ export class WalletViewModel extends Observable {
     private async loadWalletData(): Promise<void> {
         try {
             this.isLoading = true;
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 console.error('No user logged in');
                 return;
             }
 
             const userId = currentUser.id;
+
+            // Load user's preferred mobile money provider
+            this._userProviderId = (currentUser as any).mobileMoneyProvider || null;
+            this._userProviderName = (currentUser as any).mobileMoneyProviderName || null;
 
             // Subscribe to wallet updates
             this.unsubscribeWallet = this.walletService.subscribeToWallet(userId, (wallet) => {
@@ -194,8 +206,37 @@ export class WalletViewModel extends Observable {
             return;
         }
 
-        // Build payment method options
-        const paymentOptions: string[] = providers.map(p => p.name);
+        // Check if user has no mobile money provider configured
+        if (!this._userProviderId) {
+            const configureResult = await Dialogs.confirm({
+                title: 'Mobile Money Not Configured',
+                message: 'You need to configure a mobile money provider in your Account settings before you can top up your wallet.',
+                okButtonText: 'Go to Account',
+                cancelButtonText: 'Cancel',
+            });
+
+            if (configureResult) {
+                this.navigationService.navigate({
+                    moduleName: 'pages/shared/account/account-page',
+                });
+            }
+            return;
+        }
+
+        // Find user's preferred provider
+        const userProvider = providers.find(p => p.id === this._userProviderId);
+
+        // Build payment method options - user's preferred provider first
+        const paymentOptions: string[] = [];
+        if (userProvider) {
+            paymentOptions.push(`${userProvider.name} (Your provider)`);
+        }
+        // Add other providers
+        providers.forEach(p => {
+            if (p.id !== this._userProviderId) {
+                paymentOptions.push(p.name);
+            }
+        });
         paymentOptions.push('Bank Transfer');
 
         const result = await Dialogs.action({
@@ -207,7 +248,7 @@ export class WalletViewModel extends Observable {
 
         if (result && result !== 'Cancel') {
             try {
-                const currentUser = this.authService.getCurrentUser();
+                const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
 
                 let paymentMethod: 'mobile_money' | 'card' | 'bank_transfer';
@@ -217,18 +258,21 @@ export class WalletViewModel extends Observable {
                     paymentMethod = 'bank_transfer';
                 } else {
                     paymentMethod = 'mobile_money';
-                    selectedProvider = providers.find(p => p.name === result);
+                    // Handle "(Your provider)" suffix
+                    const providerName = result.replace(' (Your provider)', '');
+                    selectedProvider = providers.find(p => p.name === providerName);
                 }
 
                 // Get phone number for mobile money
                 let phoneNumber: string | undefined;
                 if (paymentMethod === 'mobile_money' && selectedProvider) {
-                    const prefix = selectedProvider.phonePrefix?.[0] || '';
+                    // Pre-fill with user's phone number if available
+                    const defaultPhone = currentUser.phoneNumber || selectedProvider.phonePrefix?.[0] || '';
                     const phoneResult = await Dialogs.prompt({
                         title: 'Phone Number',
                         message: `Enter your ${selectedProvider.shortName} number:`,
                         inputType: 'phone',
-                        defaultText: prefix,
+                        defaultText: defaultPhone,
                         okButtonText: 'Submit',
                         cancelButtonText: 'Cancel',
                     });
@@ -248,13 +292,12 @@ export class WalletViewModel extends Observable {
                     provider: selectedProvider?.name,
                 };
 
-                await this.walletService.requestTopUp(currentUser.id, request);
+                // For demo: process immediately instead of creating pending request
+                await this.walletService.processTopUpDemo(currentUser.id, request);
 
                 Dialogs.alert({
-                    title: 'Request Submitted',
-                    message: selectedProvider
-                        ? `Your ${selectedProvider.shortName} top-up request has been submitted. You will receive a payment prompt shortly.`
-                        : 'Your top-up request has been submitted.',
+                    title: 'Top-Up Successful',
+                    message: `${amount} ${currency} has been added to your wallet via ${selectedProvider?.shortName || paymentMethod}.`,
                     okButtonText: 'OK',
                 });
             } catch (error) {
@@ -295,10 +338,195 @@ export class WalletViewModel extends Observable {
      * View full transaction history
      */
     onViewHistory(): void {
-        Frame.topmost().navigate({
+        this.navigationService.navigate({
             moduleName: 'pages/shared/wallet/transaction-history-page',
             context: {},
         });
+    }
+
+    /**
+     * Navigate to withdraw flow
+     */
+    async onWithdraw(): Promise<void> {
+        // Check if user has sufficient balance
+        if (this._balance <= 0) {
+            Dialogs.alert({
+                title: 'Insufficient Balance',
+                message: 'You do not have any funds to withdraw.',
+                okButtonText: 'OK',
+            });
+            return;
+        }
+
+        const result = await Dialogs.prompt({
+            title: 'Withdraw Funds',
+            message: `Enter amount to withdraw (${this._currency}):\nAvailable: ${this._balance} ${this._currency}`,
+            inputType: 'number',
+            okButtonText: 'Continue',
+            cancelButtonText: 'Cancel',
+        });
+
+        if (result.result && result.text) {
+            const amount = parseInt(result.text, 10);
+            if (amount > 0 && amount <= this._balance) {
+                await this.processWithdraw(amount);
+            } else if (amount > this._balance) {
+                Dialogs.alert({
+                    title: 'Insufficient Balance',
+                    message: `You can only withdraw up to ${this._balance} ${this._currency}`,
+                    okButtonText: 'OK',
+                });
+            } else {
+                Dialogs.alert({
+                    title: 'Invalid Amount',
+                    message: 'Please enter a valid amount',
+                    okButtonText: 'OK',
+                });
+            }
+        }
+    }
+
+    /**
+     * Process withdrawal request
+     */
+    private async processWithdraw(amount: number): Promise<void> {
+        const currency = this._currency || 'XOF';
+        const providers = getProvidersByCurrency(currency);
+
+        // Check if user has mobile money provider configured
+        if (!this._userProviderId) {
+            const configureResult = await Dialogs.confirm({
+                title: 'Mobile Money Not Configured',
+                message: 'You need to configure a mobile money provider in your Account settings before you can withdraw funds.',
+                okButtonText: 'Go to Account',
+                cancelButtonText: 'Cancel',
+            });
+
+            if (configureResult) {
+                this.navigationService.navigate({
+                    moduleName: 'pages/shared/account/account-page',
+                });
+            }
+            return;
+        }
+
+        // Find user's preferred provider
+        const userProvider = providers.find(p => p.id === this._userProviderId);
+
+        // Build withdrawal method options
+        const withdrawOptions: string[] = [];
+        if (userProvider) {
+            withdrawOptions.push(`${userProvider.name} (Your provider)`);
+        }
+        // Add other providers
+        providers.forEach(p => {
+            if (p.id !== this._userProviderId) {
+                withdrawOptions.push(p.name);
+            }
+        });
+        withdrawOptions.push('Bank Transfer');
+
+        const result = await Dialogs.action({
+            title: 'Select Withdrawal Method',
+            message: `Withdraw ${amount} ${currency}`,
+            cancelButtonText: 'Cancel',
+            actions: withdrawOptions,
+        });
+
+        if (result && result !== 'Cancel') {
+            try {
+                const currentUser = this.authSession.currentUser;
+                if (!currentUser) return;
+
+                let paymentMethod: 'mobile_money' | 'bank_transfer';
+                let selectedProvider: MobileMoneyProvider | undefined;
+                let phoneNumber: string | undefined;
+                let bankAccountNumber: string | undefined;
+                let bankName: string | undefined;
+
+                if (result === 'Bank Transfer') {
+                    paymentMethod = 'bank_transfer';
+
+                    // Get bank details
+                    const bankNameResult = await Dialogs.prompt({
+                        title: 'Bank Name',
+                        message: 'Enter your bank name:',
+                        inputType: 'text',
+                        okButtonText: 'Next',
+                        cancelButtonText: 'Cancel',
+                    });
+
+                    if (!bankNameResult.result || !bankNameResult.text) {
+                        return;
+                    }
+                    bankName = bankNameResult.text;
+
+                    const accountResult = await Dialogs.prompt({
+                        title: 'Account Number',
+                        message: 'Enter your bank account number:',
+                        inputType: 'text',
+                        okButtonText: 'Submit',
+                        cancelButtonText: 'Cancel',
+                    });
+
+                    if (!accountResult.result || !accountResult.text) {
+                        return;
+                    }
+                    bankAccountNumber = accountResult.text;
+                } else {
+                    paymentMethod = 'mobile_money';
+                    const providerName = result.replace(' (Your provider)', '');
+                    selectedProvider = providers.find(p => p.name === providerName);
+
+                    // Get phone number for mobile money
+                    if (selectedProvider) {
+                        const defaultPhone = currentUser.phoneNumber || selectedProvider.phonePrefix?.[0] || '';
+                        const phoneResult = await Dialogs.prompt({
+                            title: 'Phone Number',
+                            message: `Enter your ${selectedProvider.shortName} number to receive funds:`,
+                            inputType: 'phone',
+                            defaultText: defaultPhone,
+                            okButtonText: 'Submit',
+                            cancelButtonText: 'Cancel',
+                        });
+
+                        if (!phoneResult.result || !phoneResult.text) {
+                            return;
+                        }
+                        phoneNumber = phoneResult.text;
+                    }
+                }
+
+                const request: WithdrawRequest = {
+                    amount,
+                    currency,
+                    paymentMethod,
+                    phoneNumber,
+                    providerId: selectedProvider?.id,
+                    provider: selectedProvider?.name,
+                    bankAccountNumber,
+                    bankName,
+                };
+
+                // For demo: process immediately instead of creating pending request
+                await this.walletService.processWithdrawDemo(currentUser.id, request);
+
+                Dialogs.alert({
+                    title: 'Withdrawal Successful',
+                    message: selectedProvider
+                        ? `${amount} ${currency} has been sent to your ${selectedProvider.shortName} account.`
+                        : `${amount} ${currency} has been transferred to your bank account.`,
+                    okButtonText: 'OK',
+                });
+            } catch (error) {
+                console.error('Error processing withdrawal:', error);
+                Dialogs.alert({
+                    title: 'Error',
+                    message: 'Failed to process withdrawal request. Please try again.',
+                    okButtonText: 'OK',
+                });
+            }
+        }
     }
 
     /**

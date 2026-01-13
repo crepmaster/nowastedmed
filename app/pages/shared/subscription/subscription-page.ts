@@ -1,4 +1,4 @@
-import { NavigatedData, Page, Frame } from '@nativescript/core';
+import { NavigatedData, Page, Frame, EventData } from '@nativescript/core';
 import { SubscriptionViewModel } from './subscription-view-model';
 
 export function onNavigatingTo(args: NavigatedData): void {
@@ -21,4 +21,11 @@ export function goBack(): void {
             clearHistory: true
         });
     }
+}
+
+export function onPlanTap(args: EventData): void {
+    const button = args.object as any;
+    const page = button.page;
+    const viewModel = page.bindingContext as SubscriptionViewModel;
+    viewModel.onSelectPlan(args);
 }

@@ -2,10 +2,10 @@
     <ActionBar title="Create Account" class="bg-blue-500 text-white">
         <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="onBackTap" />
     </ActionBar>
-    
+
     <ScrollView>
-        <StackLayout class="p-4">
-            <StackLayout class="bg-white p-4 rounded-lg shadow-lg">
+        <StackLayout class="p-4 pb-20">
+            <StackLayout class="bg-white p-4 rounded-lg shadow-lg mb-20">
                 <!-- User Type Selection -->
                 <Label text="Register as:" class="text-gray-600 mb-2" />
                 <SegmentedBar selectedIndex="{{ userTypeIndex }}" class="mb-4">
@@ -47,6 +47,13 @@
                            selectedIndex="{{ selectedCityIndex }}"
                            class="mb-4 p-3 border rounded" />
 
+                <!-- Mobile Money Provider Selection -->
+                <Label text="Mobile Money Provider" class="text-gray-600" />
+                <Label text="For wallet top-ups and payouts" class="text-gray-400 text-sm mb-1" />
+                <ListPicker items="{{ providerNames }}"
+                           selectedIndex="{{ selectedProviderIndex }}"
+                           class="mb-4 p-3 border rounded" />
+
                 <!-- Role-specific Fields -->
                 <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}">
                     <Label text="Pharmacy Name" class="text-gray-600" />
@@ -64,9 +71,9 @@
                               hint="Enter address or nearby landmark"
                               class="mb-4 p-3 border rounded" />
 
-                    <!-- GPS Location Capture (Required for pharmacies) -->
-                    <Label text="GPS Location (Required)" class="text-gray-600 font-bold" />
-                    <Label text="Tap below to capture your exact location. This helps couriers find your pharmacy."
+                    <!-- GPS Location Capture (Alternative to address) -->
+                    <Label text="GPS Location (Recommended)" class="text-gray-600 font-bold" />
+                    <Label text="Capture your GPS location OR enter a detailed address above. GPS helps couriers find you more easily."
                            class="text-gray-500 text-sm mb-2" textWrap="true" />
 
                     <Button text="{{ captureButtonText }}"
@@ -79,6 +86,7 @@
                         <Label text="Location captured successfully!" class="text-green-700 font-bold" />
                         <Label text="{{ coordinatesDisplay }}" class="text-green-600 text-sm" />
                     </StackLayout>
+
                 </StackLayout>
 
                 <StackLayout visibility="{{ !isPharmacy ? 'visible' : 'collapsed' }}">
@@ -89,14 +97,14 @@
                 </StackLayout>
 
                 <!-- Submit Button -->
-                <Button text="Create Account" 
-                        tap="{{ onSubmit }}" 
+                <Button text="Create Account"
+                        tap="{{ onSubmit }}"
                         class="bg-green-500 text-white p-3 rounded-lg mt-4" />
 
                 <!-- Error Message -->
-                <Label text="{{ errorMessage }}" 
-                       class="text-red-500 text-center mt-2" 
-                       textWrap="true" 
+                <Label text="{{ errorMessage }}"
+                       class="text-red-500 text-center mt-2"
+                       textWrap="true"
                        visibility="{{ errorMessage ? 'visible' : 'collapsed' }}" />
             </StackLayout>
         </StackLayout>

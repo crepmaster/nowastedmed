@@ -54,12 +54,14 @@ async function initializeServices(): Promise<void> {
 
     console.log("STEP 6: Loading core services");
     const { getAuthService } = await import("./services/auth-factory.service");
+    const { initializeAuthSession } = await import("./services/auth-session.service");
     const { AdminService } = await import("./services/admin.service");
     const { PermissionsService } = await import("./services/permissions.service");
     const { NavigationService } = await import("./services/navigation.service");
 
     console.log("STEP 7: Initializing core services");
     getAuthService();
+    initializeAuthSession(); // Initialize centralized auth session
     AdminService.getInstance();
     PermissionsService.getInstance();
     NavigationService.getInstance();

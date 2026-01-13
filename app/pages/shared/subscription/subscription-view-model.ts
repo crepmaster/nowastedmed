@@ -1,7 +1,8 @@
-import { Observable, Frame, Dialogs } from '@nativescript/core';
+import { Observable, Dialogs } from '@nativescript/core';
 import { SubscriptionFirebaseService } from '../../../services/firebase/subscription-firebase.service';
 import { SubscriptionPlan, SubscriptionWithPlan, PlanLimits } from '../../../models/subscription.model';
-import { AuthFirebaseService } from '../../../services/firebase/auth-firebase.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 interface PlanDisplay extends SubscriptionPlan {
     isCurrentPlan: boolean;
@@ -11,7 +12,8 @@ interface PlanDisplay extends SubscriptionPlan {
 
 export class SubscriptionViewModel extends Observable {
     private subscriptionService: SubscriptionFirebaseService;
-    private authService: AuthFirebaseService;
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
     private unsubscribe: (() => void) | null = null;
     private currentSubscription: SubscriptionWithPlan | null = null;
 
@@ -29,7 +31,8 @@ export class SubscriptionViewModel extends Observable {
     constructor() {
         super();
         this.subscriptionService = SubscriptionFirebaseService.getInstance();
-        this.authService = AuthFirebaseService.getInstance();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadData();
     }
 
@@ -112,7 +115,7 @@ export class SubscriptionViewModel extends Observable {
     private async loadData(): Promise<void> {
         try {
             this.isLoading = true;
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) {
                 console.error('No user logged in');
                 return;
@@ -206,10 +209,11 @@ export class SubscriptionViewModel extends Observable {
 
     /**
      * Process subscription request
+     * For demo: Mobile Money and Wallet payments are auto-approved
      */
     private async processSubscription(planId: string, plan: SubscriptionPlan): Promise<void> {
         try {
-            const currentUser = this.authService.getCurrentUser();
+            const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
             // For paid plans, ask for payment method
@@ -219,27 +223,61 @@ export class SubscriptionViewModel extends Observable {
                     title: 'Payment Method',
                     message: `Total: ${plan.price} ${plan.currency}`,
                     cancelButtonText: 'Cancel',
-                    actions: ['Wallet Balance', 'Mobile Money', 'Pay Later'],
+                    actions: ['Mobile Money', 'Wallet Balance', 'Pay Later (Invoice)'],
                 });
 
                 if (!result || result === 'Cancel') return;
 
                 if (result === 'Mobile Money') {
                     paymentMethod = 'mobile_money';
-                } else if (result === 'Pay Later') {
+                } else if (result === 'Pay Later (Invoice)') {
                     paymentMethod = 'invoice';
                 }
             }
 
+            // Create subscription request record
             await this.subscriptionService.requestSubscription(currentUser.id, planId, paymentMethod);
 
-            await Dialogs.alert({
-                title: 'Request Submitted',
-                message: plan.price === 0
-                    ? 'Your plan has been updated.'
-                    : 'Your subscription request has been submitted. You will be notified once processed.',
-                okButtonText: 'OK',
-            });
+            if (paymentMethod === 'invoice') {
+                // For invoice, set status to pending - requires admin approval
+                await this.authSession.updateUserProfile({
+                    subscriptionPlanId: planId,
+                    subscriptionPlanType: plan.type,
+                    subscriptionStatus: 'pending',
+                    hasActiveSubscription: false,
+                });
+
+                await Dialogs.alert({
+                    title: 'Invoice Requested',
+                    message: 'Your subscription request has been submitted. You will receive an invoice via email. Your subscription will be activated once payment is confirmed.',
+                    okButtonText: 'OK',
+                });
+            } else {
+                // For mobile money or wallet - auto-approve for demo
+                // Create subscription document in Firestore
+                await this.subscriptionService.activateSubscription(
+                    currentUser.id,
+                    planId,
+                    plan.type,
+                    paymentMethod
+                );
+
+                // Also update user profile
+                await this.authSession.updateUserProfile({
+                    subscriptionPlanId: planId,
+                    subscriptionPlanType: plan.type,
+                    subscriptionStatus: 'active',
+                    hasActiveSubscription: true,
+                });
+
+                await Dialogs.alert({
+                    title: 'Subscription Activated',
+                    message: plan.price === 0
+                        ? 'Your plan has been updated.'
+                        : `Your ${plan.name} subscription is now active!`,
+                    okButtonText: 'OK',
+                });
+            }
 
             // Reload data
             await this.loadData();
@@ -266,7 +304,7 @@ export class SubscriptionViewModel extends Observable {
         });
 
         if (result === 'View History') {
-            Frame.topmost().navigate({
+            this.navigationService.navigate({
                 moduleName: 'pages/shared/subscription/subscription-history-page',
             });
         } else if (result === 'Cancel Subscription') {
@@ -287,7 +325,7 @@ export class SubscriptionViewModel extends Observable {
 
         if (confirmed && this.currentSubscription) {
             try {
-                const currentUser = this.authService.getCurrentUser();
+                const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
 
                 // Ask for reason

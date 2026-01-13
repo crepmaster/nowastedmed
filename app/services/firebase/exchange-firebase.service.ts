@@ -173,6 +173,7 @@ export class ExchangeFirebaseService extends Observable {
 
     /**
      * Create a proposal for an exchange
+     * Sets proposedTo and stores lastProposalId on the exchange for easy retrieval
      */
     async createProposal(
         exchangeId: string,
@@ -180,19 +181,33 @@ export class ExchangeFirebaseService extends Observable {
         medicines: MedicineExchangeItem[]
     ): Promise<string> {
         try {
+            // Validate exchange exists and is pending with no existing proposal
+            const exchange = await this.getExchangeById(exchangeId);
+            if (!exchange) {
+                throw new Error('Exchange not found');
+            }
+            if (exchange.status !== 'pending') {
+                throw new Error('Exchange is not pending');
+            }
+            if (exchange.proposedTo && exchange.proposedTo !== '') {
+                throw new Error('Exchange already has a proposal');
+            }
+
             // Add the proposal
             const proposalId = await this.firestoreService.addDocument(this.PROPOSALS_COLLECTION, {
                 exchangeId,
                 proposedBy,
                 medicines,
-                status: 'pending'
+                status: 'pending',
+                createdAt: new Date()
             });
 
-            // Update the exchange with the offered medicines
+            // Update the exchange with the offered medicines and lastProposalId
             await this.firestoreService.updateDocument(this.EXCHANGES_COLLECTION, exchangeId, {
                 offeredMedicines: medicines,
                 proposedTo: proposedBy,
-                status: 'pending' // Keep pending until accepted
+                lastProposalId: proposalId,
+                status: 'pending' // Keep pending until requester accepts
             });
 
             console.log('✅ Proposal created:', proposalId);
@@ -200,6 +215,33 @@ export class ExchangeFirebaseService extends Observable {
         } catch (error) {
             console.error('Error creating proposal:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Get proposals for an exchange
+     */
+    async getProposalsByExchange(exchangeId: string): Promise<ExchangeProposal[]> {
+        try {
+            const proposals = await this.firestoreService.queryDocuments(
+                this.PROPOSALS_COLLECTION,
+                'exchangeId',
+                '==',
+                exchangeId
+            );
+            return proposals.map(p => ({
+                id: p.id,
+                exchangeId: p.exchangeId,
+                proposedBy: p.proposedBy,
+                medicines: p.medicines || [],
+                status: p.status,
+                createdAt: p.createdAt?.toDate?.() || new Date(p.createdAt),
+                responseDate: p.responseDate?.toDate?.() || undefined,
+                responseNotes: p.responseNotes
+            }));
+        } catch (error) {
+            console.error('Error getting proposals:', error);
+            return [];
         }
     }
 
@@ -232,10 +274,17 @@ export class ExchangeFirebaseService extends Observable {
 
     /**
      * Reject a proposal
+     * Also updates the exchange status to rejected
      */
     async rejectProposal(exchangeId: string, proposalId: string, reason?: string): Promise<boolean> {
         try {
             await this.firestoreService.batchWrite([
+                {
+                    type: 'update',
+                    collection: this.EXCHANGES_COLLECTION,
+                    docId: exchangeId,
+                    data: { status: 'rejected' }
+                },
                 {
                     type: 'update',
                     collection: this.PROPOSALS_COLLECTION,
@@ -320,6 +369,7 @@ export class ExchangeFirebaseService extends Observable {
             proposedMedicines: doc.proposedMedicines || [],
             offeredMedicines: doc.offeredMedicines || [],
             notes: doc.notes,
+            lastProposalId: doc.lastProposalId,
             location: doc.location ? {
                 countryCode: doc.location.countryCode,
                 cityId: doc.location.cityId,

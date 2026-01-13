@@ -463,6 +463,20 @@ export interface TopUpRequest {
 }
 
 /**
+ * Withdraw Request
+ */
+export interface WithdrawRequest {
+    amount: number;
+    currency: string;
+    paymentMethod: 'mobile_money' | 'bank_transfer';
+    phoneNumber?: string;
+    providerId?: string;
+    provider?: string; // Provider display name
+    bankAccountNumber?: string;
+    bankName?: string;
+}
+
+/**
  * Wallet Summary for display
  */
 export interface WalletSummary {

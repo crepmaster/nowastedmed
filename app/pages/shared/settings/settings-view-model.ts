@@ -1,10 +1,13 @@
-import { Observable, Frame, Dialogs, ApplicationSettings } from '@nativescript/core';
+import { Observable, Dialogs, ApplicationSettings } from '@nativescript/core';
 import { t, setLanguage, getCurrentLanguage, getI18nService, LANGUAGE_DISPLAY_NAMES } from '../../../i18n';
 import { SupportedLanguage } from '../../../data/medicine-database.model';
 import { getEnvironmentService } from '../../../config/environment.config';
-import { getAuthService } from '../../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 export class SettingsViewModel extends Observable {
+    private authSession: AuthSessionService;
+    private navigationService: NavigationService;
     private _showLanguageOptions: boolean = false;
     private _pushNotificationsEnabled: boolean = true;
     private _exchangeNotificationsEnabled: boolean = true;
@@ -12,6 +15,8 @@ export class SettingsViewModel extends Observable {
 
     constructor() {
         super();
+        this.authSession = getAuthSessionService();
+        this.navigationService = NavigationService.getInstance();
         this.loadSettings();
         this.updateLabels();
 
@@ -250,8 +255,8 @@ export class SettingsViewModel extends Observable {
 
         if (result) {
             try {
-                await getAuthService().logout();
-                Frame.topmost().navigate({
+                await this.authSession.logout();
+                this.navigationService.navigate({
                     moduleName: 'pages/login/login-page',
                     clearHistory: true
                 });

@@ -22,7 +22,7 @@ export interface MedicineExchange {
   id: string;
   proposedBy: string; // Pharmacy ID
   proposedByName?: string; // Pharmacy name for display
-  proposedTo: string; // Pharmacy ID
+  proposedTo: string; // Pharmacy ID (responder who submitted proposal)
   proposedToName?: string; // Pharmacy name for display
   status: ExchangeStatus;
   proposedMedicines: MedicineExchangeItem[];
@@ -33,6 +33,8 @@ export interface MedicineExchange {
   notes?: string;
   // Location fields - REQUIRED for new exchanges
   location?: ExchangeLocation; // City where exchange takes place (must be same for both parties)
+  // Proposal tracking - set when responder submits proposal
+  lastProposalId?: string; // ID of the current/last proposal for easy accept/reject
 }
 
 export interface ExchangeProposal {

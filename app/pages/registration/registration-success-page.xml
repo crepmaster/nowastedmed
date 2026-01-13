@@ -1,14 +1,27 @@
 <Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" class="bg-gray-100">
     <ActionBar title="Registration Success" class="bg-blue-500 text-white" />
-    
+
     <StackLayout class="p-4">
         <StackLayout class="bg-white p-8 rounded-lg">
             <Label text="✓" class="text-6xl text-green-500 text-center mb-4" />
             <Label text="Registration Successful!" class="text-2xl font-bold text-center mb-4" />
-            <Label text="Your registration is pending approval. We will review your information and notify you via email once your account is activated." 
-                   class="text-center text-gray-600 mb-4" textWrap="true" />
-            
-            <Button text="Back to Login" tap="{{ onBackToLogin }}" class="bg-blue-500 text-white p-2 rounded" />
+
+            <!-- Pharmacy: Choose Plan Flow -->
+            <StackLayout visibility="{{ isPharmacy ? 'visible' : 'collapsed' }}">
+                <Label text="Welcome to NoWastedMed! Your pharmacy account has been created. Choose a subscription plan to start using the platform."
+                       class="text-center text-gray-600 mb-4" textWrap="true" />
+
+                <Button text="Choose Your Plan" tap="{{ onChoosePlan }}" class="bg-green-500 text-white p-3 rounded-lg mb-2" />
+                <Button text="Back to Login" tap="{{ onBackToLogin }}" class="bg-gray-200 text-gray-600 p-2 rounded" />
+            </StackLayout>
+
+            <!-- Courier: Pending Approval Flow -->
+            <StackLayout visibility="{{ showPendingMessage ? 'visible' : 'collapsed' }}">
+                <Label text="Your registration is pending approval. We will review your information and notify you via email once your account is activated."
+                       class="text-center text-gray-600 mb-4" textWrap="true" />
+
+                <Button text="Back to Login" tap="{{ onBackToLogin }}" class="bg-blue-500 text-white p-2 rounded" />
+            </StackLayout>
         </StackLayout>
     </StackLayout>
 </Page>

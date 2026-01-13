@@ -1,6 +1,6 @@
 import { Observable } from '@nativescript/core';
 import { NavigationService } from '../../services/navigation.service';
-import { getAuthService, IAuthService } from '../../services/auth-factory.service';
+import { getAuthSessionService, AuthSessionService } from '../../services/auth-session.service';
 import { ValidationUtil } from '../../utils/validation.util';
 import { InputSanitizerService } from '../../services/utils/input-sanitizer.service';
 import { GeolocationService, GeoCoordinates } from '../../services/geolocation.service';
@@ -8,14 +8,17 @@ import {
     Country,
     City,
     getActiveCountries,
-    getCitiesByCountry,
-    getCountryByCode
+    getCitiesByCountry
 } from '../../models/location.model';
+import {
+    MobileMoneyProvider,
+    getProvidersByRegion
+} from '../../models/wallet.model';
 import type { UserLocation } from '../../models/user.model';
 
 export class RegistrationViewModel extends Observable {
     private navigationService: NavigationService;
-    private authService: IAuthService;
+    private authSession: AuthSessionService;
     private validationUtil: ValidationUtil;
     private sanitizer: InputSanitizerService;
     private geolocationService: GeolocationService;
@@ -44,10 +47,14 @@ export class RegistrationViewModel extends Observable {
     private _selectedCountryIndex: number = 0;
     private _selectedCityIndex: number = 0;
 
+    // Mobile Money Provider fields
+    private _providers: MobileMoneyProvider[] = [];
+    private _selectedProviderIndex: number = 0;
+
     constructor() {
         super();
         this.navigationService = NavigationService.getInstance();
-        this.authService = getAuthService();
+        this.authSession = getAuthSessionService();
         this.validationUtil = ValidationUtil.getInstance();
         this.sanitizer = InputSanitizerService.getInstance();
         this.geolocationService = GeolocationService.getInstance();
@@ -56,10 +63,12 @@ export class RegistrationViewModel extends Observable {
         this._countries = getActiveCountries();
         this.notifyPropertyChange('countries', this.countryNames);
 
-        // Initialize cities for the first country
+        // Initialize cities and providers for the first country
         if (this._countries.length > 0) {
             this.updateCitiesForCountry(this._countries[0].code);
+            this.updateProvidersForCountry(this._countries[0]);
         }
+
     }
 
     // GPS coordinate getters for UI binding
@@ -163,9 +172,10 @@ export class RegistrationViewModel extends Observable {
             this._selectedCountryIndex = value;
             this.notifyPropertyChange('selectedCountryIndex', value);
 
-            // Update cities when country changes
+            // Update cities and providers when country changes
             if (this._countries[value]) {
                 this.updateCitiesForCountry(this._countries[value].code);
+                this.updateProvidersForCountry(this._countries[value]);
             }
         }
     }
@@ -197,6 +207,36 @@ export class RegistrationViewModel extends Observable {
         this._selectedCityIndex = 0;
         this.notifyPropertyChange('cityNames', this.cityNames);
         this.notifyPropertyChange('selectedCityIndex', 0);
+    }
+
+    /**
+     * Update providers list when country changes
+     */
+    private updateProvidersForCountry(country: Country): void {
+        this._providers = getProvidersByRegion(country.region);
+        this._selectedProviderIndex = 0;
+        this.notifyPropertyChange('providerNames', this.providerNames);
+        this.notifyPropertyChange('selectedProviderIndex', 0);
+    }
+
+    // Mobile Money Provider getters
+    get providerNames(): string[] {
+        return this._providers.map(p => p.name);
+    }
+
+    get selectedProviderIndex(): number {
+        return this._selectedProviderIndex;
+    }
+
+    set selectedProviderIndex(value: number) {
+        if (this._selectedProviderIndex !== value) {
+            this._selectedProviderIndex = value;
+            this.notifyPropertyChange('selectedProviderIndex', value);
+        }
+    }
+
+    get selectedProvider(): MobileMoneyProvider | undefined {
+        return this._providers[this._selectedProviderIndex];
     }
 
     /**
@@ -259,10 +299,22 @@ export class RegistrationViewModel extends Observable {
                 location, // Include structured location
             };
 
+            // Add mobile money provider for wallet operations (applies to both roles)
+            const provider = this.selectedProvider;
+            if (provider) {
+                registrationData.mobileMoneyProvider = provider.id;
+                registrationData.mobileMoneyProviderName = provider.name;
+            }
+
             if (this.isPharmacy) {
                 registrationData.pharmacyName = this.sanitizer.sanitizeName(this.pharmacyName);
                 registrationData.licenseNumber = this.sanitizer.sanitizeLicenseNumber(this.licenseNumber);
                 registrationData.address = location?.address || this.sanitizer.sanitizeAddress(this.address);
+                // Default to Free plan - user will choose plan after registration
+                registrationData.subscriptionPlanId = 'plan_free';
+                registrationData.subscriptionPlanType = 'free';
+                registrationData.subscriptionStatus = 'active';
+                registrationData.hasActiveSubscription = true;
             } else {
                 registrationData.vehicleType = this.vehicleTypes[this.selectedVehicleIndex];
                 // For couriers, set their operating cities to their initial city
@@ -271,7 +323,7 @@ export class RegistrationViewModel extends Observable {
                 }
             }
 
-            const success = await this.authService.register(registrationData);
+            const success = await this.authSession.register(registrationData);
             if (success) {
                 this.navigationService.navigate({
                     moduleName: 'pages/registration/registration-success-page',
@@ -314,15 +366,13 @@ export class RegistrationViewModel extends Observable {
                 return false;
             }
 
-            if (!this.address || this.address.trim().length < 5) {
-                this.set('errorMessage', 'Please enter your pharmacy address or landmark description');
-                return false;
-            }
+            // Either GPS coordinates OR a detailed address is required
+            // GPS is preferred for African markets where street addresses are often unreliable
+            const hasAddress = this.address && this.address.trim().length >= 5;
+            const hasGPS = this._coordinates && this._locationCaptured;
 
-            // GPS coordinates are required for pharmacies
-            // Essential for African markets where street addresses are often unreliable
-            if (!this._coordinates || !this._locationCaptured) {
-                this.set('errorMessage', 'Please capture your pharmacy GPS location. This helps couriers find you accurately.');
+            if (!hasAddress && !hasGPS) {
+                this.set('errorMessage', 'Please capture your GPS location OR enter a detailed address/landmark description');
                 return false;
             }
         }

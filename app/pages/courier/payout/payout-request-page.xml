@@ -1,0 +1,116 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" navigatingTo="onNavigatingTo" backgroundColor="#f3f4f6">
+    <ActionBar title="Request Payout" class="bg-green-500 text-white">
+        <NavigationButton text="Back" android.systemIcon="ic_menu_back" tap="goBack" />
+    </ActionBar>
+
+    <ScrollView>
+        <StackLayout class="p-4">
+            <!-- Available Balance -->
+            <StackLayout class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 mb-4 shadow-lg">
+                <Label text="Available for Payout" class="text-white text-opacity-80 text-center" />
+                <StackLayout orientation="horizontal" horizontalAlignment="center" class="mt-2">
+                    <Label text="{{ availableBalance }}" class="text-4xl font-bold text-white" />
+                    <Label text=" {{ currency }}" class="text-xl text-white mt-2" />
+                </StackLayout>
+                <Label text="Minimum payout: {{ minimumPayout }} {{ currency }}" class="text-white text-opacity-70 text-center mt-2 text-sm" />
+            </StackLayout>
+
+            <!-- Pending Payouts -->
+            <StackLayout visibility="{{ hasPendingPayout ? 'visible' : 'collapsed' }}" class="bg-yellow-50 rounded-xl p-4 mb-4 border border-yellow-200">
+                <Label text="Pending Payout" class="text-yellow-800 font-bold mb-2" />
+                <GridLayout columns="*, auto">
+                    <Label col="0" text="{{ pendingPayoutAmount }} {{ currency }}" class="text-yellow-700" />
+                    <Label col="1" text="{{ pendingPayoutStatus }}" class="text-yellow-600 text-sm" />
+                </GridLayout>
+                <Label text="Requested on {{ pendingPayoutDate }}" class="text-yellow-600 text-sm mt-1" />
+            </StackLayout>
+
+            <!-- Payout Amount Input -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payout Amount" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="*, auto" class="border border-gray-300 rounded-lg p-2">
+                    <TextField col="0" text="{{ payoutAmount }}" hint="Enter amount"
+                               keyboardType="number" class="text-2xl p-2" />
+                    <Label col="1" text="{{ currency }}" class="text-gray-500 text-xl p-2" verticalAlignment="center" />
+                </GridLayout>
+
+                <!-- Quick Amount Buttons -->
+                <GridLayout columns="*, *, *, *" class="mt-3">
+                    <Button col="0" text="25%" tap="{{ onQuickAmount25 }}" class="bg-gray-200 text-gray-700 m-1 p-2 rounded text-sm" />
+                    <Button col="1" text="50%" tap="{{ onQuickAmount50 }}" class="bg-gray-200 text-gray-700 m-1 p-2 rounded text-sm" />
+                    <Button col="2" text="75%" tap="{{ onQuickAmount75 }}" class="bg-gray-200 text-gray-700 m-1 p-2 rounded text-sm" />
+                    <Button col="3" text="All" tap="{{ onQuickAmountAll }}" class="bg-gray-200 text-gray-700 m-1 p-2 rounded text-sm" />
+                </GridLayout>
+
+                <!-- Validation Message -->
+                <Label text="{{ validationMessage }}"
+                       visibility="{{ validationMessage ? 'visible' : 'collapsed' }}"
+                       class="text-red-500 text-sm mt-2" />
+            </StackLayout>
+
+            <!-- Payment Method -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Payout Method" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <!-- Mobile Money -->
+                <StackLayout tap="{{ onSelectMobileMoney }}"
+                             class="p-4 rounded-lg mb-2"
+                             backgroundColor="{{ payoutMethod === 'mobile_money' ? '#D1FAE5' : '#F3F4F6' }}">
+                    <GridLayout columns="auto, *, auto">
+                        <Label col="0" text="Mobile Money" class="text-green-700 font-medium" />
+                        <Label col="1" text="{{ mobileMoneyNumber || 'Add number' }}" class="text-gray-500 ml-2" />
+                        <Label col="2" text="{{ payoutMethod === 'mobile_money' ? 'Selected' : '' }}" class="text-green-600" />
+                    </GridLayout>
+                </StackLayout>
+
+                <!-- Bank Transfer -->
+                <StackLayout tap="{{ onSelectBankTransfer }}"
+                             class="p-4 rounded-lg"
+                             backgroundColor="{{ payoutMethod === 'bank' ? '#D1FAE5' : '#F3F4F6' }}">
+                    <GridLayout columns="auto, *, auto">
+                        <Label col="0" text="Bank Transfer" class="text-green-700 font-medium" />
+                        <Label col="1" text="{{ bankAccountNumber || 'Add account' }}" class="text-gray-500 ml-2" />
+                        <Label col="2" text="{{ payoutMethod === 'bank' ? 'Selected' : '' }}" class="text-green-600" />
+                    </GridLayout>
+                </StackLayout>
+            </StackLayout>
+
+            <!-- Payout Summary -->
+            <StackLayout class="bg-white rounded-xl p-4 mb-4 shadow">
+                <Label text="Summary" class="text-lg font-bold text-gray-800 mb-3" />
+
+                <GridLayout columns="*, auto" rows="auto, auto, auto">
+                    <Label row="0" col="0" text="Payout Amount:" class="text-gray-600 p-1" />
+                    <Label row="0" col="1" text="{{ payoutAmount || 0 }} {{ currency }}" class="text-gray-800 p-1" />
+
+                    <Label row="1" col="0" text="Processing Fee:" class="text-gray-600 p-1" />
+                    <Label row="1" col="1" text="{{ processingFee }} {{ currency }}" class="text-gray-800 p-1" />
+
+                    <StackLayout row="2" col="0" colSpan="2" class="border-t border-gray-200 mt-2 pt-2">
+                        <GridLayout columns="*, auto">
+                            <Label col="0" text="You'll receive:" class="text-lg font-bold text-gray-800" />
+                            <Label col="1" text="{{ netAmount }} {{ currency }}" class="text-lg font-bold text-green-600" />
+                        </GridLayout>
+                    </StackLayout>
+                </GridLayout>
+            </StackLayout>
+
+            <!-- Request Button -->
+            <Button text="{{ requestButtonText }}"
+                    tap="{{ onRequestPayout }}"
+                    isEnabled="{{ canRequestPayout }}"
+                    class="{{ canRequestPayout ? 'bg-green-500' : 'bg-gray-400' }} text-white p-4 rounded-lg text-lg font-bold mb-4" />
+
+            <!-- Status Message -->
+            <Label text="{{ statusMessage }}"
+                   visibility="{{ statusMessage ? 'visible' : 'collapsed' }}"
+                   class="text-center p-3 rounded-lg"
+                   backgroundColor="{{ statusType === 'success' ? '#D1FAE5' : '#FEE2E2' }}"
+                   color="{{ statusType === 'success' ? '#065F46' : '#991B1B' }}" />
+
+            <!-- Payout History Link -->
+            <Button text="View Payout History" tap="{{ onViewPayoutHistory }}" class="bg-gray-200 text-gray-700 p-3 rounded-lg mt-2" />
+        </StackLayout>
+    </ScrollView>
+</Page>

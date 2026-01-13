@@ -1,11 +1,13 @@
-import { Observable, Frame } from '@nativescript/core';
+import { Observable } from '@nativescript/core';
 import { ExchangeVerificationService, VerificationResult } from '../../../services/exchange/exchange-verification.service';
 import { AuthService } from '../../../services/auth.service';
 import { alert, confirm } from '@nativescript/core/ui/dialogs';
+import { NavigationService } from '../../../services/navigation.service';
 
 export class QRScannerViewModel extends Observable {
     private verificationService: ExchangeVerificationService;
     private authService: AuthService;
+    private navigationService: NavigationService;
 
     public isScanning: boolean = false;
     public lastResult: string = '';
@@ -15,6 +17,7 @@ export class QRScannerViewModel extends Observable {
         super();
         this.verificationService = ExchangeVerificationService.getInstance();
         this.authService = AuthService.getInstance();
+        this.navigationService = NavigationService.getInstance();
     }
 
     async onScanQR() {
@@ -154,6 +157,6 @@ export class QRScannerViewModel extends Observable {
     }
 
     private navigateBack() {
-        Frame.topmost().goBack();
+        this.navigationService.goBack();
     }
 }

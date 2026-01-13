@@ -12,6 +12,15 @@ rules_version = '2';
  * - exchanges: Medicine exchange requests
  * - exchange_proposals: Counter-proposals for exchanges
  * - pharmacy_inventory: Medicine inventory
+ * - deliveries: Delivery assignments with payment tracking
+ *
+ * STATE MACHINES:
+ * - Exchange: draft → pending → accepted → in_transit → completed
+ *                              → rejected
+ * - Delivery: pending → assigned → picked_up → in_transit → delivered
+ *                     → cancelled                        → failed
+ * - DeliveryPayment: awaiting_payment → partial_payment → payment_complete → released_to_courier
+ *                                                       → refunded
  *
  * DEPLOYMENT:
  * firebase deploy --only firestore:rules
@@ -76,13 +85,85 @@ service cloud.firestore {
     }
 
     // Check if courier operates in a specific city
-    // Looks up the courier's operatingCities array in the users collection
+    // FIXED: Now reads from couriers collection instead of users
     function courierOperatesInCity(cityId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null &&
-             userDoc.data.role == 'courier' &&
-             userDoc.data.operatingCities != null &&
-             cityId in userDoc.data.operatingCities;
+      let courierDoc = get(/databases/$(database)/documents/couriers/$(request.auth.uid));
+      return courierDoc != null &&
+             courierDoc.data.operatingCities != null &&
+             cityId in courierDoc.data.operatingCities;
+    }
+
+    // Get pharmacy's city for exchange filtering
+    function getPharmacyCityId() {
+      let pharmacyDoc = get(/databases/$(database)/documents/pharmacies/$(request.auth.uid));
+      return pharmacyDoc != null && pharmacyDoc.data.location != null
+             ? pharmacyDoc.data.location.cityId
+             : null;
+    }
+
+    // ============================================
+    // EXCHANGE STATUS TRANSITION HELPERS
+    // ============================================
+
+    // Valid exchange status transitions
+    // draft → pending (requester publishes)
+    // pending → pending (responder submits proposal, sets proposedTo)
+    // pending → accepted (requester accepts proposal) | rejected (requester rejects proposal)
+    // accepted → in_transit (courier picks up)
+    // in_transit → completed (courier delivers)
+    // rejected → pending (requester can re-open for new responders)
+    function isValidExchangeTransition(fromStatus, toStatus) {
+      return (fromStatus == 'draft' && toStatus == 'pending') ||
+             (fromStatus == 'pending' && toStatus in ['accepted', 'rejected']) ||
+             (fromStatus == 'accepted' && toStatus == 'in_transit') ||
+             (fromStatus == 'in_transit' && toStatus == 'completed') ||
+             (fromStatus == 'rejected' && toStatus == 'pending');
+    }
+
+    // Check if user is the exchange requester (proposedBy)
+    function isExchangeRequester(exchangeData) {
+      return request.auth.uid == exchangeData.proposedBy;
+    }
+
+    // Check if user is the exchange responder (proposedTo)
+    function isExchangeResponder(exchangeData) {
+      return request.auth.uid == exchangeData.proposedTo;
+    }
+
+    // Check if user is involved in the exchange
+    function isExchangeParticipant(exchangeData) {
+      return isExchangeRequester(exchangeData) || isExchangeResponder(exchangeData);
+    }
+
+    // Immutable fields that should NEVER change after creation
+    // Used to ensure location.cityId and proposedBy are locked
+    function exchangeImmutableFieldsUnchanged() {
+      return request.resource.data.proposedBy == resource.data.proposedBy &&
+             request.resource.data.location.cityId == resource.data.location.cityId &&
+             request.resource.data.location.countryCode == resource.data.location.countryCode;
+    }
+
+    // ============================================
+    // DELIVERY STATUS TRANSITION HELPERS
+    // ============================================
+
+    // Valid delivery status transitions
+    // pending → assigned (courier accepts)
+    // assigned → picked_up (courier at pickup)
+    // picked_up → in_transit (courier has package)
+    // in_transit → delivered (courier completes) | failed (delivery failed)
+    // pending → cancelled (pharmacy cancels before assignment)
+    // assigned → cancelled (pharmacy cancels, courier not yet picked up)
+    function isValidDeliveryTransition(fromStatus, toStatus) {
+      return (fromStatus == 'pending' && toStatus in ['assigned', 'cancelled']) ||
+             (fromStatus == 'assigned' && toStatus in ['picked_up', 'cancelled']) ||
+             (fromStatus == 'picked_up' && toStatus == 'in_transit') ||
+             (fromStatus == 'in_transit' && toStatus in ['delivered', 'failed']);
+    }
+
+    // Check if delivery payment is complete (both pharmacies paid)
+    function isDeliveryPaymentComplete(deliveryData) {
+      return deliveryData.paymentStatus == 'payment_complete';
     }
 
     // ============================================
@@ -186,44 +267,116 @@ service cloud.firestore {
     // ============================================
 
     match /exchanges/{exchangeId} {
-      // Both proposer and recipient can read the exchange
-      // Couriers can read exchanges they are delivering
-      // Admins can read all
+      // READ RULES:
+      // - Participants (requester/responder) can always read their exchanges
+      // - Couriers can read exchanges they are assigned to deliver
+      // - Pharmacists in the same city can read pending exchanges (for browsing)
+      // - Admins can read all
       allow read: if isAuthenticated() && (
-                     resource.data.proposedBy == request.auth.uid ||
-                     resource.data.proposedTo == request.auth.uid ||
+                     // Participants can always read
+                     isExchangeParticipant(resource.data) ||
+                     // Assigned courier can read
                      resource.data.courierId == request.auth.uid ||
+                     // Same-city pharmacists can browse pending exchanges
+                     (isPharmacist() &&
+                      resource.data.status == 'pending' &&
+                      resource.data.location != null &&
+                      resource.data.location.cityId == getPharmacyCityId()) ||
+                     // Admin can read all
                      isAdmin()
                    );
 
-      // Only pharmacists can create exchanges
-      // Must be the proposer
+      // CREATE RULES:
+      // - Only pharmacists can create exchanges
+      // - Must be the requester (proposedBy)
+      // - Must start in draft or pending status
+      // - Must include location data for city filtering
+      // - proposedTo can be empty for broadcast exchanges (any pharmacy in city can respond)
+      //   or set to a specific pharmacy ID for direct exchanges
       allow create: if isPharmacist() &&
                        request.resource.data.proposedBy == request.auth.uid &&
-                       validRequiredString(request.resource.data.proposedTo) &&
-                       request.resource.data.status in ['draft', 'pending', 'requested'];
+                       request.resource.data.status in ['draft', 'pending'] &&
+                       request.resource.data.location != null &&
+                       validRequiredString(request.resource.data.location.cityId) &&
+                       // proposedTo is optional (null/empty for broadcast, specific ID for direct)
+                       (request.resource.data.proposedTo == null ||
+                        request.resource.data.proposedTo == '' ||
+                        request.resource.data.proposedTo is string);
 
-      // Both parties can update exchange (accept/reject)
-      // Courier can update status when delivering
+      // UPDATE RULES with strict state machine and field-level enforcement:
+      // ALL updates must preserve immutable fields (proposedBy, location.cityId, location.countryCode)
       allow update: if isAuthenticated() && (
-                       // Proposer can update their own exchange
-                       (resource.data.proposedBy == request.auth.uid &&
-                        request.resource.data.proposedBy == resource.data.proposedBy) ||
-                       // Recipient can accept/reject
-                       (resource.data.proposedTo == request.auth.uid &&
-                        request.resource.data.status in ['accepted', 'rejected', 'pending']) ||
-                       // Courier can update delivery status
+                       // REQUESTER can:
+                       // - Update draft exchanges (add medicines, set details)
+                       // - Transition: draft → pending (publish to other pharmacies)
+                       // - Transition: rejected → pending (re-open for new responders)
+                       (isExchangeRequester(resource.data) &&
+                        isPharmacist() &&
+                        exchangeImmutableFieldsUnchanged() &&
+                        (
+                          // Can update draft without status change
+                          (resource.data.status == 'draft' && request.resource.data.status == 'draft') ||
+                          // Can publish: draft → pending
+                          (resource.data.status == 'draft' && request.resource.data.status == 'pending') ||
+                          // Can re-open: rejected → pending
+                          (resource.data.status == 'rejected' && request.resource.data.status == 'pending')
+                        )) ||
+
+                       // REQUESTER can accept/reject a proposal:
+                       // - Only when proposedTo is already set (proposal received)
+                       // - Transition: pending → accepted (accept the proposal)
+                       // - Transition: pending → rejected (reject the proposal)
+                       // - Must preserve immutable fields including proposedTo
+                       (isExchangeRequester(resource.data) &&
+                        isPharmacist() &&
+                        resource.data.status == 'pending' &&
+                        // A proposal must exist (proposedTo is set)
+                        resource.data.proposedTo != null &&
+                        resource.data.proposedTo != '' &&
+                        exchangeImmutableFieldsUnchanged() &&
+                        // Cannot change proposedTo when accepting/rejecting
+                        request.resource.data.proposedTo == resource.data.proposedTo &&
+                        request.resource.data.status in ['accepted', 'rejected']) ||
+
+                       // RESPONDER can submit a proposal:
+                       // - Set proposedTo to themselves (claiming the exchange)
+                       // - Add offeredMedicines
+                       // - Status remains pending until requester accepts
+                       // - Must preserve immutable fields
+                       // - CANNOT be the requester (no self-proposal)
+                       (isPharmacist() &&
+                        resource.data.status == 'pending' &&
+                        exchangeImmutableFieldsUnchanged() &&
+                        // Cannot propose on own exchange
+                        resource.data.proposedBy != request.auth.uid &&
+                        // Status must stay pending (requester decides)
+                        request.resource.data.status == 'pending' &&
+                        // Responder sets themselves as proposedTo
+                        request.resource.data.proposedTo == request.auth.uid &&
+                        // proposedTo must be empty before (first proposal wins)
+                        (resource.data.proposedTo == null || resource.data.proposedTo == '')) ||
+
+                       // COURIER can:
+                       // - Transition: accepted → in_transit (pickup confirmed)
+                       // - Transition: in_transit → completed (delivery confirmed)
+                       // - Must be the assigned courier
+                       // - Must preserve immutable fields
                        (isCourier() &&
                         resource.data.courierId == request.auth.uid &&
+                        exchangeImmutableFieldsUnchanged() &&
+                        isValidExchangeTransition(resource.data.status, request.resource.data.status) &&
                         request.resource.data.status in ['in_transit', 'completed']) ||
-                       // Admin can update any exchange
+
+                       // ADMIN can update any exchange (for support/fixes)
+                       // NOTE: Admin is the only role that CAN change immutable fields if needed
                        isAdmin()
                      );
 
-      // Only proposer can delete draft exchanges
-      // Admins can delete any
+      // DELETE RULES:
+      // - Only requester can delete their own draft exchanges
+      // - Admins can delete any exchange
       allow delete: if (isPharmacist() &&
-                        resource.data.proposedBy == request.auth.uid &&
+                        isExchangeRequester(resource.data) &&
                         resource.data.status == 'draft') ||
                        isAdmin();
     }
@@ -238,24 +391,63 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/exchanges/$(resource.data.exchangeId));
       }
 
+      // Get parent exchange for create (uses request data since resource doesn't exist yet)
+      function getParentExchangeForCreate() {
+        return get(/databases/$(database)/documents/exchanges/$(request.resource.data.exchangeId));
+      }
+
+      // Helper to check if user can access proposals for an exchange
+      // For broadcast exchanges (proposedTo empty), allow same-city pharmacists to read
+      function canAccessExchangeProposals() {
+        let exchange = getParentExchange();
+        // Original requester can always read
+        return exchange.data.proposedBy == request.auth.uid ||
+               // Named responder can read
+               exchange.data.proposedTo == request.auth.uid ||
+               // Proposal author can read their own
+               resource.data.proposedBy == request.auth.uid ||
+               // For broadcast exchanges: same-city pharmacists can read while pending
+               (isPharmacist() &&
+                exchange.data.status == 'pending' &&
+                (exchange.data.proposedTo == null || exchange.data.proposedTo == '') &&
+                exchange.data.location != null &&
+                exchange.data.location.cityId == getPharmacyCityId());
+      }
+
       // Both parties involved in the exchange can read proposals
+      // For broadcast exchanges, same-city pharmacists can also read
       allow read: if isAuthenticated() && (
-                     getParentExchange().data.proposedBy == request.auth.uid ||
-                     getParentExchange().data.proposedTo == request.auth.uid ||
+                     canAccessExchangeProposals() ||
                      isAdmin()
                    );
 
-      // Only parties in the exchange can create proposals
+      // CREATE RULES for proposals:
+      // - Must be a pharmacist
+      // - Must be the proposal author
+      // - Must reference a valid, pending exchange
+      // - Exchange must be in the same city as the proposer
+      // - Cannot create proposal for own exchange (can't propose to yourself)
       allow create: if isPharmacist() &&
-                       request.resource.data.proposedBy == request.auth.uid;
+                       request.resource.data.proposedBy == request.auth.uid &&
+                       request.resource.data.status == 'pending' &&
+                       // Must reference a valid exchange
+                       request.resource.data.exchangeId != null &&
+                       // Verify the exchange exists and is pending
+                       getParentExchangeForCreate().data.status == 'pending' &&
+                       // Cannot create proposal for your own exchange
+                       getParentExchangeForCreate().data.proposedBy != request.auth.uid &&
+                       // Exchange must be in the proposer's city
+                       getParentExchangeForCreate().data.location != null &&
+                       getParentExchangeForCreate().data.location.cityId == getPharmacyCityId();
 
       // Only parties can update proposal status
+      // Exchange requester (to accept/reject) or proposal author (to withdraw)
       allow update: if isAuthenticated() && (
                        getParentExchange().data.proposedBy == request.auth.uid ||
-                       getParentExchange().data.proposedTo == request.auth.uid
+                       resource.data.proposedBy == request.auth.uid
                      );
 
-      // Only proposer can delete their proposal
+      // Only proposal author can delete their proposal
       allow delete: if isPharmacist() &&
                        resource.data.proposedBy == request.auth.uid;
     }
@@ -289,81 +481,155 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Users collection (unified user profiles)
-    match /users/{userId} {
-      // Users can read their own profile
-      // Admins can read all profiles
-      // Pharmacists can read other users for exchange purposes
-      allow read: if isOwner(userId) || isAdmin() || isPharmacist();
+    // ============================================
+    // WALLET & FINANCIAL COLLECTIONS
+    // ============================================
+    // NOTE: App uses 'wallets' and 'ledger' collections (wallet-firebase.service.ts)
+    // NOT 'transactions' or 'payouts' - those are handled via ledger and courier_payouts
 
-      // Users can update their own profile (except role and createdAt)
-      allow update: if isOwner(userId) &&
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'createdAt']);
-
-      // Admin can update courier's operatingCities
-      allow update: if isAdmin();
-
-      // Admins can create profiles
-      allow create: if isAdmin() || isOwner(userId);
-
-      // Only admins can delete profiles
+    // Wallets - Users can read and manage their own wallet
+    match /wallets/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      // Users can create their own wallet
+      allow create: if isOwner(userId) &&
+                       request.resource.data.balance >= 0;
+      // Users can update their wallet (for top-ups, payments)
+      // Balance cannot go negative
+      allow update: if (isOwner(userId) && request.resource.data.balance >= 0) ||
+                       isAdmin();
       allow delete: if isAdmin();
     }
 
-    // ============================================
-    // READ-ONLY COLLECTIONS (managed by backend)
-    // ============================================
-
-    // Wallets - Read only for users, managed by Cloud Functions
-    match /wallets/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if false; // Only Cloud Functions can write
-    }
-
-    // Ledger - Read only transaction history
+    // Ledger - Transaction history for wallets
+    // Users can read their own transactions via queries
     match /ledger/{transactionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      // Allow users to create their own transaction records (for demo purposes)
+      // In production, this should be Cloud Functions only
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Immutable - audit trail
     }
 
-    // Subscriptions - Read only subscription status
+    // ============================================
+    // SUBSCRIPTION COLLECTIONS
+    // ============================================
+
+    // Subscriptions - Users can read and manage their own subscriptions
     match /subscriptions/{subscriptionId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false; // Only Cloud Functions can write
+      // Allow users to create their own subscription (for demo purposes)
+      // In production, this should be Cloud Functions only
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      // Allow users to update their own subscription status
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+                       isAdmin();
+      allow delete: if false;
     }
 
-    // Deliveries - Couriers can read/update their assigned deliveries
+    // ============================================
+    // DELIVERIES - With Payment Gate
+    // ============================================
+
     match /deliveries/{deliveryId} {
-      // Users can read deliveries they are involved in
+      // READ RULES:
+      // - Involved pharmacies can always read their deliveries
+      // - Assigned courier can read their delivery
+      // - CRITICAL: Couriers can ONLY see pending deliveries if:
+      //   1. Payment is complete (both pharmacies paid)
+      //   2. Delivery is in their operating city
+      // - Admins can read all
       allow read: if isAuthenticated() && (
-                     resource.data.courierId == request.auth.uid ||
+                     // Involved pharmacies can always read
                      resource.data.fromPharmacyId == request.auth.uid ||
                      resource.data.toPharmacyId == request.auth.uid ||
+                     // Assigned courier can read
+                     resource.data.courierId == request.auth.uid ||
+                     // Admin can read all
                      isAdmin()
                    );
-      // SECURITY FIX: Couriers can only read pending deliveries in their operating cities
-      // This prevents couriers from seeing delivery addresses outside their assigned areas
+
+      // CRITICAL: Couriers browsing available deliveries
+      // Only show deliveries where BOTH pharmacies have paid
       allow read: if isCourier() &&
                      resource.data.status == 'pending' &&
+                     // PAYMENT GATE: Both pharmacies must have paid
+                     isDeliveryPaymentComplete(resource.data) &&
+                     // City restriction
                      resource.data.location != null &&
                      resource.data.location.cityId != null &&
                      courierOperatesInCity(resource.data.location.cityId);
-      // Couriers can update delivery status for their assigned deliveries
-      allow update: if isCourier() &&
-                       resource.data.courierId == request.auth.uid &&
-                       request.resource.data.status in ['picked_up', 'in_transit', 'delivered'];
-      // Couriers can accept pending deliveries only in their operating cities
-      allow update: if isCourier() &&
-                       resource.data.status == 'pending' &&
-                       request.resource.data.courierId == request.auth.uid &&
-                       request.resource.data.status == 'assigned' &&
-                       resource.data.location != null &&
-                       resource.data.location.cityId != null &&
-                       courierOperatesInCity(resource.data.location.cityId);
-      allow create, delete: if false; // Only Cloud Functions
+
+      // UPDATE RULES with state machine and payment enforcement:
+      allow update: if isAuthenticated() && (
+                       // COURIER accepting delivery:
+                       // - Can only accept if payment is complete
+                       // - Must be in their operating city
+                       // - Transition: pending → assigned
+                       (isCourier() &&
+                        resource.data.status == 'pending' &&
+                        request.resource.data.status == 'assigned' &&
+                        request.resource.data.courierId == request.auth.uid &&
+                        // PAYMENT GATE
+                        isDeliveryPaymentComplete(resource.data) &&
+                        // City restriction
+                        resource.data.location != null &&
+                        courierOperatesInCity(resource.data.location.cityId)) ||
+
+                       // COURIER updating assigned delivery:
+                       // - Must be the assigned courier
+                       // - Valid transitions only: assigned → picked_up → in_transit → delivered/failed
+                       (isCourier() &&
+                        resource.data.courierId == request.auth.uid &&
+                        isValidDeliveryTransition(resource.data.status, request.resource.data.status) &&
+                        request.resource.data.status in ['picked_up', 'in_transit', 'delivered', 'failed']) ||
+
+                       // PHARMACY cancelling delivery:
+                       // - Only before pickup (pending or assigned status)
+                       // - Only involved pharmacies can cancel
+                       (isPharmacist() &&
+                        (resource.data.fromPharmacyId == request.auth.uid ||
+                         resource.data.toPharmacyId == request.auth.uid) &&
+                        resource.data.status in ['pending', 'assigned'] &&
+                        request.resource.data.status == 'cancelled') ||
+
+                       // PHARMACY updating payment fields ONLY:
+                       // - Can only update their own payment record (fromPharmacyPayment or toPharmacyPayment)
+                       // - Can update paymentStatus and updatedAt
+                       // - Uses affectedKeys().hasOnly() to prevent modifying any other fields
+                       (isPharmacist() &&
+                        resource.data.status in ['pending', 'assigned'] &&
+                        // From pharmacy can only update their payment fields
+                        ((resource.data.fromPharmacyId == request.auth.uid &&
+                          // STRICT: Only these fields can be modified
+                          request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['fromPharmacyPayment', 'paymentStatus', 'updatedAt']) &&
+                          request.resource.data.fromPharmacyPayment != null &&
+                          request.resource.data.fromPharmacyPayment.status in ['pending', 'paid']) ||
+                         // To pharmacy can only update their payment fields
+                         (resource.data.toPharmacyId == request.auth.uid &&
+                          // STRICT: Only these fields can be modified
+                          request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['toPharmacyPayment', 'paymentStatus', 'updatedAt']) &&
+                          request.resource.data.toPharmacyPayment != null &&
+                          request.resource.data.toPharmacyPayment.status in ['pending', 'paid']))) ||
+
+                       // ADMIN can update any delivery
+                       isAdmin()
+                     );
+
+      // CREATE/DELETE: Only via Cloud Functions or Admin
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
     }
+
+    // NOTE: delivery_payments collection is NOT used by the app.
+    // Payment data is stored directly in the deliveries document
+    // (fromPharmacyPayment, toPharmacyPayment, paymentStatus fields).
+    // See: delivery-payment-firebase.service.ts
 
     // Subscription Plans - Read by all, managed by admins
     match /subscription_plans/{planId} {
@@ -373,14 +639,34 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // ============================================
+    // REQUEST COLLECTIONS (User creates, Admin processes)
+    // ============================================
+
     // Top-up Requests - Users can create and read their own requests
     match /topup_requests/{requestId} {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() &&
                        request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.amount > 0;
-      allow update, delete: if false; // Only Cloud Functions
+                       request.resource.data.amount > 0 &&
+                       request.resource.data.status == 'pending';
+      // Only admins can update request status (approve/reject)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Withdraw Requests - Users can create and read their own requests
+    match /withdraw_requests/{requestId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.amount > 0 &&
+                       request.resource.data.status == 'pending';
+      // Only admins can update request status (approve/reject)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Subscription Requests - Users can create and read their own requests
@@ -388,8 +674,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() &&
                      (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() &&
-                       request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false; // Only Cloud Functions
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'pending';
+      // Only admins can update request status (approve/reject)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // ============================================
@@ -424,14 +713,15 @@ service cloud.firestore {
       // Courier can read their own wallet
       allow read: if isOwner(courierId) || isAdmin();
 
-      // Courier can create their own wallet (initial creation only)
-      // Wallet is created with zero balances when courier first accesses it
+      // Courier can create their own wallet
+      // Wallet can be created with initial earnings (from first delivery)
+      // or with zero balances when courier first accesses it
       allow create: if isOwner(courierId) &&
                        isCourier() &&
                        request.resource.data.courierId == courierId &&
-                       request.resource.data.availableBalance == 0 &&
-                       request.resource.data.pendingBalance == 0 &&
-                       request.resource.data.totalEarned == 0 &&
+                       request.resource.data.availableBalance >= 0 &&
+                       request.resource.data.pendingBalance >= 0 &&
+                       request.resource.data.totalEarned >= 0 &&
                        request.resource.data.totalWithdrawn == 0;
 
       // Couriers can update their own wallet for:

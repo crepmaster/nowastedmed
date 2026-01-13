@@ -22,7 +22,11 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Install reviewer dependencies
+        run: npm install
+        working-directory: tools/nativescript-reviewer
 
       - name: Run Phase 1 checks
         run: npm run reviewer:phase1

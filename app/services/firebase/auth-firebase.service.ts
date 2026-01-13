@@ -5,6 +5,7 @@ import '@nativescript/firebase-firestore'; // Augments firebase() with firestore
 import { Observable } from '@nativescript/core';
 import { FirestoreService } from './firestore.service';
 import type { User, UserRole } from '../../models/user.model';
+import { getProvidersByRegion } from '../../models/wallet.model';
 
 /**
  * Firebase Authentication Service
@@ -68,6 +69,9 @@ export class AuthFirebaseService extends Observable {
         isActive: true,
         createdAt: new Date(),
         location: userData.location || null,
+        // Mobile money provider for wallet operations
+        mobileMoneyProvider: userData.mobileMoneyProvider || null,
+        mobileMoneyProviderName: userData.mobileMoneyProviderName || null,
         ...(userRole === 'pharmacist' && {
           pharmacyName: userData.pharmacyName || '',
           address: userData.address || '',
@@ -77,8 +81,10 @@ export class AuthFirebaseService extends Observable {
           vehicleType: userData.vehicleType || '',
           operatingCities: userData.operatingCities || []
         }),
-        hasActiveSubscription: false,
-        subscriptionStatus: 'pendingPayment'
+        hasActiveSubscription: userData.hasActiveSubscription ?? false,
+        subscriptionStatus: userData.subscriptionStatus || 'pendingPayment',
+        subscriptionPlanId: userData.subscriptionPlanId || null,
+        subscriptionPlanType: userData.subscriptionPlanType || null
       };
 
       await firebase().firestore()
@@ -175,6 +181,8 @@ export class AuthFirebaseService extends Observable {
       let userData = await this.firestoreService.getDocument('pharmacies', uid);
       if (userData) {
         this.currentUser = { ...userData, role: 'pharmacist' as UserRole };
+        // Migrate old users with missing fields
+        await this.migrateUserIfNeeded(uid, 'pharmacies', userData);
         this.notifyPropertyChange('currentUser', this.currentUser);
         return;
       }
@@ -182,6 +190,8 @@ export class AuthFirebaseService extends Observable {
       userData = await this.firestoreService.getDocument('couriers', uid);
       if (userData) {
         this.currentUser = { ...userData, role: 'courier' as UserRole };
+        // Migrate old users with missing fields
+        await this.migrateUserIfNeeded(uid, 'couriers', userData);
         this.notifyPropertyChange('currentUser', this.currentUser);
         return;
       }
@@ -196,6 +206,61 @@ export class AuthFirebaseService extends Observable {
       console.error('❌ User profile not found');
     } catch (error) {
       console.error('❌ Error loading user profile:', error);
+    }
+  }
+
+  /**
+   * Migrate old users by adding default values for missing fields
+   * This runs on login for users registered before certain features were added
+   */
+  private async migrateUserIfNeeded(uid: string, collection: string, userData: any): Promise<void> {
+    const updates: Record<string, any> = {};
+
+    // Migration: Mobile Money Provider
+    // Default to first available provider for user's region
+    if (!userData.mobileMoneyProvider) {
+      const region = userData.location?.region || 'west_africa_xof';
+      const providers = getProvidersByRegion(region);
+      if (providers.length > 0) {
+        updates.mobileMoneyProvider = providers[0].id;
+        updates.mobileMoneyProviderName = providers[0].name;
+        console.log(`🔄 Migration: Setting default mobile money provider to ${providers[0].name}`);
+      }
+    }
+
+    // Migration: Subscription fields (for pharmacies only)
+    if (collection === 'pharmacies') {
+      if (!userData.subscriptionPlanId) {
+        updates.subscriptionPlanId = 'plan_free';
+        updates.subscriptionPlanType = 'free';
+        console.log('🔄 Migration: Setting default subscription plan to Free');
+      }
+      if (userData.subscriptionStatus === undefined) {
+        updates.subscriptionStatus = 'active';
+        console.log('🔄 Migration: Setting subscription status to active');
+      }
+      if (userData.hasActiveSubscription === undefined) {
+        updates.hasActiveSubscription = true;
+        console.log('🔄 Migration: Setting hasActiveSubscription to true');
+      }
+    }
+
+    // Apply migrations if any updates needed
+    if (Object.keys(updates).length > 0) {
+      try {
+        updates.migratedAt = new Date();
+        await firebase().firestore()
+          .collection(collection)
+          .doc(uid)
+          .update(updates);
+
+        // Update local user object with migrated values
+        this.currentUser = { ...this.currentUser, ...updates } as User;
+        console.log('✅ User migration completed');
+      } catch (error) {
+        console.error('❌ Migration error (non-blocking):', error);
+        // Non-blocking - user can still use the app
+      }
     }
   }
 
@@ -216,5 +281,44 @@ export class AuthFirebaseService extends Observable {
    */
   isAuthenticated(): boolean {
     return this.currentUser !== null;
+  }
+
+  /**
+   * Update current user's profile
+   * @param updates - Fields to update
+   */
+  async updateUserProfile(updates: Partial<User> & Record<string, any>): Promise<boolean> {
+    try {
+      if (!this.currentUser) {
+        console.error('❌ No user logged in');
+        return false;
+      }
+
+      const firebaseUser = this.auth.currentUser;
+      if (!firebaseUser) {
+        console.error('❌ No Firebase user');
+        return false;
+      }
+
+      const collectionName = this.getCollectionName(this.currentUser.role);
+
+      await firebase().firestore()
+        .collection(collectionName)
+        .doc(firebaseUser.uid)
+        .update({
+          ...updates,
+          updatedAt: new Date()
+        });
+
+      // Update local user object
+      this.currentUser = { ...this.currentUser, ...updates };
+      this.notifyPropertyChange('currentUser', this.currentUser);
+
+      console.log('✅ User profile updated');
+      return true;
+    } catch (error: any) {
+      console.error('❌ Update profile error:', error.message);
+      return false;
+    }
   }
 }

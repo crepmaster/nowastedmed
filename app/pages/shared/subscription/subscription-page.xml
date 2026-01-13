@@ -94,7 +94,7 @@
 
                             <!-- Action Button -->
                             <Button text="{{ buttonText }}"
-                                    tap="{{ $parents['Page'].bindingContext.onSelectPlan }}"
+                                    tap="onPlanTap"
                                     planId="{{ id }}"
                                     class="{{ isCurrentPlan ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white' }} mt-4 rounded-lg"
                                     isEnabled="{{ !isCurrentPlan }}" />
