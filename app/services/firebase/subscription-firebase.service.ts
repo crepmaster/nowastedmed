@@ -173,8 +173,9 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
 
     /**
      * Request subscription change (creates a pending request for backend to process)
+     * Implements ISubscriptionService.requestSubscription
      */
-    async requestSubscription(userId: string, planId: string, paymentMethod?: string): Promise<string> {
+    async requestSubscription(userId: string, planId: string, paymentMethod: string): Promise<void> {
         try {
             const docRef = await this.firestore
                 .collection(this.SUBSCRIPTION_REQUESTS_COLLECTION)
@@ -188,7 +189,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 });
 
             console.log('Subscription request created:', docRef.id);
-            return docRef.id;
         } catch (error) {
             console.error('Error creating subscription request:', error);
             throw error;
@@ -198,13 +198,14 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
     /**
      * Activate a subscription (for demo - creates subscription document)
      * In production, this would be handled by Cloud Functions after payment verification
+     * Implements ISubscriptionService.activateSubscription
      */
     async activateSubscription(
         userId: string,
         planId: string,
         planType: PlanType,
         paymentMethod: string
-    ): Promise<string> {
+    ): Promise<void> {
         try {
             const now = new Date();
             const endDate = new Date();
@@ -229,7 +230,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 });
 
             console.log('Subscription activated:', docRef.id);
-            return docRef.id;
         } catch (error) {
             console.error('Error activating subscription:', error);
             throw error;
@@ -238,8 +238,9 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
 
     /**
      * Request subscription cancellation
+     * Implements ISubscriptionService.requestCancellation
      */
-    async requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<string> {
+    async requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<void> {
         try {
             const docRef = await this.firestore
                 .collection(this.SUBSCRIPTION_REQUESTS_COLLECTION)
@@ -254,7 +255,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 });
 
             console.log('Cancellation request created:', docRef.id);
-            return docRef.id;
         } catch (error) {
             console.error('Error creating cancellation request:', error);
             throw error;
@@ -328,6 +328,7 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 // Return snapshot from subscription record (canonical source)
                 return {
                     hasSubscription: true,
+                    subscriptionId: subWithPlan.id, // Firestore document ID for cancellation
                     planId: subWithPlan.planId,
                     planName: subWithPlan.plan.name,
                     planType: subWithPlan.planType,
@@ -407,6 +408,7 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
 
         return {
             hasSubscription: user.hasActiveSubscription === true,
+            subscriptionId: null, // No Firestore record - profile fallback
             planId: plan.id,
             planName: plan.name,
             planType: plan.type,
@@ -430,6 +432,7 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
         const freePlan = getFreePlan();
         return {
             hasSubscription: false,
+            subscriptionId: null,
             planId: freePlan.id,
             planName: freePlan.name,
             planType: freePlan.type,

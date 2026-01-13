@@ -1,6 +1,6 @@
 import { Observable, Dialogs } from '@nativescript/core';
 import { getSubscriptionService, ISubscriptionService } from '../../../services/subscription-factory.service';
-import { SubscriptionPlan, PlanLimits } from '../../../models/subscription.model';
+import { SubscriptionPlan, PlanLimits, PlanType } from '../../../models/subscription.model';
 import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { NavigationService } from '../../../services/navigation.service';
 
@@ -164,15 +164,13 @@ export class ChoosePlanViewModel extends Observable {
             const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
-            // Create subscription document (Firebase-only method)
-            if ('activateSubscription' in this.subscriptionService) {
-                await (this.subscriptionService as any).activateSubscription(
-                    currentUser.id,
-                    planId,
-                    planType,
-                    'free'
-                );
-            }
+            // Create subscription document
+            await this.subscriptionService.activateSubscription(
+                currentUser.id,
+                planId,
+                planType as PlanType,
+                'free'
+            );
 
             // Update user's subscription to free plan
             await this.authSession.updateUserProfile({
@@ -231,10 +229,8 @@ export class ChoosePlanViewModel extends Observable {
         }
 
         try {
-            // Create subscription request (Firebase-only method)
-            if ('requestSubscription' in this.subscriptionService) {
-                await (this.subscriptionService as any).requestSubscription(currentUser.id, plan.id, paymentMethod);
-            }
+            // Create subscription request
+            await this.subscriptionService.requestSubscription(currentUser.id, plan.id, paymentMethod);
 
             if (paymentMethod === 'invoice') {
                 // For invoice, update status to pending and proceed
@@ -253,15 +249,13 @@ export class ChoosePlanViewModel extends Observable {
                 });
             } else {
                 // For mobile money or wallet - auto-approve for demo
-                // Create subscription document (Firebase-only method)
-                if ('activateSubscription' in this.subscriptionService) {
-                    await (this.subscriptionService as any).activateSubscription(
-                        currentUser.id,
-                        plan.id,
-                        plan.type,
-                        paymentMethod
-                    );
-                }
+                // Create subscription document
+                await this.subscriptionService.activateSubscription(
+                    currentUser.id,
+                    plan.id,
+                    plan.type,
+                    paymentMethod
+                );
 
                 // Also update user profile
                 await this.authSession.updateUserProfile({

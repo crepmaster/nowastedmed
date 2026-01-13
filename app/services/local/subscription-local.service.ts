@@ -13,6 +13,7 @@ import {
     DEFAULT_PLANS,
     getPlansForLocation,
     getFreePlan,
+    PlanType,
 } from '../../models/subscription.model';
 import {
     ISubscriptionService,
@@ -75,6 +76,7 @@ export class SubscriptionLocalService implements ISubscriptionService {
 
         return {
             hasSubscription,
+            subscriptionId: null, // No Firestore record in local mode
             planId: plan.id,
             planName: plan.name,
             planType: plan.type,
@@ -146,6 +148,7 @@ export class SubscriptionLocalService implements ISubscriptionService {
         const freePlan = getFreePlan();
         return {
             hasSubscription: false,
+            subscriptionId: null,
             planId: freePlan.id,
             planName: freePlan.name,
             planType: freePlan.type,
@@ -160,5 +163,35 @@ export class SubscriptionLocalService implements ISubscriptionService {
                 activeExchanges: 0,
             },
         };
+    }
+
+    // =========================================================================
+    // Write methods (no-op in local/demo mode)
+    // These exist to satisfy ISubscriptionService interface.
+    // In local mode, profile updates are handled by AuthSessionService directly.
+    // =========================================================================
+
+    /**
+     * Request subscription - no-op in local mode
+     * Profile update is handled by ViewModel via authSession.updateUserProfile()
+     */
+    async requestSubscription(userId: string, planId: string, paymentMethod: string): Promise<void> {
+        console.warn('[SubscriptionLocalService] requestSubscription called in demo mode - no-op (profile update handled by ViewModel)');
+    }
+
+    /**
+     * Activate subscription - no-op in local mode
+     * Profile update is handled by ViewModel via authSession.updateUserProfile()
+     */
+    async activateSubscription(userId: string, planId: string, planType: PlanType, paymentMethod: string): Promise<void> {
+        console.warn('[SubscriptionLocalService] activateSubscription called in demo mode - no-op (profile update handled by ViewModel)');
+    }
+
+    /**
+     * Request cancellation - no-op in local mode
+     * In demo mode, cancellation is not supported (no Firestore record to cancel)
+     */
+    async requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<void> {
+        console.warn('[SubscriptionLocalService] requestCancellation called in demo mode - no-op (no subscription record exists)');
     }
 }

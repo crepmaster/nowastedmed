@@ -235,10 +235,8 @@ export class SubscriptionViewModel extends Observable {
                 }
             }
 
-            // Create subscription request record (Firebase-only method)
-            if ('requestSubscription' in this.subscriptionService) {
-                await (this.subscriptionService as any).requestSubscription(currentUser.id, planId, paymentMethod);
-            }
+            // Create subscription request record
+            await this.subscriptionService.requestSubscription(currentUser.id, planId, paymentMethod);
 
             if (paymentMethod === 'invoice') {
                 // For invoice, set status to pending - requires admin approval
@@ -256,15 +254,13 @@ export class SubscriptionViewModel extends Observable {
                 });
             } else {
                 // For mobile money or wallet - auto-approve for demo
-                // Create subscription document (Firebase-only method)
-                if ('activateSubscription' in this.subscriptionService) {
-                    await (this.subscriptionService as any).activateSubscription(
-                        currentUser.id,
-                        planId,
-                        plan.type,
-                        paymentMethod
-                    );
-                }
+                // Create subscription document
+                await this.subscriptionService.activateSubscription(
+                    currentUser.id,
+                    planId,
+                    plan.type,
+                    paymentMethod
+                );
 
                 // Also update user profile
                 await this.authSession.updateUserProfile({
@@ -320,6 +316,21 @@ export class SubscriptionViewModel extends Observable {
      * Cancel subscription
      */
     private async cancelSubscription(): Promise<void> {
+        // Check if we have a subscription record (required for cancellation)
+        if (!this.currentSnapshot?.hasSubscription) {
+            return;
+        }
+
+        // Check if subscriptionId exists (required for Firebase cancellation)
+        if (!this.currentSnapshot.subscriptionId) {
+            await Dialogs.alert({
+                title: 'Cannot Cancel',
+                message: 'Subscription cancellation is not available in demo mode.',
+                okButtonText: 'OK',
+            });
+            return;
+        }
+
         const confirmed = await Dialogs.confirm({
             title: 'Cancel Subscription',
             message: 'Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.',
@@ -327,7 +338,7 @@ export class SubscriptionViewModel extends Observable {
             cancelButtonText: 'Keep Subscription',
         });
 
-        if (confirmed && this.currentSnapshot?.hasSubscription) {
+        if (confirmed) {
             try {
                 const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
@@ -340,14 +351,12 @@ export class SubscriptionViewModel extends Observable {
                     cancelButtonText: 'Skip',
                 });
 
-                // Request cancellation (Firebase-only method)
-                if ('requestCancellation' in this.subscriptionService) {
-                    await (this.subscriptionService as any).requestCancellation(
-                        currentUser.id,
-                        this.currentSnapshot.planId,
-                        reasonResult.text || undefined
-                    );
-                }
+                // Request cancellation with correct subscriptionId
+                await this.subscriptionService.requestCancellation(
+                    currentUser.id,
+                    this.currentSnapshot.subscriptionId,
+                    reasonResult.text || undefined
+                );
 
                 await Dialogs.alert({
                     title: 'Cancellation Requested',

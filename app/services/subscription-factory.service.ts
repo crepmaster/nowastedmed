@@ -21,6 +21,8 @@ import {
  */
 export interface SubscriptionSnapshot {
     hasSubscription: boolean;
+    /** Firestore subscription document ID (null if no record exists) */
+    subscriptionId: string | null;
     planId: string;
     planName: string;
     planType: PlanType;
@@ -56,6 +58,28 @@ export interface ISubscriptionService {
      * Check if user has an active subscription
      */
     hasActiveSubscription(userId: string): Promise<boolean>;
+
+    /**
+     * Request a subscription (creates pending request)
+     * Firebase: Creates request document for backend processing
+     * Local: No-op with warning (demo mode)
+     */
+    requestSubscription(userId: string, planId: string, paymentMethod: string): Promise<void>;
+
+    /**
+     * Activate a subscription immediately (for demo/free plans)
+     * Firebase: Creates subscription document
+     * Local: No-op with warning (demo mode)
+     */
+    activateSubscription(userId: string, planId: string, planType: PlanType, paymentMethod: string): Promise<void>;
+
+    /**
+     * Request subscription cancellation
+     * Firebase: Creates cancellation request
+     * Local: No-op with warning (demo mode)
+     * @param subscriptionId - The Firestore subscription document ID (required for Firebase)
+     */
+    requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<void>;
 }
 
 let subscriptionServiceInstance: ISubscriptionService | null = null;
