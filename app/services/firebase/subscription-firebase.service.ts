@@ -4,6 +4,8 @@
  * Handles subscription and plan operations with Firebase
  * Note: Subscription modifications should be done via Cloud Functions
  * for security. This service provides read access and initiates requests.
+ *
+ * Implements ISubscriptionService for use via subscription-factory.service.ts
  */
 
 import { firebase } from '@nativescript/firebase-core';
@@ -15,9 +17,13 @@ import {
     SubscriptionUsage,
     DEFAULT_PLANS,
     PlanType,
+    getFreePlan,
+    getPlansForLocation,
 } from '../../models/subscription.model';
+import { getAuthSessionService } from '../auth-session.service';
+import { ISubscriptionService, SubscriptionSnapshot } from '../subscription-factory.service';
 
-export class SubscriptionFirebaseService {
+export class SubscriptionFirebaseService implements ISubscriptionService {
     private static instance: SubscriptionFirebaseService;
     private firestore: any;
     private readonly SUBSCRIPTIONS_COLLECTION = 'subscriptions';
@@ -81,9 +87,10 @@ export class SubscriptionFirebaseService {
     }
 
     /**
-     * Get all available plans
+     * Get all available plans (ISubscriptionService)
+     * Optionally filtered by location
      */
-    async getPlans(): Promise<SubscriptionPlan[]> {
+    async getPlans(countryCode?: string, cityId?: string): Promise<SubscriptionPlan[]> {
         try {
             const snapshot = await this.firestore
                 .collection(this.PLANS_COLLECTION)
@@ -91,16 +98,28 @@ export class SubscriptionFirebaseService {
                 .orderBy('price', 'asc')
                 .get();
 
+            let plans: SubscriptionPlan[];
             if (snapshot.empty) {
                 // Return default plans if none exist in Firestore
-                return this.getDefaultPlans();
+                plans = this.getDefaultPlans();
+            } else {
+                plans = snapshot.docs.map((doc: any) => this.transformPlan(doc));
             }
 
-            return snapshot.docs.map((doc: any) => this.transformPlan(doc));
+            // Filter by location if provided
+            if (countryCode) {
+                return getPlansForLocation(plans, countryCode, cityId);
+            }
+
+            return plans;
         } catch (error) {
             console.error('Error getting plans:', error);
             // Return default plans on error
-            return this.getDefaultPlans();
+            const plans = this.getDefaultPlans();
+            if (countryCode) {
+                return getPlansForLocation(plans, countryCode, cityId);
+            }
+            return plans;
         }
     }
 
@@ -293,6 +312,138 @@ export class SubscriptionFirebaseService {
             console.error('Error getting subscription with plan:', error);
             throw error;
         }
+    }
+
+    /**
+     * Get normalized subscription snapshot for UI display (ISubscriptionService)
+     * Primary source: subscription collection record
+     * Fallback: user profile fields if subscription record missing
+     */
+    async getSubscriptionSnapshot(userId: string): Promise<SubscriptionSnapshot> {
+        try {
+            // Try to get subscription from Firestore collection first
+            const subWithPlan = await this.getSubscriptionWithPlan(userId);
+
+            if (subWithPlan) {
+                // Return snapshot from subscription record (canonical source)
+                return {
+                    hasSubscription: true,
+                    planId: subWithPlan.planId,
+                    planName: subWithPlan.plan.name,
+                    planType: subWithPlan.planType,
+                    status: subWithPlan.status,
+                    daysRemaining: subWithPlan.daysRemaining,
+                    startDate: subWithPlan.startDate instanceof Date
+                        ? subWithPlan.startDate
+                        : subWithPlan.startDate?.toDate?.() || null,
+                    endDate: subWithPlan.endDate instanceof Date
+                        ? subWithPlan.endDate
+                        : subWithPlan.endDate?.toDate?.() || null,
+                    autoRenew: subWithPlan.autoRenew,
+                    usageStats: subWithPlan.usageStats,
+                };
+            }
+
+            // Fallback: check user profile fields
+            return this.getSnapshotFromProfile(userId);
+        } catch (error) {
+            console.error('Error getting subscription snapshot:', error);
+            // Return fallback from profile on error
+            return this.getSnapshotFromProfile(userId);
+        }
+    }
+
+    /**
+     * Get subscription snapshot from user profile fields (fallback)
+     */
+    private async getSnapshotFromProfile(userId: string): Promise<SubscriptionSnapshot> {
+        const authSession = getAuthSessionService();
+        const user = authSession.currentUser;
+
+        // No user or ID mismatch - return empty snapshot
+        if (!user || user.id !== userId) {
+            return this.getEmptySnapshot();
+        }
+
+        // Check if user has subscription data in profile
+        if (!user.hasActiveSubscription && !user.subscriptionPlanId) {
+            return this.getEmptySnapshot();
+        }
+
+        // Get plan details
+        const planId = user.subscriptionPlanId || 'plan_free';
+        let plan: SubscriptionPlan | null = null;
+
+        try {
+            plan = await this.getPlan(planId);
+        } catch {
+            // Ignore - will use default
+        }
+
+        if (!plan) {
+            // Extract type from planId and get from defaults
+            const planType = planId.replace('plan_', '') as PlanType;
+            plan = await this.getPlanByType(planType) || getFreePlan();
+        }
+
+        // Calculate days remaining
+        let daysRemaining = 0;
+        let endDate: Date | null = null;
+        let startDate: Date | null = null;
+
+        if (user.subscriptionEndDate) {
+            endDate = user.subscriptionEndDate instanceof Date
+                ? user.subscriptionEndDate
+                : new Date(user.subscriptionEndDate);
+            const now = new Date();
+            daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+
+        if (user.subscriptionStartDate) {
+            startDate = user.subscriptionStartDate instanceof Date
+                ? user.subscriptionStartDate
+                : new Date(user.subscriptionStartDate);
+        }
+
+        return {
+            hasSubscription: user.hasActiveSubscription === true,
+            planId: plan.id,
+            planName: plan.name,
+            planType: plan.type,
+            status: (user.subscriptionStatus as any) || 'inactive',
+            daysRemaining,
+            startDate,
+            endDate,
+            autoRenew: false,
+            usageStats: {
+                exchangesThisMonth: 0,
+                medicinesInInventory: 0,
+                activeExchanges: 0,
+            },
+        };
+    }
+
+    /**
+     * Return empty subscription snapshot (no subscription)
+     */
+    private getEmptySnapshot(): SubscriptionSnapshot {
+        const freePlan = getFreePlan();
+        return {
+            hasSubscription: false,
+            planId: freePlan.id,
+            planName: freePlan.name,
+            planType: freePlan.type,
+            status: 'inactive',
+            daysRemaining: 0,
+            startDate: null,
+            endDate: null,
+            autoRenew: false,
+            usageStats: {
+                exchangesThisMonth: 0,
+                medicinesInInventory: 0,
+                activeExchanges: 0,
+            },
+        };
     }
 
     /**

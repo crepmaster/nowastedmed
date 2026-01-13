@@ -1,6 +1,6 @@
 import { Observable, Dialogs } from '@nativescript/core';
-import { SubscriptionFirebaseService } from '../../../services/firebase/subscription-firebase.service';
-import { SubscriptionPlan, SubscriptionWithPlan, PlanLimits } from '../../../models/subscription.model';
+import { getSubscriptionService, ISubscriptionService, SubscriptionSnapshot } from '../../../services/subscription-factory.service';
+import { SubscriptionPlan, PlanLimits, PlanType } from '../../../models/subscription.model';
 import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { NavigationService } from '../../../services/navigation.service';
 
@@ -11,11 +11,11 @@ interface PlanDisplay extends SubscriptionPlan {
 }
 
 export class SubscriptionViewModel extends Observable {
-    private subscriptionService: SubscriptionFirebaseService;
+    private subscriptionService: ISubscriptionService;
     private authSession: AuthSessionService;
     private navigationService: NavigationService;
     private unsubscribe: (() => void) | null = null;
-    private currentSubscription: SubscriptionWithPlan | null = null;
+    private currentSnapshot: SubscriptionSnapshot | null = null;
 
     // Subscription data
     private _hasSubscription: boolean = false;
@@ -30,7 +30,7 @@ export class SubscriptionViewModel extends Observable {
 
     constructor() {
         super();
-        this.subscriptionService = SubscriptionFirebaseService.getInstance();
+        this.subscriptionService = getSubscriptionService();
         this.authSession = getAuthSessionService();
         this.navigationService = NavigationService.getInstance();
         this.loadData();
@@ -110,7 +110,7 @@ export class SubscriptionViewModel extends Observable {
     }
 
     /**
-     * Load subscription and plans data
+     * Load subscription and plans data via getSubscriptionSnapshot()
      */
     private async loadData(): Promise<void> {
         try {
@@ -121,23 +121,23 @@ export class SubscriptionViewModel extends Observable {
                 return;
             }
 
-            // Load current subscription
-            this.currentSubscription = await this.subscriptionService.getSubscriptionWithPlan(currentUser.id);
+            // Load current subscription snapshot (reconciled from record + profile)
+            this.currentSnapshot = await this.subscriptionService.getSubscriptionSnapshot(currentUser.id);
 
-            if (this.currentSubscription) {
-                this.hasSubscription = true;
-                this.currentPlanName = this.currentSubscription.plan.name;
-                this.subscriptionStatus = this.currentSubscription.status;
-                this.daysRemaining = this.currentSubscription.daysRemaining;
-                this.usageExchanges = this.currentSubscription.usageStats.exchangesThisMonth;
-                this.usageMedicines = this.currentSubscription.usageStats.medicinesInInventory;
-                this.usageActive = this.currentSubscription.usageStats.activeExchanges;
-            } else {
-                this.hasSubscription = false;
-            }
+            this.hasSubscription = this.currentSnapshot.hasSubscription;
+            this.currentPlanName = this.currentSnapshot.planName;
+            this.subscriptionStatus = this.currentSnapshot.status;
+            this.daysRemaining = this.currentSnapshot.daysRemaining;
+            this.usageExchanges = this.currentSnapshot.usageStats.exchangesThisMonth;
+            this.usageMedicines = this.currentSnapshot.usageStats.medicinesInInventory;
+            this.usageActive = this.currentSnapshot.usageStats.activeExchanges;
 
-            // Load available plans
-            const allPlans = await this.subscriptionService.getPlans();
+            // Load available plans (filtered by user location if available)
+            const location = (currentUser as any).location;
+            const allPlans = await this.subscriptionService.getPlans(
+                location?.countryCode,
+                location?.cityId
+            );
             this.plans = allPlans.map(plan => this.formatPlanForDisplay(plan));
 
         } catch (error) {
@@ -151,7 +151,7 @@ export class SubscriptionViewModel extends Observable {
      * Format plan for display
      */
     private formatPlanForDisplay(plan: SubscriptionPlan): PlanDisplay {
-        const isCurrentPlan = this.currentSubscription?.planType === plan.type;
+        const isCurrentPlan = this.currentSnapshot?.planType === plan.type;
 
         return {
             ...plan,
@@ -235,8 +235,10 @@ export class SubscriptionViewModel extends Observable {
                 }
             }
 
-            // Create subscription request record
-            await this.subscriptionService.requestSubscription(currentUser.id, planId, paymentMethod);
+            // Create subscription request record (Firebase-only method)
+            if ('requestSubscription' in this.subscriptionService) {
+                await (this.subscriptionService as any).requestSubscription(currentUser.id, planId, paymentMethod);
+            }
 
             if (paymentMethod === 'invoice') {
                 // For invoice, set status to pending - requires admin approval
@@ -254,13 +256,15 @@ export class SubscriptionViewModel extends Observable {
                 });
             } else {
                 // For mobile money or wallet - auto-approve for demo
-                // Create subscription document in Firestore
-                await this.subscriptionService.activateSubscription(
-                    currentUser.id,
-                    planId,
-                    plan.type,
-                    paymentMethod
-                );
+                // Create subscription document (Firebase-only method)
+                if ('activateSubscription' in this.subscriptionService) {
+                    await (this.subscriptionService as any).activateSubscription(
+                        currentUser.id,
+                        planId,
+                        plan.type,
+                        paymentMethod
+                    );
+                }
 
                 // Also update user profile
                 await this.authSession.updateUserProfile({
@@ -323,7 +327,7 @@ export class SubscriptionViewModel extends Observable {
             cancelButtonText: 'Keep Subscription',
         });
 
-        if (confirmed && this.currentSubscription) {
+        if (confirmed && this.currentSnapshot?.hasSubscription) {
             try {
                 const currentUser = this.authSession.currentUser;
                 if (!currentUser) return;
@@ -336,11 +340,14 @@ export class SubscriptionViewModel extends Observable {
                     cancelButtonText: 'Skip',
                 });
 
-                await this.subscriptionService.requestCancellation(
-                    currentUser.id,
-                    this.currentSubscription.id,
-                    reasonResult.text || undefined
-                );
+                // Request cancellation (Firebase-only method)
+                if ('requestCancellation' in this.subscriptionService) {
+                    await (this.subscriptionService as any).requestCancellation(
+                        currentUser.id,
+                        this.currentSnapshot.planId,
+                        reasonResult.text || undefined
+                    );
+                }
 
                 await Dialogs.alert({
                     title: 'Cancellation Requested',

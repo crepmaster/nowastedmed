@@ -1,6 +1,6 @@
 import { Observable, Dialogs } from '@nativescript/core';
-import { SubscriptionFirebaseService } from '../../../services/firebase/subscription-firebase.service';
-import { SubscriptionPlan, PlanLimits, getPlansForLocation } from '../../../models/subscription.model';
+import { getSubscriptionService, ISubscriptionService } from '../../../services/subscription-factory.service';
+import { SubscriptionPlan, PlanLimits } from '../../../models/subscription.model';
 import { getAuthSessionService, AuthSessionService } from '../../../services/auth-session.service';
 import { NavigationService } from '../../../services/navigation.service';
 
@@ -11,7 +11,7 @@ interface PlanDisplay extends SubscriptionPlan {
 }
 
 export class ChoosePlanViewModel extends Observable {
-    private subscriptionService: SubscriptionFirebaseService;
+    private subscriptionService: ISubscriptionService;
     private authSession: AuthSessionService;
     private navigationService: NavigationService;
 
@@ -22,7 +22,7 @@ export class ChoosePlanViewModel extends Observable {
 
     constructor() {
         super();
-        this.subscriptionService = SubscriptionFirebaseService.getInstance();
+        this.subscriptionService = getSubscriptionService();
         this.authSession = getAuthSessionService();
         this.navigationService = NavigationService.getInstance();
         this.loadPlans();
@@ -69,25 +69,16 @@ export class ChoosePlanViewModel extends Observable {
             this.isLoading = true;
             const currentUser = this.authSession.currentUser;
 
-            // Get all plans
-            const allPlans = await this.subscriptionService.getPlans();
+            // Get plans filtered by user's location (service handles filtering)
+            const location = currentUser ? (currentUser as any).location : null;
+            let applicablePlans = await this.subscriptionService.getPlans(
+                location?.countryCode,
+                location?.cityId
+            );
 
-            // Filter by user's location if available
-            let applicablePlans = allPlans;
-            if (currentUser) {
-                const location = (currentUser as any).location;
-                if (location?.countryCode) {
-                    applicablePlans = getPlansForLocation(
-                        allPlans,
-                        location.countryCode,
-                        location.cityId
-                    );
-                }
-            }
-
-            // If no plans found for location, use all active plans
+            // If no plans found for location, get all plans
             if (applicablePlans.length === 0) {
-                applicablePlans = allPlans.filter(p => p.isActive);
+                applicablePlans = await this.subscriptionService.getPlans();
             }
 
             // Check if there's a free plan
@@ -173,13 +164,15 @@ export class ChoosePlanViewModel extends Observable {
             const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
-            // Create subscription document in Firestore
-            await this.subscriptionService.activateSubscription(
-                currentUser.id,
-                planId,
-                planType as any,
-                'free'
-            );
+            // Create subscription document (Firebase-only method)
+            if ('activateSubscription' in this.subscriptionService) {
+                await (this.subscriptionService as any).activateSubscription(
+                    currentUser.id,
+                    planId,
+                    planType,
+                    'free'
+                );
+            }
 
             // Update user's subscription to free plan
             await this.authSession.updateUserProfile({
@@ -238,8 +231,10 @@ export class ChoosePlanViewModel extends Observable {
         }
 
         try {
-            // Create subscription request
-            await this.subscriptionService.requestSubscription(currentUser.id, plan.id, paymentMethod);
+            // Create subscription request (Firebase-only method)
+            if ('requestSubscription' in this.subscriptionService) {
+                await (this.subscriptionService as any).requestSubscription(currentUser.id, plan.id, paymentMethod);
+            }
 
             if (paymentMethod === 'invoice') {
                 // For invoice, update status to pending and proceed
@@ -258,13 +253,15 @@ export class ChoosePlanViewModel extends Observable {
                 });
             } else {
                 // For mobile money or wallet - auto-approve for demo
-                // Create subscription document in Firestore
-                await this.subscriptionService.activateSubscription(
-                    currentUser.id,
-                    plan.id,
-                    plan.type,
-                    paymentMethod
-                );
+                // Create subscription document (Firebase-only method)
+                if ('activateSubscription' in this.subscriptionService) {
+                    await (this.subscriptionService as any).activateSubscription(
+                        currentUser.id,
+                        plan.id,
+                        plan.type,
+                        paymentMethod
+                    );
+                }
 
                 // Also update user profile
                 await this.authSession.updateUserProfile({
