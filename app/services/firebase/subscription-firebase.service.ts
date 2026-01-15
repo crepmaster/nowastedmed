@@ -187,8 +187,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 });
-
-            console.log('Subscription request created:', docRef.id);
         } catch (error) {
             console.error('Error creating subscription request:', error);
             throw error;
@@ -228,8 +226,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                     createdAt: now,
                     updatedAt: now,
                 });
-
-            console.log('Subscription activated:', docRef.id);
         } catch (error) {
             console.error('Error activating subscription:', error);
             throw error;
@@ -253,8 +249,6 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 });
-
-            console.log('Cancellation request created:', docRef.id);
         } catch (error) {
             console.error('Error creating cancellation request:', error);
             throw error;
