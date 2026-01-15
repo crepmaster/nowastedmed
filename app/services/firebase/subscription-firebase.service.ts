@@ -21,7 +21,7 @@ import {
     getPlansForLocation,
 } from '../../models/subscription.model';
 import { getAuthSessionService } from '../auth-session.service';
-import { ISubscriptionService, SubscriptionSnapshot } from '../subscription-factory.service';
+import { ISubscriptionService, SubscriptionSnapshot, normalizeProfileStatus } from '../subscription-factory.service';
 
 export class SubscriptionFirebaseService implements ISubscriptionService {
     private static instance: SubscriptionFirebaseService;
@@ -159,10 +159,10 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 return this.transformPlan(snapshot.docs[0]);
             }
 
-            // Return from defaults
+            // Return from defaults with plan_<type> ID scheme per R2
             const defaultPlan = DEFAULT_PLANS.find(p => p.type === type);
             if (defaultPlan) {
-                return { id: type, ...defaultPlan, createdAt: new Date() };
+                return { id: `plan_${type}`, ...defaultPlan, createdAt: new Date() };
             }
             return null;
         } catch (error) {
@@ -406,13 +406,25 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 : new Date(user.subscriptionStartDate);
         }
 
+        // Normalize profile status to valid SubscriptionStatus (handles 'none', 'pendingPayment', etc.)
+        let profileStatus = normalizeProfileStatus(user.subscriptionStatus);
+        const isFreePlan = plan.type === 'free' || planId === 'plan_free';
+
+        // R4: Never return status 'active' without a subscriptionId
+        // Exception (R8): Free plan is profile-only, so allow 'active' for free tier
+        if (profileStatus === 'active' && !isFreePlan) {
+            // Downgrade to 'pending' - active requires subscription record (except free plan)
+            profileStatus = 'pending';
+        }
+
         return {
-            hasSubscription: user.hasActiveSubscription === true,
+            // R3/R8: hasSubscription is false (no Firestore record), but free plan can be 'active'
+            hasSubscription: false,
             subscriptionId: null, // No Firestore record - profile fallback
             planId: plan.id,
             planName: plan.name,
             planType: plan.type,
-            status: (user.subscriptionStatus as any) || 'inactive',
+            status: profileStatus,
             daysRemaining,
             startDate,
             endDate,
@@ -447,6 +459,39 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
                 activeExchanges: 0,
             },
         };
+    }
+
+    /**
+     * R5: Subscribe to realtime subscription updates
+     * Uses Firestore onSnapshot for live updates
+     * @returns Unsubscribe function to call on cleanup
+     */
+    subscribeToSubscriptionUpdates(
+        userId: string,
+        callback: (snapshot: SubscriptionSnapshot) => void
+    ): () => void {
+        return this.firestore
+            .collection(this.SUBSCRIPTIONS_COLLECTION)
+            .where('userId', '==', userId)
+            .where('status', 'in', ['active', 'pending'])
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .onSnapshot(
+                async (_querySnapshot: any) => {
+                    try {
+                        // Get full snapshot via existing method to ensure consistency
+                        const snapshot = await this.getSubscriptionSnapshot(userId);
+                        callback(snapshot);
+                    } catch (error) {
+                        console.error('Error in subscription snapshot listener:', error);
+                        callback(this.getEmptySnapshot());
+                    }
+                },
+                (error: any) => {
+                    console.error('Subscription listener error:', error);
+                    callback(this.getEmptySnapshot());
+                }
+            );
     }
 
     /**
@@ -521,10 +566,11 @@ export class SubscriptionFirebaseService implements ISubscriptionService {
 
     /**
      * Get default plans (when Firestore doesn't have plans configured)
+     * Uses plan_<type> ID scheme per R2
      */
     private getDefaultPlans(): SubscriptionPlan[] {
-        return DEFAULT_PLANS.map((plan, index) => ({
-            id: plan.type,
+        return DEFAULT_PLANS.map((plan) => ({
+            id: `plan_${plan.type}`,
             ...plan,
             createdAt: new Date(),
         }));

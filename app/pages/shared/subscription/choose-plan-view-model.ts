@@ -15,6 +15,9 @@ export class ChoosePlanViewModel extends Observable {
     private authSession: AuthSessionService;
     private navigationService: NavigationService;
 
+    // R6: Idempotence guard - prevents double-tap on subscription buttons
+    private _isProcessingSubscription: boolean = false;
+
     private _plans: PlanDisplay[] = [];
     private _isLoading: boolean = true;
     private _showFreePlanHighlight: boolean = true;
@@ -58,6 +61,15 @@ export class ChoosePlanViewModel extends Observable {
         if (this._hasFreePlan !== value) {
             this._hasFreePlan = value;
             this.notifyPropertyChange('hasFreePlan', value);
+        }
+    }
+
+    // R6: Expose processing state to disable buttons during subscription operations
+    get isProcessingSubscription(): boolean { return this._isProcessingSubscription; }
+    set isProcessingSubscription(value: boolean) {
+        if (this._isProcessingSubscription !== value) {
+            this._isProcessingSubscription = value;
+            this.notifyPropertyChange('isProcessingSubscription', value);
         }
     }
 
@@ -138,8 +150,12 @@ export class ChoosePlanViewModel extends Observable {
 
     /**
      * Handle plan selection
+     * R6: Idempotence guard prevents double-tap
      */
     async onSelectPlan(args: any): Promise<void> {
+        // R6: Prevent double-tap during processing
+        if (this._isProcessingSubscription) return;
+
         const planId = args.object.planId;
         const planType = args.object.planType;
         const planPrice = parseFloat(args.object.planPrice) || 0;
@@ -158,21 +174,18 @@ export class ChoosePlanViewModel extends Observable {
 
     /**
      * Activate free plan and proceed to dashboard
+     * R6/R8: Free plan activation is profile-only (no subscription record needed)
      */
     private async activateFreePlan(planId: string, planType: string): Promise<void> {
+        // R6: Set processing flag
+        this.isProcessingSubscription = true;
+
         try {
             const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
-            // Create subscription document
-            await this.subscriptionService.activateSubscription(
-                currentUser.id,
-                planId,
-                planType as PlanType,
-                'free'
-            );
-
-            // Update user's subscription to free plan
+            // R8: Free plan is profile-only - skip Firestore subscription record
+            // Only update user profile fields (no requestSubscription or activateSubscription calls)
             await this.authSession.updateUserProfile({
                 subscriptionPlanId: planId,
                 subscriptionPlanType: planType,
@@ -190,45 +203,52 @@ export class ChoosePlanViewModel extends Observable {
                 message: 'Failed to activate plan. Please try again.',
                 okButtonText: 'OK',
             });
+        } finally {
+            // R6: Always reset processing flag
+            this.isProcessingSubscription = false;
         }
     }
 
     /**
      * Handle paid plan selection with payment options
+     * R6: Uses idempotence guard to prevent duplicate requests
      */
     private async handlePaidPlanSelection(plan: PlanDisplay): Promise<void> {
-        const currentUser = this.authSession.currentUser;
-        if (!currentUser) return;
-
-        const confirmMessage = `Subscribe to ${plan.name} for ${plan.price} ${plan.currency}/${plan.billingCycle}?`;
-
-        const confirmed = await Dialogs.confirm({
-            title: 'Confirm Subscription',
-            message: confirmMessage,
-            okButtonText: 'Proceed to Payment',
-            cancelButtonText: 'Cancel',
-        });
-
-        if (!confirmed) return;
-
-        // Show payment method selection
-        const paymentResult = await Dialogs.action({
-            title: 'Payment Method',
-            message: `Total: ${plan.price} ${plan.currency}`,
-            cancelButtonText: 'Cancel',
-            actions: ['Mobile Money', 'Wallet Balance', 'Pay Later (Invoice)'],
-        });
-
-        if (!paymentResult || paymentResult === 'Cancel') return;
-
-        let paymentMethod = 'wallet';
-        if (paymentResult === 'Mobile Money') {
-            paymentMethod = 'mobile_money';
-        } else if (paymentResult === 'Pay Later (Invoice)') {
-            paymentMethod = 'invoice';
-        }
+        // R6: Set processing flag
+        this.isProcessingSubscription = true;
 
         try {
+            const currentUser = this.authSession.currentUser;
+            if (!currentUser) return;
+
+            const confirmMessage = `Subscribe to ${plan.name} for ${plan.price} ${plan.currency}/${plan.billingCycle}?`;
+
+            const confirmed = await Dialogs.confirm({
+                title: 'Confirm Subscription',
+                message: confirmMessage,
+                okButtonText: 'Proceed to Payment',
+                cancelButtonText: 'Cancel',
+            });
+
+            if (!confirmed) return;
+
+            // Show payment method selection
+            const paymentResult = await Dialogs.action({
+                title: 'Payment Method',
+                message: `Total: ${plan.price} ${plan.currency}`,
+                cancelButtonText: 'Cancel',
+                actions: ['Mobile Money', 'Wallet Balance', 'Pay Later (Invoice)'],
+            });
+
+            if (!paymentResult || paymentResult === 'Cancel') return;
+
+            let paymentMethod = 'wallet';
+            if (paymentResult === 'Mobile Money') {
+                paymentMethod = 'mobile_money';
+            } else if (paymentResult === 'Pay Later (Invoice)') {
+                paymentMethod = 'invoice';
+            }
+
             // Create subscription request
             await this.subscriptionService.requestSubscription(currentUser.id, plan.id, paymentMethod);
 
@@ -282,13 +302,20 @@ export class ChoosePlanViewModel extends Observable {
                 message: 'Failed to process subscription. Please try again.',
                 okButtonText: 'OK',
             });
+        } finally {
+            // R6: Always reset processing flag
+            this.isProcessingSubscription = false;
         }
     }
 
     /**
      * Continue with free plan (skip button)
+     * R6: Idempotence guard prevents double-tap
      */
     async onContinueWithFree(): Promise<void> {
+        // R6: Prevent double-tap during processing
+        if (this._isProcessingSubscription) return;
+
         const freePlan = this._plans.find(p => p.price === 0);
         if (freePlan) {
             await this.activateFreePlan(freePlan.id, freePlan.type);
