@@ -67,9 +67,10 @@ export interface ISubscriptionService {
     requestSubscription(userId: string, planId: string, paymentMethod: string): Promise<void>;
 
     /**
-     * Activate a subscription immediately (for demo/free plans)
+     * Activate a subscription immediately (for paid plans with instant payment)
      * Firebase: Creates subscription document
      * Local: No-op with warning (demo mode)
+     * Note: Free plans use profile-only activation (R8) and do not call this method
      */
     activateSubscription(userId: string, planId: string, planType: PlanType, paymentMethod: string): Promise<void>;
 
@@ -80,6 +81,44 @@ export interface ISubscriptionService {
      * @param subscriptionId - The Firestore subscription document ID (required for Firebase)
      */
     requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<void>;
+
+    /**
+     * R5: Subscribe to realtime subscription updates
+     * Firebase: Uses Firestore onSnapshot listener
+     * Local: Returns no-op unsubscribe (no realtime in demo mode)
+     * @returns Unsubscribe function to call on cleanup
+     */
+    subscribeToSubscriptionUpdates?(
+        userId: string,
+        callback: (snapshot: SubscriptionSnapshot) => void
+    ): () => void;
+}
+
+/**
+ * Normalize profile status to valid SubscriptionStatus
+ * Maps legacy/inconsistent values from user profile to valid status values
+ */
+export function normalizeProfileStatus(profileStatus: string | undefined): SubscriptionStatus {
+    if (!profileStatus) return 'inactive';
+
+    // Map known profile status values to SubscriptionStatus
+    switch (profileStatus.toLowerCase()) {
+        case 'active':
+            return 'active';
+        case 'pending':
+        case 'pendingpayment':
+        case 'pending_payment':
+            return 'pending';
+        case 'cancelled':
+        case 'canceled':
+            return 'cancelled';
+        case 'expired':
+            return 'expired';
+        case 'none':
+        case 'inactive':
+        default:
+            return 'inactive';
+    }
 }
 
 let subscriptionServiceInstance: ISubscriptionService | null = null;

@@ -18,6 +18,7 @@ import {
 import {
     ISubscriptionService,
     SubscriptionSnapshot,
+    normalizeProfileStatus,
 } from '../subscription-factory.service';
 
 export class SubscriptionLocalService implements ISubscriptionService {
@@ -49,7 +50,8 @@ export class SubscriptionLocalService implements ISubscriptionService {
 
         // Check profile subscription fields
         const hasSubscription = user.hasActiveSubscription === true;
-        const status = user.subscriptionStatus || 'none';
+        // Normalize status to valid SubscriptionStatus (handles 'none', 'pendingPayment', etc.)
+        const status = normalizeProfileStatus(user.subscriptionStatus);
         const planId = user.subscriptionPlanId || 'plan_free';
 
         // Find plan from defaults
@@ -80,7 +82,7 @@ export class SubscriptionLocalService implements ISubscriptionService {
             planId: plan.id,
             planName: plan.name,
             planType: plan.type,
-            status: status as any,
+            status, // Already normalized via normalizeProfileStatus()
             daysRemaining,
             startDate,
             endDate,
@@ -193,5 +195,21 @@ export class SubscriptionLocalService implements ISubscriptionService {
      */
     async requestCancellation(userId: string, subscriptionId: string, reason?: string): Promise<void> {
         console.warn('[SubscriptionLocalService] requestCancellation called in demo mode - no-op (no subscription record exists)');
+    }
+
+    /**
+     * R5: Subscribe to realtime updates - no-op in local mode
+     * Returns a no-op unsubscribe function since there's no realtime listener in demo mode
+     */
+    subscribeToSubscriptionUpdates(
+        userId: string,
+        callback: (snapshot: SubscriptionSnapshot) => void
+    ): () => void {
+        // In local mode, immediately call callback with current snapshot
+        // then return no-op unsubscribe
+        this.getSubscriptionSnapshot(userId).then(callback);
+        return () => {
+            // No-op unsubscribe
+        };
     }
 }
