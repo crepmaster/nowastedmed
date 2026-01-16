@@ -361,7 +361,69 @@ export class AdminSubscriptionFirebaseService {
     // ========================================
 
     /**
+     * Initialize global default plans with standardized IDs
+     * R2: Uses plan_<type> ID scheme for global plans
+     * @throws Error if user is not an admin
+     */
+    async initializeGlobalDefaultPlans(currency: string = 'XOF'): Promise<string[]> {
+        try {
+            // SECURITY: Verify admin access
+            this.verifyAdminAccess();
+
+            const planIds: string[] = [];
+
+            for (const defaultPlan of DEFAULT_PLANS) {
+                // R2: Use plan_<type> ID scheme for global plans
+                const planId = `plan_${defaultPlan.type}`;
+
+                // Check if plan already exists
+                const existingDoc = await this.firestore
+                    .collection(this.PLANS_COLLECTION)
+                    .doc(planId)
+                    .get();
+
+                if (existingDoc.exists) {
+                    console.log(`Global plan ${planId} already exists, skipping`);
+                    planIds.push(planId);
+                    continue;
+                }
+
+                const planData: Omit<SubscriptionPlan, 'id'> = {
+                    name: defaultPlan.name,
+                    type: defaultPlan.type,
+                    description: defaultPlan.description,
+                    price: defaultPlan.price,
+                    currency: currency.toUpperCase(),
+                    billingCycle: defaultPlan.billingCycle,
+                    features: defaultPlan.features,
+                    limits: defaultPlan.limits,
+                    isActive: defaultPlan.isActive,
+                    // No countryCode/cityId = global plan
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: this.getAdminUserId(),
+                };
+
+                // Use .doc(planId).set() for deterministic ID
+                await this.firestore
+                    .collection(this.PLANS_COLLECTION)
+                    .doc(planId)
+                    .set(planData);
+
+                planIds.push(planId);
+            }
+
+            console.log(`Initialized ${planIds.length} global default plans`);
+            return planIds;
+        } catch (error) {
+            console.error('Error initializing global default plans:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Initialize default plans for a country
+     * Note: Country-specific plans use auto-generated IDs (not plan_<type> scheme)
      * @throws Error if user is not an admin
      */
     async initializeDefaultPlansForCountry(

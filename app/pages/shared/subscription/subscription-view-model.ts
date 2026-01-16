@@ -17,6 +17,9 @@ export class SubscriptionViewModel extends Observable {
     private unsubscribe: (() => void) | null = null;
     private currentSnapshot: SubscriptionSnapshot | null = null;
 
+    // R6: Idempotence guard - prevents double-tap on subscription buttons
+    private _isProcessingSubscription: boolean = false;
+
     // Subscription data
     private _hasSubscription: boolean = false;
     private _currentPlanName: string = '';
@@ -109,8 +112,18 @@ export class SubscriptionViewModel extends Observable {
         }
     }
 
+    // R6: Expose processing state to disable buttons during subscription operations
+    get isProcessingSubscription(): boolean { return this._isProcessingSubscription; }
+    set isProcessingSubscription(value: boolean) {
+        if (this._isProcessingSubscription !== value) {
+            this._isProcessingSubscription = value;
+            this.notifyPropertyChange('isProcessingSubscription', value);
+        }
+    }
+
     /**
      * Load subscription and plans data via getSubscriptionSnapshot()
+     * R5: Also sets up realtime listener for subscription updates
      */
     private async loadData(): Promise<void> {
         try {
@@ -123,14 +136,7 @@ export class SubscriptionViewModel extends Observable {
 
             // Load current subscription snapshot (reconciled from record + profile)
             this.currentSnapshot = await this.subscriptionService.getSubscriptionSnapshot(currentUser.id);
-
-            this.hasSubscription = this.currentSnapshot.hasSubscription;
-            this.currentPlanName = this.currentSnapshot.planName;
-            this.subscriptionStatus = this.currentSnapshot.status;
-            this.daysRemaining = this.currentSnapshot.daysRemaining;
-            this.usageExchanges = this.currentSnapshot.usageStats.exchangesThisMonth;
-            this.usageMedicines = this.currentSnapshot.usageStats.medicinesInInventory;
-            this.usageActive = this.currentSnapshot.usageStats.activeExchanges;
+            this.updateUIFromSnapshot(this.currentSnapshot);
 
             // Load available plans (filtered by user location if available)
             const location = (currentUser as any).location;
@@ -140,6 +146,9 @@ export class SubscriptionViewModel extends Observable {
             );
             this.plans = allPlans.map(plan => this.formatPlanForDisplay(plan));
 
+            // R5: Set up realtime listener (if available)
+            this.setupRealtimeListener(currentUser.id);
+
         } catch (error) {
             console.error('Error loading subscription data:', error);
         } finally {
@@ -148,10 +157,50 @@ export class SubscriptionViewModel extends Observable {
     }
 
     /**
+     * Update UI properties from snapshot
+     */
+    private updateUIFromSnapshot(snapshot: SubscriptionSnapshot): void {
+        this.hasSubscription = snapshot.hasSubscription;
+        this.currentPlanName = snapshot.planName;
+        this.subscriptionStatus = snapshot.status;
+        this.daysRemaining = snapshot.daysRemaining;
+        this.usageExchanges = snapshot.usageStats.exchangesThisMonth;
+        this.usageMedicines = snapshot.usageStats.medicinesInInventory;
+        this.usageActive = snapshot.usageStats.activeExchanges;
+    }
+
+    /**
+     * R5: Set up realtime listener for subscription updates
+     */
+    private setupRealtimeListener(userId: string): void {
+        // Clean up any existing listener
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            this.unsubscribe = null;
+        }
+
+        // Check if service supports realtime updates
+        if (this.subscriptionService.subscribeToSubscriptionUpdates) {
+            this.unsubscribe = this.subscriptionService.subscribeToSubscriptionUpdates(
+                userId,
+                (snapshot: SubscriptionSnapshot) => {
+                    this.currentSnapshot = snapshot;
+                    this.updateUIFromSnapshot(snapshot);
+                    // Re-format plans to update isCurrentPlan flags
+                    this.plans = this._plans.map(plan => this.formatPlanForDisplay(plan));
+                }
+            );
+        }
+    }
+
+    /**
      * Format plan for display
+     * R7: Use planId for current plan detection (not planType)
      */
     private formatPlanForDisplay(plan: SubscriptionPlan): PlanDisplay {
-        const isCurrentPlan = this.currentSnapshot?.planType === plan.type;
+        // R7: Match by planId first, fall back to planType for legacy data
+        const isCurrentPlan = this.currentSnapshot?.planId === plan.id ||
+            (this.currentSnapshot?.planId && this.currentSnapshot.planId === `plan_${plan.type}`);
 
         return {
             ...plan,
@@ -184,8 +233,12 @@ export class SubscriptionViewModel extends Observable {
 
     /**
      * Handle plan selection
+     * R6: Idempotence guard prevents double-tap
      */
     async onSelectPlan(args: any): Promise<void> {
+        // R6: Prevent double-tap during processing
+        if (this._isProcessingSubscription) return;
+
         const planId = args.object.planId;
         const plan = this._plans.find(p => p.id === planId);
 
@@ -210,32 +263,54 @@ export class SubscriptionViewModel extends Observable {
     /**
      * Process subscription request
      * For demo: Mobile Money and Wallet payments are auto-approved
+     * R6: Uses idempotence guard to prevent duplicate requests
+     * R8: Free plan is profile-only (no Firestore records)
      */
     private async processSubscription(planId: string, plan: SubscriptionPlan): Promise<void> {
+        // R6: Set processing flag
+        this.isProcessingSubscription = true;
+
         try {
             const currentUser = this.authSession.currentUser;
             if (!currentUser) return;
 
-            // For paid plans, ask for payment method
-            let paymentMethod = 'wallet';
-            if (plan.price > 0) {
-                const result = await Dialogs.action({
-                    title: 'Payment Method',
-                    message: `Total: ${plan.price} ${plan.currency}`,
-                    cancelButtonText: 'Cancel',
-                    actions: ['Mobile Money', 'Wallet Balance', 'Pay Later (Invoice)'],
+            // R8: Free plan is profile-only - skip Firestore writes
+            if (plan.price === 0) {
+                await this.authSession.updateUserProfile({
+                    subscriptionPlanId: planId,
+                    subscriptionPlanType: plan.type,
+                    subscriptionStatus: 'active',
+                    hasActiveSubscription: true,
                 });
 
-                if (!result || result === 'Cancel') return;
+                await Dialogs.alert({
+                    title: 'Plan Updated',
+                    message: 'Your plan has been updated to the free tier.',
+                    okButtonText: 'OK',
+                });
 
-                if (result === 'Mobile Money') {
-                    paymentMethod = 'mobile_money';
-                } else if (result === 'Pay Later (Invoice)') {
-                    paymentMethod = 'invoice';
-                }
+                await this.loadData();
+                return;
             }
 
-            // Create subscription request record
+            // For paid plans, ask for payment method
+            let paymentMethod = 'wallet';
+            const result = await Dialogs.action({
+                title: 'Payment Method',
+                message: `Total: ${plan.price} ${plan.currency}`,
+                cancelButtonText: 'Cancel',
+                actions: ['Mobile Money', 'Wallet Balance', 'Pay Later (Invoice)'],
+            });
+
+            if (!result || result === 'Cancel') return;
+
+            if (result === 'Mobile Money') {
+                paymentMethod = 'mobile_money';
+            } else if (result === 'Pay Later (Invoice)') {
+                paymentMethod = 'invoice';
+            }
+
+            // Create subscription request record (paid plans only)
             await this.subscriptionService.requestSubscription(currentUser.id, planId, paymentMethod);
 
             if (paymentMethod === 'invoice') {
@@ -289,6 +364,9 @@ export class SubscriptionViewModel extends Observable {
                 message: 'Failed to process subscription. Please try again.',
                 okButtonText: 'OK',
             });
+        } finally {
+            // R6: Always reset processing flag
+            this.isProcessingSubscription = false;
         }
     }
 

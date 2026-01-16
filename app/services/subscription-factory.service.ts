@@ -135,11 +135,9 @@ export function getSubscriptionService(): ISubscriptionService {
     const useFirebase = env.isFeatureEnabled('useFirebaseAuth');
 
     if (useFirebase) {
-        console.log('📦 Using Firebase Subscription Service');
         const { SubscriptionFirebaseService } = require('./firebase/subscription-firebase.service');
         subscriptionServiceInstance = SubscriptionFirebaseService.getInstance();
     } else {
-        console.log('📦 Using Local Subscription Service (Demo Mode)');
         const { SubscriptionLocalService } = require('./local/subscription-local.service');
         subscriptionServiceInstance = SubscriptionLocalService.getInstance();
     }
